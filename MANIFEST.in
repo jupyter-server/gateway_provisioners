@@ -1,0 +1,14 @@
+include LICENSE
+include README.rst
+
+recursive-include remote_provisioners/tests *
+recursive-include remote_provisioners/kernel-launchers *
+recursive-include remote_provisioners/kernel-resources *
+
+recursive-exclude * __pycache__
+recursive-exclude * *.py[co]
+recursive-exclude * .DS_Store
+recursive-exclude remote_provisioners/kernel-launchers/scala/toree-launcher *
+recursive-exclude remote_provisioners/kernel-launchers/bootstrap *
+
+#recursive-include docs *.rst conf.py Makefile make.bat *.jpg *.png *.gif
