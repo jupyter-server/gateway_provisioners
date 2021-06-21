@@ -3,22 +3,23 @@
 """Code related to managing kernels running in YARN clusters."""
 
 import asyncio
-import errno
-import logging
 import getpass
+import json
 import os
 import paramiko
 import signal
 import subprocess
 
 from socket import gethostbyname, gethostname
-from traitlets import default, List, Unicode, Bool
-from typing import Any, Dict, List as tyList, Optional, Tuple
+from traitlets import default, List
+from typing import Any, Dict, List as tyList, Optional
+from jupyter_client import launch_kernel, KernelConnectionInfo
 
-from ..remote_provisioner import RemoteProvisionerBase
+from .remote_provisioner import RemoteProvisionerBase
 
-poll_interval = float(os.getenv('EG_POLL_INTERVAL', '0.5'))
-max_poll_attempts = int(os.getenv('EG_MAX_POLL_ATTEMPTS', '10'))
+poll_interval = float(os.getenv('RP_POLL_INTERVAL', '0.5'))
+max_poll_attempts = int(os.getenv('RP_MAX_POLL_ATTEMPTS', '10'))
+kernel_log_dir = os.getenv("RP_KERNEL_LOG_DIR", '/tmp')  # would prefer /var/log, but its only writable by root
 
 ssh_port = int(os.getenv('RP_SSH_PORT', '22'))
 
@@ -34,6 +35,7 @@ class DistributedProvisioner(RemoteProvisionerBase):
     """
     Kernel lifecycle management for clusters via ssh.
     """
+    host_index = 0
 
     remote_hosts_env = 'RP_REMOTE_HOSTS'
     remote_hosts_default_value = 'localhost'
@@ -48,8 +50,45 @@ class DistributedProvisioner(RemoteProvisionerBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.kernel_log = None
 
-    async def poll(self) -> [int, None]:
+    @property
+    def has_process(self) -> bool:
+        return self.local_proc is not None or (self.ip is not None and self.pid > 0)
+
+    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Launches the specified process within a YARN cluster environment.
+        """
+        self.kernel_log = None
+        kwargs = await super().pre_launch(**kwargs)
+        return kwargs
+
+    async def launch_kernel(self, cmd: tyList[str], **kwargs: Any) -> KernelConnectionInfo:
+        """
+        Launches a kernel process on a selected host.
+
+        NOTE: This overrides the superclass `launch_kernel` method entirely.
+        """
+        self.assigned_host = self._determine_next_host()
+        self.ip = gethostbyname(self.assigned_host)  # convert to ip if host is provided
+        self.assigned_ip = self.ip
+
+        launch_kwargs = RemoteProvisionerBase._scrub_kwargs(kwargs)
+        try:
+            result_pid = self._launch_remote_process(cmd, **launch_kwargs)
+            self.pid = int(result_pid)
+        except Exception as e:
+            error_message = f"Failure occurred starting kernel on '{self.ip}'.  Returned result: {e}"
+            self.log_and_raise(RuntimeError(error_message))
+
+        self.log_kernel_launch(cmd)
+
+        await self.confirm_remote_startup()
+
+        return self.connection_info
+
+    async def poll(self) -> Optional[int]:
         """Checks if kernel process is still running.
 
         If this corresponds to a local (popen) process, poll() is called on the subprocess.
@@ -58,7 +97,7 @@ class DistributedProvisioner(RemoteProvisionerBase):
         if self.local_proc:  # Use the subprocess if we have one
             return self.local_proc.poll()
 
-        return self.send_signal(0)  # else use the communication port
+        return await self.send_signal(0)  # else use the communication port
 
     async def send_signal(self, signum: int) -> None:
         """
@@ -96,9 +135,9 @@ class DistributedProvisioner(RemoteProvisionerBase):
         proven unsuccessful.
         """
         # If we have a local process, use its method, else signal soft kill first before hard kill.
-        result = self.terminate()  # Send -15 signal first
+        result = await self.terminate()  # Send -15 signal first
         i = 1
-        while self.poll() is None and i <= max_poll_attempts:
+        while await self.poll() is None and i <= max_poll_attempts:
             await asyncio.sleep(poll_interval)
             i = i + 1
         if i > max_poll_attempts:  # Send -9 signal if process is still alive
@@ -133,10 +172,109 @@ class DistributedProvisioner(RemoteProvisionerBase):
         pass
 
     def log_kernel_launch(self, cmd: tyList[str]) -> None:
-        pass
+        self.log.info(f"{self.__class__.__name__}: kernel launched.  Host: '{self.assigned_host}', "
+                      f"pid: {self.pid}, Kernel ID: {self.kernel_id}, "
+                      f"Log file: {self.assigned_host}:{self.kernel_log}, cmd: '{cmd}'.")
+
+    def _launch_remote_process(self, cmd: tyList[str], **kwargs: Any):
+        """
+            Launch the kernel as indicated by the argv stanza in the kernelspec.  Note that this method
+            will bypass use of ssh if the remote host is also the local machine.
+        """
+
+        cmd = self._build_startup_command(cmd, **kwargs)
+        self.log.debug("Invoking cmd: '{}' on host: {}".format(cmd, self.assigned_host))
+        result_pid = 'bad_pid'  # purposely initialize to bad int value
+
+        if RemoteProvisionerBase.ip_is_local(self.ip):
+            # launch the local command with redirection in place
+            log_fd = open(self.kernel_log, mode='w')
+            self.local_proc = launch_kernel(cmd,
+                                            stdout=log_fd,
+                                            stderr=subprocess.STDOUT,
+                                            **kwargs)
+            result_pid = str(self.local_proc.pid)
+        else:
+            # launch remote command via ssh
+            result = self.rsh(self.ip, ''.join(cmd))
+            for line in result:
+                result_pid = line.strip()
+
+        return result_pid
+
+    def _build_startup_command(self, cmd: tyList[str], **kwargs: Any) -> tyList[str]:
+        """
+        Builds the command to invoke by concatenating envs from kernelspec followed by the kernel argvs.
+
+        We also force nohup, redirection to a file and place in background, then follow with an echo
+        for the background pid.
+
+        Note: We optimize for the local case and just return the existing command.
+        """
+
+        # Optimized case needs to also redirect the kernel output, so unconditionally compose kernel_log
+        env_dict = kwargs['env']
+        kid = env_dict.get('KERNEL_ID')
+        self.kernel_log = os.path.join(kernel_log_dir, "kernel-{}.log".format(kid))
+
+        if RemoteProvisionerBase.ip_is_local(self.ip):  # We're local so just use what we're given
+            startup_cmd = cmd
+        else:  # Add additional envs, including those in kernelspec
+            startup_cmd = ''
+            if kid:
+                startup_cmd += 'export KERNEL_ID="{}";'.format(kid)
+
+            kuser = env_dict.get('KERNEL_USERNAME')
+            if kuser:
+                startup_cmd += 'export KERNEL_USERNAME="{}";'.format(kuser)
+
+            impersonation = env_dict.get('RP_IMPERSONATION_ENABLED')
+            if impersonation:
+                startup_cmd += 'export RP_IMPERSONATION_ENABLED="{}";'.format(impersonation)
+
+            for key, value in self.kernel_spec.env.items():
+                startup_cmd += "export {}={};".format(key, json.dumps(value).replace("'", "''"))
+
+            startup_cmd += 'nohup'
+            for arg in cmd:
+                startup_cmd += ' {}'.format(arg)
+
+            startup_cmd += ' >> {} 2>&1 & echo $!'.format(self.kernel_log)  # return the process id
+
+        return startup_cmd
+
+    def _determine_next_host(self):
+        """Simple round-robin index into list of hosts."""
+        next_host = self.remote_hosts[DistributedProvisioner.host_index % self.remote_hosts.__len__()]
+        DistributedProvisioner.host_index += 1
+        return next_host
 
     async def confirm_remote_startup(self):
-        pass
+        self.start_time = RemoteProvisionerBase.get_current_time()
+        i = 0
+        ready_to_connect = False  # we're ready to connect when we have a connection file to use
+        while not ready_to_connect:
+            i += 1
+            await self.handle_timeout()
+
+            self.log.debug("{}: Waiting to connect.  Host: '{}', KernelID: '{}'".
+                           format(i, self.assigned_host, self.kernel_id))
+
+            if self.assigned_host != '':
+                ready_to_connect = await self.receive_connection_info()
+
+    async def handle_timeout(self):
+        """Checks to see if the kernel launch timeout has been exceeded while awaiting connection info."""
+        await asyncio.sleep(poll_interval)
+        time_interval = RemoteProvisionerBase.get_time_diff(self.start_time)
+
+        if time_interval > self.launch_timeout:
+            reason = "Waited too long ({}s) to get connection file.  Check Enterprise Gateway log and kernel " \
+                     "log ({}:{}) for more information.". \
+                format(self.launch_timeout, self.assigned_host, self.kernel_log)
+            timeout_message = "KernelID: '{}' launch timeout due to: {}".format(self.kernel_id, reason)
+            await asyncio.get_event_loop().run_in_executor(None, self.kill)
+            self.log_and_raise(TimeoutError(timeout_message))
 
     def _get_ssh_client(self, host):
         """
@@ -151,8 +289,8 @@ class DistributedProvisioner(RemoteProvisionerBase):
         global remote_user
         global remote_pwd
         if remote_user is None:
-            remote_user = os.getenv('EG_REMOTE_USER', getpass.getuser())
-            remote_pwd = os.getenv('EG_REMOTE_PWD')  # this should use password-less ssh
+            remote_user = os.getenv('RP_REMOTE_USER', getpass.getuser())
+            remote_pwd = os.getenv('RP_REMOTE_PWD')  # this should use password-less ssh
 
         try:
             ssh = paramiko.SSHClient()

@@ -94,7 +94,8 @@ setup_args = dict(
     extras_require={
         "kerberos": ['requests_kerberos'],
         "yarn": ['requests', 'yarn-api-client'],
-        "k8s": ['kubernetes>=4.0.0'],
+        "k8s": ['kubernetes>=4.0.0', 'jinja2>=2.10'],
+        "docker": ['docker>=3.5.0'],
     },
     tests_require=[
         'mock',
@@ -103,9 +104,13 @@ setup_args = dict(
     entry_points={
         'jupyter_client.kernel_provisioners': [
             'yarn-provisioner = remote_provisioners.yarn:YarnProvisioner',
+            'distributed-provisioner = remote_provisioners.distributed:DistributedProvisioner',
+            'kubernetes-provisioner = remote_provisioners.k8s:KubernetesProvisioner',
+            'docker-provisioner = remote_provisioners.docker_swarm:DockerProvisioner',
+            'docker_swarm-provisioner = remote_provisioners.docker_swarm:DockerSwarmProvisioner',
         ]
     },
-    python_requires=">=3.5",
+    python_requires=">=3.6",
     cmdclass={
         'bdist_egg': bdist_egg if 'bdist_egg' in sys.argv else bdist_egg_disabled,
         'test': PyTest,
