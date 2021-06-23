@@ -14,7 +14,7 @@ from traitlets import default, Unicode, Bool
 from typing import Any, Dict, List, Optional, Tuple
 from yarn_api_client.resource_manager import ResourceManager
 
-from .provisioner_base import RemoteProvisionerBase
+from .remote_provisioner import RemoteProvisionerBase
 
 # Default logging level of yarn-api and underlying connectionpool produce too much noise - raise to warning only.
 logging.getLogger('yarn_api_client').setLevel(os.getenv('YP_YARN_LOG_LEVEL', logging.WARNING))
@@ -73,13 +73,11 @@ class YarnProvisioner(RemoteProvisionerBase):
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+
         self.application_id = None
         self.last_known_state = None
         self.candidate_queue = None
         self.candidate_partition = None
-        self.local_proc = None
-        self.pid = None
-        self.ip = None
 
         endpoints = None
         if self.yarn_endpoint:
@@ -103,6 +101,27 @@ class YarnProvisioner(RemoteProvisionerBase):
         # and retry at fixed interval before pronouncing as not feasible to launch.
         self.yarn_resource_check_wait_time = 0.20 * self.launch_timeout
 
+    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
+        """
+        Launches the specified process within a YARN cluster environment.
+        """
+        self.application_id = None
+        self.last_known_state = None
+        self.candidate_queue = None
+        self.candidate_partition = None
+
+        kwargs = await super().pre_launch(**kwargs)
+
+        # checks to see if the queue resource is available
+        # if not available, kernel startup is not attempted
+        self.confirm_yarn_queue_availability(**kwargs)
+
+        return kwargs
+
+    def log_kernel_launch(self, cmd: List[str]) -> None:
+        self.log.info(f"{self.__class__.__name__}: kernel launched. YARN RM: {self.rm_addr}, "
+                      f"pid: {self.local_proc.pid}, Kernel ID: {self.kernel_id}, cmd: '{cmd}'")
+
     def get_shutdown_wait_time(self, recommended: Optional[float] = 5.0) -> float:
         """Returns the time allowed for a complete shutdown.  This may vary by provisioner.
 
@@ -118,22 +137,6 @@ class YarnProvisioner(RemoteProvisionerBase):
             self.log.debug(f"{type(self).__name__} shutdown wait time adjusted to {recommended} seconds.")
 
         return recommended
-
-    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
-        """
-        Launches the specified process within a YARN cluster environment.
-        """
-        kwargs = await super().pre_launch(**kwargs)
-
-        # checks to see if the queue resource is available
-        # if not available, kernel startup is not attempted
-        self.confirm_yarn_queue_availability(**kwargs)
-
-        return kwargs
-
-    def log_kernel_launch(self, cmd: List[str]) -> None:
-        self.log.info(f"{self.__class__.__name__}: kernel launched. YARN RM: {self.rm_addr}, "
-                      f"pid: {self.local_proc.pid}, Kernel ID: {self.kernel_id}, cmd: '{cmd}'")
 
     def confirm_yarn_queue_availability(self, **kwargs: Dict[str, Any]) -> None:
         """
@@ -227,14 +230,18 @@ class YarnProvisioner(RemoteProvisionerBase):
             reason = f"Yarn Compute Resource is unavailable after {self.yarn_resource_check_wait_time} seconds"
             self.log_and_raise(TimeoutError(reason))
 
-    async def poll(self) -> [int, None]:
+    @property
+    def has_process(self) -> bool:
+        return self.local_proc is not None or self.application_id is not None
+
+    async def poll(self) -> Optional[int]:
         """Submitting a new kernel/app to YARN will take a while to be ACCEPTED.
         Thus application ID will probably not be available immediately for poll.
         So will regard the application as RUNNING when application ID still in ACCEPTED or SUBMITTED state.
 
-        :return: None if the application's ID is available and state is ACCEPTED/SUBMITTED/RUNNING. Otherwise False.
+        :return: None if the application's ID is available and state is ACCEPTED/SUBMITTED/RUNNING. Otherwise 0.
         """
-        result = False
+        result = 0
 
         if self._get_application_id():
             state = self._query_app_state_by_id(self.application_id)
@@ -246,7 +253,7 @@ class YarnProvisioner(RemoteProvisionerBase):
         #               format(self.application_id, self.kernel_id, state))
         return result
 
-    async def send_signal(self, signum):
+    async def send_signal(self, signum: int) -> None:
         """Currently only support 0 as poll and other as kill.
 
         :param signum
@@ -329,16 +336,21 @@ class YarnProvisioner(RemoteProvisionerBase):
         await super().cleanup(restart=restart)
 
     async def confirm_remote_startup(self):
-        """ Confirms the yarn application is in a started state before returning.  Should post-RUNNING states be
-            unexpectedly encountered (FINISHED, KILLED, FAILED) then we must throw,
-            otherwise the rest of the gateway will believe its talking to a valid kernel.
+        """
+        Confirms the yarn application is in a started state before returning.
+
+        Should post-RUNNING states be unexpectedly encountered (FINISHED, KILLED, FAILED)
+        then we must throw, otherwise the rest of the gateway will believe its talking
+        to a valid kernel.
+
+        Note: This is a complete override of the superclass method.
         """
         self.start_time = RemoteProvisionerBase.get_current_time()
         i = 0
         ready_to_connect = False  # we're ready to connect when we have a connection file to use
         while not ready_to_connect:
             i += 1
-            await self.handle_timeout()
+            await self.handle_launch_timeout()
 
             if self._get_application_id(True):
                 # Once we have an application ID, start monitoring state, obtain assigned host and get connection info
@@ -357,8 +369,12 @@ class YarnProvisioner(RemoteProvisionerBase):
             else:
                 self.detect_launch_failure()
 
-    async def handle_timeout(self):
-        """Checks to see if the kernel launch timeout has been exceeded while awaiting connection info."""
+    async def handle_launch_timeout(self):
+        """
+        Checks to see if the kernel launch timeout has been exceeded while awaiting connection info.
+
+        Note: This is a complete override of the superclass method.
+        """
         await asyncio.sleep(poll_interval)
         time_interval = RemoteProvisionerBase.get_time_diff(self.start_time)
 
@@ -381,9 +397,9 @@ class YarnProvisioner(RemoteProvisionerBase):
 
     async def get_provisioner_info(self) -> Dict:
         """Captures the base information necessary for kernel persistence relative to YARN clusters."""
-        provisioner_info_info = await super().get_provisioner_info()
-        provisioner_info_info.update({'application_id': self.application_id})
-        return provisioner_info_info
+        provisioner_info = await super().get_provisioner_info()
+        provisioner_info.update({'application_id': self.application_id})
+        return provisioner_info
 
     async def load_provisioner_info(self, provisioner_info: Dict) -> None:
         """Loads the base information necessary for kernel persistence relative to YARN clusters."""

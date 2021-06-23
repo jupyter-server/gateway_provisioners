@@ -1,4 +1,4 @@
-from .provisioner_base import RemoteProvisionerBase
+from .remote_provisioner import RemoteProvisionerBase
 
 __author__ = """Jupyter Development Team"""
 __email__ = 'jupyter@googlegroups.com'

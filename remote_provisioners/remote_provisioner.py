@@ -9,22 +9,19 @@ import os
 import sys
 import time
 import re
-import signal
 import json
 
 import pexpect
 import random
 
-import base64
-
 from abc import abstractmethod
 from enum import Enum
-from jupyter_client import KernelProvisionerBase, localinterfaces, launch_kernel
+from jupyter_client import KernelProvisionerBase, localinterfaces, launch_kernel, KernelConnectionInfo
 
 from socket import socket, timeout,\
-    AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET, SHUT_RDWR, SHUT_WR
+    AF_INET, SOCK_STREAM, SHUT_WR
 
-from typing import Optional, Dict, List, Any, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from zmq.ssh import tunnel
 
 from .config_mixin import RemoteProvisionerConfigMixin
@@ -69,14 +66,14 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.kernel_username = getpass.getuser()
+
         self.start_time = None
         self.assigned_ip = None
         self.assigned_host = ''
         self.comm_ip = None
         self.comm_port = 0
-        self.connection_info = {}
-        self.tunneled_connect_info = None    # Contains the destination connection info when tunneling in use
+        self.kernel_username = None
+        self.tunneled_connect_info = None
         self.tunnel_processes = {}
 
         # Represents the local process (from popen) if applicable.  This will likely be non-None
@@ -86,17 +83,87 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         self.ip = None
         self.pid = 0
         self.pgid = 0
-        self.lower_port, self.upper_port = self._validate_port_range()
+
         self.response_manager = ResponseManager.instance()  # This will create the key pair and socket on first use
-        self.response_manager.register_event(self.kernel_id)
         self.response_address = self.response_manager.response_address
         self.public_key = self.response_manager.public_key
+        self.lower_port, self.upper_port = self._validate_port_range()
 
+    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
+        """Perform any steps in preparation for kernel process launch.
+
+        This includes applying additional substitutions to the kernel launch command and env.
+        It also includes preparation of launch parameters.
+
+        Returns potentially updated kwargs.
+        """
+        self.start_time = None
+        self.assigned_ip = None
+        self.assigned_host = ''
+        self.comm_ip = None
+        self.comm_port = 0
+        self.tunneled_connect_info = None
+        self.tunnel_processes = {}
+        self.local_proc = None
+        self.ip = None
+        self.pid = 0
+        self.pgid = 0
+        self.response_manager.register_event(self.kernel_id)
+
+        cmd = self.kernel_spec.argv  # Build launch command, provide substitutions
+        if self.response_address or self.port_range or self.kernel_id or self.public_key:
+            ns = kwargs.copy()
+            if self.response_address:
+                ns['response_address'] = self.response_address
+            if self.public_key:
+                ns['public_key'] = self.public_key
+            if self.port_range:
+                ns['port_range'] = self.port_range
+            if self.kernel_id:
+                ns['kernel_id'] = self.kernel_id
+
+            pat = re.compile(r'{([A-Za-z0-9_]+)}')
+
+            def from_ns(match):
+                """Get the key out of ns if it's there, otherwise no change."""
+                return ns.get(match.group(1), match.group())
+
+            cmd = [pat.sub(from_ns, arg) for arg in cmd]
+
+        kwargs = await super().pre_launch(cmd=cmd, **kwargs)
+
+        env = kwargs.get('env', {})
+        self.kernel_username = env.get('KERNEL_USERNAME', getpass.getuser())  # Let env override
+        env['KERNEL_USERNAME'] = self.kernel_username  # reset in env in case its not there
+
+        self._enforce_authorization(**kwargs)
+
+        self.log.debug(f"RemoteProvisionerBase.pre_launch() env: {env}")
+        return kwargs
+
+    async def launch_kernel(self, cmd: List[str], **kwargs: Any) -> KernelConnectionInfo:
+        """Launch the kernel process returning the class instance and connection info."""
+
+        launch_kwargs = RemoteProvisionerBase._scrub_kwargs(kwargs)
+        self.local_proc = launch_kernel(cmd, **launch_kwargs)
+        self.pid = self.local_proc.pid
+        self.ip = local_ip
+
+        self.log_kernel_launch(cmd)
+
+        await self.confirm_remote_startup()
+        return self.connection_info
+
+    @property
     @abstractmethod
-    async def poll(self) -> [int, None]:
+    def has_process(self) -> bool:
         pass
 
-    async def wait(self) -> [int, None]:
+    @abstractmethod
+    async def poll(self) -> Optional[int]:
+        pass
+
+    async def wait(self) -> Optional[int]:
         """Waits for kernel process to terminate."""
         # If we have a local_proc, call its wait method.  This will cleanup any defunct processes when the kernel
         # is shutdown (when using waitAppCompletion = false).  Otherwise (if no local_proc) we'll use polling to
@@ -104,14 +171,17 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         if self.local_proc:
             return self.local_proc.wait()
 
+        poll_val = 0
         for i in range(max_poll_attempts):
-            if self.poll():
+            poll_val = await self.poll()
+            if poll_val is None:
                 await asyncio.sleep(poll_interval)
             else:
                 break
         else:
             self.log.warning("Wait timeout of {} seconds exhausted. Continuing...".
                              format(max_poll_attempts * poll_interval))
+        return poll_val
 
     async def send_signal(self, signum: int) -> None:
         """
@@ -155,7 +225,6 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
             try:
                 await self._send_listener_request(signal_request)
-
                 if signum > 0:  # Polling (signum == 0) is too frequent
                     self.log.debug("Signal ({}) sent via gateway communication port.".format(signum))
                 return True
@@ -168,7 +237,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         return False
 
     @abstractmethod
-    async def kill(self, restart=False) -> None:
+    async def kill(self, restart: bool = False) -> None:
         """Kills the kernel process.  This is typically accomplished via a SIGKILL signal, which
         cannot be caught.
 
@@ -185,20 +254,6 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         """
         pass
 
-    async def launch_kernel(self, cmd: List[str], **kwargs: Any) -> Tuple['KernelProvisionerBase', Dict]:
-        """Launch the kernel process returning the class instance and connection info."""
-
-        launch_kwargs = RemoteProvisionerBase._scrub_kwargs(kwargs)
-        self.local_proc = launch_kernel(cmd, **launch_kwargs)
-        self.pid = self.local_proc.pid
-        self.ip = local_ip
-
-        self.log_kernel_launch(cmd)
-
-        await self.confirm_remote_startup()
-        return self, self.connection_info
-
-    @abstractmethod
     async def cleanup(self, restart=False) -> None:
         """Cleanup any resources allocated on behalf of the kernel provisioner.
 
@@ -212,57 +267,22 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
         self.tunnel_processes.clear()
 
-    # TODO - update to async def and remove run_sync() wrapper
-    def shutdown_requested(self, restart=False) -> None:
+    async def shutdown_requested(self, restart=False) -> None:
         """Called after KernelManager sends a `shutdown_request` message to kernel.
 
         This method is optional and is primarily used in scenarios where the provisioner communicates
         with a sibling (nanny) process to the kernel.
         """
-        RemoteProvisionerBase.run_sync(self.shutdown_listener())
-
-    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
-        """Perform any steps in preparation for kernel process launch.
-
-        This includes applying additional substitutions to the kernel launch command and env.
-        It also includes preparation of launch parameters.
-
-        Returns potentially updated kwargs.
-        """
-        cmd = self.kernel_spec.argv  # Build launch command, provide substitutions
-        if self.response_address or self.port_range or self.kernel_id or self.public_key:
-            ns = kwargs.copy()
-            if self.response_address:
-                ns['response_address'] = self.response_address
-            if self.public_key:
-                ns['public_key'] = self.public_key
-            if self.port_range:
-                ns['port_range'] = self.port_range
-            if self.kernel_id:
-                ns['kernel_id'] = self.kernel_id
-
-            pat = re.compile(r'\{([A-Za-z0-9_]+)\}')
-
-            def from_ns(match):
-                """Get the key out of ns if it's there, otherwise no change."""
-                return ns.get(match.group(1), match.group())
-
-            cmd = [pat.sub(from_ns, arg) for arg in cmd]
-
-        kwargs = await super().pre_launch(cmd=cmd, **kwargs)
-
-        self._enforce_authorization(**kwargs)
-
-        self.log.debug(f"RemoteProvisionerBase.pre_launch() env: {kwargs.get('env')}")
-        return kwargs
+        await self.shutdown_listener()
 
     @staticmethod
     def _scrub_kwargs(kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """Remove any keyword arguments that Popen does not tolerate."""
-        keywords_to_scrub: List[str] = ['extra_arguments', 'kernel_id', 'kernel_manager']
+        keywords_to_scrub: List[str] = ['extra_arguments', 'kernel_id']
         scrubbed_kwargs = kwargs.copy()
         for kw in keywords_to_scrub:
             scrubbed_kwargs.pop(kw, None)
+
         return scrubbed_kwargs
 
     @abstractmethod
@@ -357,10 +377,6 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                                 "Check Enterprise Gateway log for more information."
                 self.local_proc = None
                 self.log_and_raise(RuntimeError(error_message))
-
-    def _validate_parameters(self, env: Dict[str, str], **kwargs: Any) -> None:
-        """Future: Validates that launch parameters adhere to schema specified in kernel specification."""
-        pass
 
     # Done
     def _enforce_authorization(self, **kwargs):
@@ -518,7 +534,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             self._setup_connection_info(connect_info)
             ready_to_connect = True
         except Exception as e:
-            if type(e) is timeout or type(e) is TimeoutError:
+            if type(e) is timeout or type(e) is TimeoutError or type(e) is asyncio.exceptions.TimeoutError:
                 self.log.debug(f"Waiting for KernelID '{self.kernel_id}' to send connection "
                                f"info from host '{self.assigned_host}' - retrying...")
             else:
@@ -635,6 +651,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             try:
                 sock.settimeout(socket_timeout)
                 await asyncio.get_event_loop().sock_connect(sock, (self.comm_ip, self.comm_port))  # TODO - validate
+                # sock.connect((self.comm_ip, self.comm_port))
                 sock.send(json.dumps(request).encode(encoding='utf-8'))
             finally:
                 if shutdown_socket:
