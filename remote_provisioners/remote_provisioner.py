@@ -134,6 +134,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
         env = kwargs.get('env', {})
         self.kernel_username = env.get('KERNEL_USERNAME', getpass.getuser())  # Let env override
+        env['KERNEL_USERNAME'] = self.kernel_username  # reset in env in case its not there
 
         self._enforce_authorization(**kwargs)
 
@@ -281,6 +282,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         scrubbed_kwargs = kwargs.copy()
         for kw in keywords_to_scrub:
             scrubbed_kwargs.pop(kw, None)
+
         return scrubbed_kwargs
 
     @abstractmethod

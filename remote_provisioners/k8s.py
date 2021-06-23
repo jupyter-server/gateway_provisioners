@@ -47,7 +47,7 @@ class KubernetesProvisioner(ContainerProvisioner):
 
         # Kubernetes relies on many internal env variables.  Since we're running in a k8s pod, we will
         # transfer its env to each launched kernel.
-        kwargs['env'] = dict(os.environ, **kwargs['env'])
+        kwargs['env'] = dict(os.environ, **kwargs.get('env', {}))
         kwargs = await super().pre_launch(**kwargs)
         # These must follow call to super() so that kernel_username is established
         self.kernel_pod_name = self._determine_kernel_pod_name(**kwargs)

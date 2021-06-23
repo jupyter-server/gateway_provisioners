@@ -48,8 +48,8 @@ class ContainerProvisioner(RemoteProvisionerBase):
                                container-based kernels within Spark environments. (RP_EXECUTOR_IMAGE_NAME env var)""")
 
     @default('executor_image_name')
-    def image_name_default(self):
-        return os.getenv(self.executor_image_name_env)
+    def executor_image_name_default(self):
+        return os.getenv(self.executor_image_name_env) or self.image_name
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -171,7 +171,7 @@ class ContainerProvisioner(RemoteProvisionerBase):
             i += 1
             await self.handle_launch_timeout()
 
-            container_status = self.get_container_status(str(i))
+            container_status = await self.get_container_status(str(i))
             if container_status:
                 if self.assigned_host != '':
                     ready_to_connect = await self.receive_connection_info()
