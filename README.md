@@ -2,7 +2,7 @@
 
 __NOTE: This repository is experimental and undergoing frequent changes!__
 
-The RemoteProvisioners package provides the following kernel provisioners:
+The RemoteProvisioners package provides the following [kernel provisioners](https://github.com/jupyter/jupyter_client/issues/608):
 
 - YarnProvisioner - Kernels are launched into a Hadoop YARN cluster (primarily Spark)
 - DistributedProvisioner - Kernels are launched across a set of hosts using SSH, round-robin
