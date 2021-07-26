@@ -85,6 +85,7 @@ setup_args = dict(
     ],
     install_requires=[
         'jupyter_client',
+        'jupyter_client>=7.0.0a1',
         'paramiko>=2.4.0',
         'pexpect>=4.2.0',
         'pycryptodomex>=3.9.7',
