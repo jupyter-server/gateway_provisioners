@@ -29,7 +29,10 @@ kernel_cluster_role = os.environ.get('EG_KERNEL_CLUSTER_ROLE', 'cluster-admin')
 # Since provisioners are a single-user scenario (not going through EG), use a shared namespace.
 shared_namespace = bool(os.environ.get('RP_SHARED_NAMESPACE', 'True').lower() == 'true')
 
-config.load_incluster_config()
+if bool(os.environ.get('RP_USE_INCLUSTER_CONFIG', 'True').lower() == 'true'):
+    config.load_incluster_config()
+else:
+    config.load_kube_config()
 
 
 class KubernetesProvisioner(ContainerProvisioner):
