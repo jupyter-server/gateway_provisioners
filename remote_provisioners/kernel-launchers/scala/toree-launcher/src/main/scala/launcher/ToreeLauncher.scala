@@ -25,13 +25,14 @@ import org.apache.toree.utils.LogLike
 
 object ToreeLauncher extends LogLike {
 
-  val minPortRangeSize = sys.env.getOrElse("EG_MIN_PORT_RANGE_SIZE", "1000").toInt
-  val kernelTempDir : String = "eg-kernel"
+  val minPortRangeSize = sys.env.getOrElse("MIN_PORT_RANGE_SIZE", "1000").toInt
+  val kernelTempDir : String = "jupyter-kernel"
   var profilePath : String = _
   var kernelId : String = _
   var portLowerBound : Int = -1
   var portUpperBound : Int = -1
   var responseAddress : String = _
+  var publicKey : String = _
   var alternateSigint : String = _
   var initMode : String = "lazy"
   var toreeArgs = ArrayBuffer[String]()
@@ -66,7 +67,7 @@ object ToreeLauncher extends LogLike {
          if (this.portLowerBound < 0 || this.portUpperBound < 0 ||
             (this.portUpperBound - this.portLowerBound < minPortRangeSize)) {
             logger.error("Invalid port range, use --port-range <LowerBound>..<UpperBound>, " +
-              "range must be >= EG_MIN_PORT_RANGE_SIZE ($minPortRangeSize)")
+              "range must be >= MIN_PORT_RANGE_SIZE ($minPortRangeSize)")
             sys.exit(-1)
          }
       }
@@ -85,13 +86,6 @@ object ToreeLauncher extends LogLike {
       var arg: String = args(i)
       arg match {
 
-        // Profile is a straight pass-thru to toree
-        case "--profile" =>
-          i += 1
-          profilePath = args(i).trim
-          toreeArgs += arg
-          toreeArgs += profilePath
-
         // Alternate sigint is a straight pass-thru to toree
         case "--alternate-sigint" =>
           i += 1
@@ -100,7 +94,7 @@ object ToreeLauncher extends LogLike {
           toreeArgs += alternateSigint
 
         // Initialization mode requires massaging for toree
-        case "--RemoteProcessProxy.spark-context-initialization-mode" =>
+        case "--spark-context-initialization-mode" =>
           i += 1
           initMode = args(i).trim
           initMode match {
@@ -112,19 +106,24 @@ object ToreeLauncher extends LogLike {
           }
 
         // Port range doesn't apply to toree, consume here
-        case "--RemoteProcessProxy.port-range" =>
+        case "--port-range" =>
           i += 1
           initPortRange(args(i).trim)
 
         // Response address doesn't apply to toree, consume here
-        case "--RemoteProcessProxy.response-address" =>
+        case "--response-address" =>
           i += 1
           responseAddress = args(i).trim
 
         // kernel id doesn't apply to toree, consume here
-        case "--RemoteProcessProxy.kernel-id" =>
+        case "--kernel-id" =>
           i += 1
           kernelId = args(i).trim
+
+        // Public key doesn't apply to toree, consume here
+        case "--public-key" =>
+          i += 1
+          publicKey = args(i).trim
 
         // All other arguments should pass-thru to toree
         case _ => toreeArgs += args(i).trim
@@ -160,73 +159,73 @@ object ToreeLauncher extends LogLike {
       else Paths.get(connectionFile).getFileName.toString
     val newPath = Paths.get(tmpPath.toString, fileName)
     val newConnectionFile = newPath.toString
-    // Locate --profile and replace next element with new name.  If it doesn't exist, add both.
-    val profileIndex = toreeArgs.indexOf("--profile")
-    if (profileIndex >= 0) {
-      toreeArgs(profileIndex + 1) = newConnectionFile
-    } else {
-        toreeArgs += "--profile"
-        toreeArgs += newConnectionFile
-    }
+
+    toreeArgs += "--profile"
+    toreeArgs += newConnectionFile
 
     newConnectionFile
   }
 
   private def getPID : String = {
-    // Return the current process ID. If not an integer string, gateway will ignore.
+    // Return the current process ID. If not an integer string, server will ignore.
     ManagementFactory.getRuntimeMXBean.getName.split('@')(0)
   }
 
   private def initProfile(args : Array[String]): ServerSocket = {
 
-    var gatewaySocket : ServerSocket = null
+    var commSocket : ServerSocket = null
 
     initArguments(args)
 
-    if (profilePath == null && kernelId == null){
-      logger.error("At least one of '--profile' or '--RemoteProcessProxy.kernel-id' " +
-        "must be provided - exiting!")
+    if (kernelId == null) {
+      logger.error("Parameter '--kernel-id' must be provided - exiting!")
       sys.exit(-1)
     }
 
-    if (!pathExists(profilePath)) {
-      profilePath = determineConnectionFile(profilePath, kernelId)
-
-      logger.info("The profile %s doesn't exist, now creating it...".format(profilePath))
-
-      val content = KernelProfile.createJsonProfile(this.portLowerBound, this.portUpperBound)
-      writeToFile(profilePath, content)
-
-      if (pathExists(profilePath)) {
-        logger.info("%s saved".format(profilePath))
-      } else {
-        logger.error("Failed to create: %s".format(profilePath))
-        sys.exit(-1)
-      }
-
-      // Now need to also return the PID info in connection JSON
-      val connectionJson = Json.parse(content)
-
-      val pidJson = connectionJson.as[JsObject] ++ Json.obj("pid" -> getPID)
-
-      // Enterprise Gateway wants to establish socket communication. Create socket and
-      // convey port number back to gateway.
-      gatewaySocket = SocketUtils.findSocket(this.portLowerBound, this.portUpperBound)
-      val gsJson = pidJson ++ Json.obj("comm_port" -> gatewaySocket.getLocalPort)
-      val jsonContent = Json.toJson(gsJson).toString()
-
-      if (responseAddress != null){
-        logger.info("JSON Payload: '%s'".format(jsonContent))
-        val payload = SecurityUtils.encrypt(profilePath, jsonContent)
-        logger.info("Encrypted Payload: '%s'".format(payload))
-        SocketUtils.writeToSocket(responseAddress, payload)
-      }
+    if (publicKey == null) {
+      logger.error("Parameter '--public-key' must be provided - exiting!")
+      sys.exit(-1)
     }
-    gatewaySocket
+
+    profilePath = determineConnectionFile(profilePath, kernelId)
+
+    logger.info("The profile %s doesn't exist, now creating it...".format(profilePath))
+
+    val content = KernelProfile.createJsonProfile(this.portLowerBound, this.portUpperBound)
+    writeToFile(profilePath, content)
+
+    if (pathExists(profilePath)) {
+      logger.info("%s saved".format(profilePath))
+    } else {
+      logger.error("Failed to create: %s".format(profilePath))
+      sys.exit(-1)
+    }
+
+    var connectionJson = Json.parse(content)
+
+    // Now need to also return the PID info in connection JSON
+    connectionJson = connectionJson.as[JsObject] ++ Json.obj("pid" -> getPID)
+
+    // Add kernelId
+    connectionJson = connectionJson.as[JsObject] ++ Json.obj("kernel_id" -> kernelId)
+
+    // Server wants to establish socket communication. Create socket and
+    // convey port number back to the server.
+    commSocket = SocketUtils.findSocket(this.portLowerBound, this.portUpperBound)
+    connectionJson = connectionJson.as[JsObject] ++ Json.obj("comm_port" -> commSocket.getLocalPort)
+    val jsonContent = Json.toJson(connectionJson).toString()
+
+    if (responseAddress != null){
+      logger.info("JSON Payload: '%s'".format(jsonContent))
+      val payload = SecurityUtils.encrypt(publicKey, jsonContent)
+      logger.info("Encrypted Payload: '%s'".format(payload))
+      SocketUtils.writeToSocket(responseAddress, payload)
+    }
+    commSocket
   }
 
-  private def getGatewayRequest(gatewaySocket : ServerSocket): String = {
-    val s = gatewaySocket.accept()
+  private def getServerRequest(commSocket : ServerSocket): String = {
+    val s = commSocket.accept()
     val data = new BufferedSource(s.getInputStream).getLines.mkString
     s.close()
     data
@@ -256,10 +255,10 @@ object ToreeLauncher extends LogLike {
     }
   }
 
-  private def gatewayListener(gatewaySocket : ServerSocket): Unit = {
+  private def serverListener(commSocket : ServerSocket): Unit = {
     var stop = false
     while (!stop) {
-      val requestData = getGatewayRequest(gatewaySocket)
+      val requestData = getServerRequest(commSocket)
 
       // Handle each of the requests.  Note that we do not make an assumption that these are
       // mutually exclusive - although that will probably be the case for now.  Over time,
@@ -275,7 +274,7 @@ object ToreeLauncher extends LogLike {
           // If sigNum anything but 0 (for poll), use Signal.raise(signal) to signal the kernel.
           val sigName = getReconciledSignalName(sigNum)
           val sigToRaise = new Signal(sigName)
-          logger.info("Gateway listener raising signal: '%s' (%d) for signum: %d".
+          logger.info("Server listener raising signal: '%s' (%d) for signum: %d".
                    format(sigToRaise.getName, sigToRaise.getNumber, sigNum))
           Signal.raise(sigToRaise)
         }
@@ -284,9 +283,9 @@ object ToreeLauncher extends LogLike {
       if ( requestJson.contains("shutdown")) {
         val shutdown = requestJson("shutdown").asInstanceOf[JsNumber].value.toInt
         if ( shutdown == 1 ) {
-          // Enterprise gateway has been instructed to shutdown the kernel, so let's stop
+          // The server has been instructed to shutdown the kernel, so let's stop
           // the listener so that it doesn't interfere with poll() calls.
-          logger.info("Stopping gateway listener.")
+          logger.info("Stopping server listener.")
           stop = true
         }
       }
@@ -294,17 +293,17 @@ object ToreeLauncher extends LogLike {
   }
 
   def main(args: Array[String]) {
-    val gatewaySocket = initProfile(args)
+    val commSocket = initProfile(args)
 
-    // if gatewaySocket is not null, start a thread to listen on socket
-    if ( gatewaySocket != null ){
-      val gatewayListenerThread = new Thread {
+    // if commSocket is not null, start a thread to listen on socket
+    if ( commSocket != null ){
+      val serverListenerThread = new Thread {
         override def run() {
-          gatewayListener(gatewaySocket)
+          serverListener(commSocket)
         }
       }
-      logger.info("Starting gateway listener...")
-      gatewayListenerThread.start()
+      logger.info("Starting server listener...")
+      serverListenerThread.start()
     }
 
     logger.info("Toree kernel arguments (final):")
