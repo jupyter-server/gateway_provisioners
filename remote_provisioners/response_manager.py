@@ -202,6 +202,7 @@ class ResponseManager(SingletonConfigurable):
         """Checks the socket for data, if found, decrypts the payload and posts to 'wait map'."""
         loop = asyncio.get_event_loop()
         data = ""
+        conn = None
         try:
             conn, addr = await loop.sock_accept(self._response_socket)
             while True:
@@ -213,11 +214,12 @@ class ResponseManager(SingletonConfigurable):
                     self._post_connection(payload)
                     break
                 data = data + buffer.decode(encoding='utf-8')  # append what we received until we get no more...
-            conn.close()
         except timeout:
             pass
         except Exception as ex:
             self.log.error(f"Failure occurred processing connection: {ex}")
+        if conn:
+            conn.close()
 
     def _decode_payload(self, data) -> dict:
         """

@@ -2,17 +2,11 @@
 # Distributed under the terms of the Modified BSD License.
 """Mixin for configuation options on RemoteProvisionerBase."""
 
-from distutils.util import strtobool
-from http.client import responses
-import json
 import os
-import ssl
-import traceback
 
-from tornado import web
 from tornado.log import LogFormatter
 
-from traitlets import default, List, Set, Unicode, Type, Instance, Bool, CBool, Integer, observe
+from traitlets import default, Set, Unicode, Bool, Integer
 from traitlets.config import Configurable
 
 
@@ -20,6 +14,7 @@ from traitlets.config import Configurable
 max_poll_attempts = int(os.getenv('RP_MAX_POLL_ATTEMPTS', '10'))
 poll_interval = float(os.getenv('RP_POLL_INTERVAL', '0.5'))
 socket_timeout = float(os.getenv('RP_SOCKET_TIMEOUT', '0.005'))
+ssh_port = int(os.getenv('RP_SSH_PORT', '22'))
 
 
 class RemoteProvisionerConfigMixin(Configurable):

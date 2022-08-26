@@ -10,25 +10,17 @@ import os
 import paramiko
 import signal
 import subprocess
+import warnings
 
 from socket import gethostbyname, gethostname
 from traitlets import default, List, TraitError, Unicode, validate
 from typing import Any, Dict, List as tyList, Optional
 from jupyter_client import launch_kernel, KernelConnectionInfo
 
-from .config_mixin import poll_interval, max_poll_attempts
+from .config_mixin import poll_interval, max_poll_attempts, ssh_port
 from .remote_provisioner import RemoteProvisionerBase
 
 kernel_log_dir = os.getenv("RP_KERNEL_LOG_DIR", '/tmp')  # would prefer /var/log, but its only writable by root
-
-ssh_port = int(os.getenv('RP_SSH_PORT', '22'))
-
-# These envs are not documented and should default to current user and None, respectively.  These
-# exist just in case we find them necessary in some configurations (where the service user
-# must be different).  However, tests show that that configuration doesn't work - so there
-# might be more to do.  At any rate, we'll use these variables for now.
-remote_user = None
-remote_pwd = None
 
 
 class TrackKernelOnHost:
@@ -119,6 +111,19 @@ class DistributedProvisioner(RemoteProvisionerBase):
         self.kernel_log = None
         self.local_stdout = None
         self.least_connection = self.load_balancing_algorithm == "least-connection"
+        _remote_user = os.getenv("RP_REMOTE_USER")
+        self.remote_pwd = os.getenv("RP_REMOTE_PWD")
+        self.use_gss = os.getenv("RP_REMOTE_GSS_SSH", "False").lower() == "true"
+        if self.use_gss:
+            if self.remote_pwd or _remote_user:
+                warnings.warn(
+                    "Both `RP_REMOTE_GSS_SSH` and one of `RP_REMOTE_PWD` or `RP_REMOTE_USER` is set. "
+                    "Those options are mutually exclusive, you configuration may be incorrect. "
+                    "RP_REMOTE_GSS_SSH will take priority."
+                )
+            self.remote_user = None
+        else:
+            self.remote_user = _remote_user if _remote_user else getpass.getuser()
 
     @property
     def has_process(self) -> bool:
@@ -370,7 +375,7 @@ class DistributedProvisioner(RemoteProvisionerBase):
             await asyncio.get_event_loop().run_in_executor(None, self.kill)
             self.log_and_raise(TimeoutError(timeout_message))
 
-    def _get_ssh_client(self, host):
+    def _get_ssh_client(self, host) -> paramiko.SSHClient:
         """
         Create a SSH Client based on host, username and password if provided.
         If there is any AuthenticationException/SSHException, raise HTTP Error 403 as permission denied.
@@ -380,31 +385,44 @@ class DistributedProvisioner(RemoteProvisionerBase):
         """
         ssh = None
 
-        global remote_user
-        global remote_pwd
-        if remote_user is None:
-            remote_user = os.getenv('RP_REMOTE_USER', getpass.getuser())
-            remote_pwd = os.getenv('RP_REMOTE_PWD')  # this should use password-less ssh
-
         try:
             ssh = paramiko.SSHClient()
             ssh.load_system_host_keys()
-            ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
             host_ip = gethostbyname(host)
-            if remote_pwd:
-                ssh.connect(host_ip, port=ssh_port, username=remote_user, password=remote_pwd)
+            if self.use_gss:
+                self.log.debug("Connecting to remote host via GSS.")
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(host_ip, port=ssh_port, gss_auth=True)
             else:
-                ssh.connect(host_ip, port=ssh_port, username=remote_user)
+                ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
+                if self.remote_pwd:
+                    self.log.debug("Connecting to remote host with username and password.")
+                    ssh.connect(
+                        host_ip,
+                        port=ssh_port,
+                        username=self.remote_user,
+                        password=self.remote_pwd,
+                    )
+                else:
+                    self.log.debug("Connecting to remote host with ssh key.")
+                    ssh.connect(host_ip, port=ssh_port, username=self.remote_user)
         except Exception as e:
+            http_status_code = 500
             current_host = gethostbyname(gethostname())
-            error_message = "Exception '{}' occurred when creating a SSHClient at {} connecting " \
-                            "to '{}:{}' with user '{}', message='{}'.". \
-                format(type(e).__name__, current_host, host, ssh_port, remote_user, e)
+            error_message = (
+                f"Exception '{type(e).__name__}' occurred when creating a SSHClient at {current_host} connecting "
+                f"to '{host}:{ssh_port}' with user '{self.remote_user}', message='{e}'."
+            )
             if e is paramiko.SSHException or paramiko.AuthenticationException:
+                http_status_code = 403
                 error_message_prefix = "Failed to authenticate SSHClient with password"
-                error_message = error_message_prefix + (" provided" if remote_pwd else "-less SSH")
-                self.log_and_raise(PermissionError(error_message))
+                error_message = error_message_prefix + (
+                    " provided" if self.remote_pwd else "-less SSH"
+                )
+                error_message = error_message + f"and RP_REMOTE_GSS_SSH={self.use_gss}"
+
             self.log_and_raise(RuntimeError(error_message))
+
         return ssh
 
     def rsh(self, host, command):

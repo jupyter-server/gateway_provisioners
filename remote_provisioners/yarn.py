@@ -424,7 +424,7 @@ class YarnProvisioner(RemoteProvisionerBase):
     async def load_provisioner_info(self, provisioner_info: Dict) -> None:
         """Loads the base information necessary for kernel persistence relative to YARN clusters."""
         await super().load_provisioner_info(provisioner_info)
-        self.application_id = provisioner_info['application_id']
+        self.application_id = provisioner_info.get("application_id")
 
     def _get_application_state(self) -> str:
         """
