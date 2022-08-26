@@ -27,7 +27,7 @@ default_kernel_gid = '100'  # users group is the default
 prohibited_uids = os.getenv("RP_PROHIBITED_UIDS", "0").split(',')
 prohibited_gids = os.getenv("RP_PROHIBITED_GIDS", "0").split(',')
 
-mirror_working_dirs = bool((os.getenv('EG_MIRROR_WORKING_DIRS', 'false').lower() == 'true'))
+mirror_working_dirs = bool((os.getenv('RP_MIRROR_WORKING_DIRS', 'false').lower() == 'true'))
 
 
 class ContainerProvisioner(RemoteProvisionerBase):
@@ -106,12 +106,15 @@ class ContainerProvisioner(RemoteProvisionerBase):
 
         Returns
         -------
-        None if the container cannot be found or its in an initial state. Otherwise return an exit code of 0.
+        None if the container cannot be found or its in an initial state. Otherwise, return an exit code of 0.
         """
         result = 0
 
         container_status = await self.get_container_status(None)
-        if container_status is None or container_status in self.get_initial_states():
+        # Do not check whether container_status is None
+        # EG couldn't restart kernels although connections exists.
+        # See https://github.com/jupyter/enterprise_gateway/issues/827
+        if container_status in self.get_initial_states():
             result = None
 
         return result
@@ -155,12 +158,10 @@ class ContainerProvisioner(RemoteProvisionerBase):
         """
         return await self.kill(restart=restart)
 
-    async def cleanup(self, restart=False) -> None:
-        # Since container objects don't necessarily go away on their own, we need to perform the same
-        # cleanup we'd normally perform on forced kill situations.
-
-        await self.kill()
-        return await super().cleanup(restart=restart)
+    async def shutdown_listener(self):
+        await super().shutdown_listener()
+        if self.container_name:  # We only have something to terminate if we have a name
+            await self.terminate_container_resources()
 
     async def confirm_remote_startup(self):
         """Confirms the container has started and returned necessary connection information."""
@@ -189,7 +190,7 @@ class ContainerProvisioner(RemoteProvisionerBase):
     async def load_provisioner_info(self, provisioner_info: Dict) -> None:
         """Loads the base information necessary for kernel persistence relative to containers."""
         await super().load_provisioner_info(provisioner_info)
-        self.assigned_node_ip = provisioner_info['assigned_node_ip']
+        self.assigned_node_ip = provisioner_info.get("assigned_node_ip")
 
     @abc.abstractmethod
     def get_initial_states(self) -> Set[str]:

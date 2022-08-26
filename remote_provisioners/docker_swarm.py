@@ -1,20 +1,23 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in docker-based containers."""
+from __future__ import annotations
 
 import os
 import logging
 
 from docker.client import DockerClient
 from docker.errors import NotFound
+from docker.models.containers import Container
+from docker.models.services import Service
 from typing import Any, Dict, Optional, Set
 
 from .container import ContainerProvisioner
 
 # Debug logging level of docker produces too much noise - raise to info by default.
-logging.getLogger('urllib3.connectionpool').setLevel(os.environ.get('EG_DOCKER_LOG_LEVEL', logging.WARNING))
+logging.getLogger('urllib3.connectionpool').setLevel(os.environ.get('RP_DOCKER_LOG_LEVEL', logging.WARNING))
 
-docker_network = os.environ.get('EG_DOCKER_NETWORK', 'bridge')
+docker_network = os.environ.get('RP_DOCKER_NETWORK', 'bridge')
 
 client = DockerClient.from_env()
 
@@ -30,15 +33,15 @@ class DockerSwarmProvisioner(ContainerProvisioner):
         kwargs = await super().pre_launch(**kwargs)
 
         # Convey the network to the docker launch script
-        kwargs['env']['EG_DOCKER_NETWORK'] = docker_network
-        kwargs['env']['EG_DOCKER_MODE'] = 'swarm'
+        kwargs['env']['RP_DOCKER_NETWORK'] = docker_network
+        kwargs['env']['ERP_DOCKER_MODE'] = 'swarm'
         return kwargs
 
     def get_initial_states(self) -> Set[str]:
         """Return list of states indicating container is starting (includes running)."""
         return {'preparing', 'starting', 'running'}
 
-    def _get_service(self):
+    def _get_service(self) -> Service:
         # Fetches the service object corresponding to the kernel with a matching label.
         service = None
         services = client.services.list(filters={'label': 'kernel_id=' + self.kernel_id})
@@ -52,7 +55,7 @@ class DockerSwarmProvisioner(ContainerProvisioner):
             self.container_name = service.name
         return service
 
-    def _get_task(self):
+    def _get_task(self) -> Dict:
         # Fetches the task object corresponding to the service associated with the kernel.  We only ask for the
         # current task with desired-state == running.  This eliminates failed states.
 
@@ -63,8 +66,8 @@ class DockerSwarmProvisioner(ContainerProvisioner):
             num_tasks = len(tasks)
             if num_tasks != 1:
                 if num_tasks > 1:
-                    raise RuntimeError("{self.__class__.__name__}: Found more than one task ({num_tasks}) "
-                                       "for service '{service.name}', kernel_id '{self.kernel_id}'!")
+                    raise RuntimeError(f"{self.__class__.__name__}: Found more than one task ({num_tasks}) "
+                                       f"for service '{service.name}', kernel_id '{self.kernel_id}'!")
             else:
                 task = tasks[0]
         return task
@@ -97,7 +100,7 @@ class DockerSwarmProvisioner(ContainerProvisioner):
                            f"TaskID: '{task_id}'")
         return task_state
 
-    async def terminate_container_resources(self, restart: bool = False) -> None:
+    async def terminate_container_resources(self, restart: bool = False) -> bool | None:
         """Terminate any artifacts created on behalf of the container's lifetime."""
         # Remove the docker service.
 
@@ -138,15 +141,15 @@ class DockerProvisioner(ContainerProvisioner):
         kwargs = await super().pre_launch(**kwargs)
 
         # Convey the network to the docker launch script
-        kwargs['env']['EG_DOCKER_NETWORK'] = docker_network
-        kwargs['env']['EG_DOCKER_MODE'] = 'docker'
+        kwargs['env']['RP_DOCKER_NETWORK'] = docker_network
+        kwargs['env']['RP_DOCKER_MODE'] = 'docker'
         return kwargs
 
     def get_initial_states(self) -> Set[str]:
         """Return list of states indicating container is starting (includes running)."""
         return {'created', 'running'}
 
-    def _get_container(self):
+    def _get_container(self) -> Container:
         # Fetches the container object corresponding the the kernel_id label.
         # Only used when docker mode == regular (not swarm)
 
