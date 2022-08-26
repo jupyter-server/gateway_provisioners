@@ -15,7 +15,7 @@ from traitlets import default, List
 from typing import Any, Dict, List as tyList, Optional
 from jupyter_client import launch_kernel, KernelConnectionInfo
 
-from .remote_provisioner import RemoteProvisionerBase
+from .remote_provisioner import RemoteProvisionerBase, p
 
 poll_interval = float(os.getenv('RP_POLL_INTERVAL', '0.5'))
 max_poll_attempts = int(os.getenv('RP_MAX_POLL_ATTEMPTS', '10'))

@@ -134,7 +134,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
         env = kwargs.get('env', {})
         self.kernel_username = env.get('KERNEL_USERNAME', getpass.getuser())  # Let env override
-        env['KERNEL_USERNAME'] = self.kernel_username  # reset in env in case its not there
+        env['KERNEL_USERNAME'] = self.kernel_username  # reset in env in case it's not there
 
         self._enforce_authorization(**kwargs)
 
