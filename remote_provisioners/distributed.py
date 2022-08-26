@@ -1,6 +1,7 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in YARN clusters."""
+from __future__ import annotations
 
 import asyncio
 import getpass
@@ -11,14 +12,12 @@ import signal
 import subprocess
 
 from socket import gethostbyname, gethostname
-from traitlets import default, List
+from traitlets import default, List, TraitError, Unicode, validate
 from typing import Any, Dict, List as tyList, Optional
 from jupyter_client import launch_kernel, KernelConnectionInfo
 
-from .remote_provisioner import RemoteProvisionerBase, p
+from .remote_provisioner import RemoteProvisionerBase, poll_interval, max_poll_attempts
 
-poll_interval = float(os.getenv('RP_POLL_INTERVAL', '0.5'))
-max_poll_attempts = int(os.getenv('RP_MAX_POLL_ATTEMPTS', '10'))
 kernel_log_dir = os.getenv("RP_KERNEL_LOG_DIR", '/tmp')  # would prefer /var/log, but its only writable by root
 
 ssh_port = int(os.getenv('RP_SSH_PORT', '22'))
@@ -31,11 +30,49 @@ remote_user = None
 remote_pwd = None
 
 
+class TrackKernelOnHost:
+    """
+    Class used to track the number of active kernels on the set of hosts
+    so that the least-utilized host can be used for the next distributed
+    request.
+    """
+    _host_kernels = {}
+    _kernel_host_mapping = {}
+
+    def add_kernel_id(self, host: str, kernel_id: str) -> None:
+        self._kernel_host_mapping[kernel_id] = host
+        self.increment(host)
+
+    def delete_kernel_id(self, kernel_id: str) -> None:
+        host = self._kernel_host_mapping.get(kernel_id)
+        if host:
+            self.decrement(host)
+            del self._kernel_host_mapping[kernel_id]
+
+    def min_or_remote_host(self, remote_host: str | None = None) -> str:
+        if remote_host:
+            return remote_host
+        return min(self._host_kernels, key=lambda k: self._host_kernels[k])
+
+    def increment(self, host: str) -> None:
+        val = int(self._host_kernels.get(host, 0))
+        self._host_kernels[host] = val + 1
+
+    def decrement(self, host: str) -> None:
+        val = int(self._host_kernels.get(host, 0))
+        self._host_kernels[host] = val - 1
+
+    def init_host_kernels(self, hosts) -> None:
+        if len(self._host_kernels) == 0:
+            self._host_kernels.update({key: 0 for key in hosts})
+
+
 class DistributedProvisioner(RemoteProvisionerBase):
     """
-    Kernel lifecycle management for clusters via ssh.
+    Kernel lifecycle management for clusters via ssh and a set of hosts.
     """
     host_index = 0
+    kernel_on_host = TrackKernelOnHost()
 
     remote_hosts_env = 'RP_REMOTE_HOSTS'
     remote_hosts_default_value = 'localhost'
@@ -48,9 +85,39 @@ class DistributedProvisioner(RemoteProvisionerBase):
     def remote_hosts_default(self):
         return os.getenv(self.remote_hosts_env, self.remote_hosts_default_value).split(',')
 
+    load_balancing_algorithm_env = "RP_LOAD_BALANCING_ALGORITHM"
+    load_balancing_algorithm_default_value = "round-robin"
+    load_balancing_algorithm = Unicode(
+        load_balancing_algorithm_default_value,
+        config=True,
+        help="""Specifies which load balancing algorithm DistributedProvisioner should use.
+            Must be one of "round-robin" or "least-connection".  (RP_LOAD_BALANCING_ALGORITHM
+            env var)
+            """,
+    )
+
+    @default("load_balancing_algorithm")
+    def load_balancing_algorithm_default(self) -> str:
+        return os.getenv(
+            self.load_balancing_algorithm_env, self.load_balancing_algorithm_default_value
+        )
+
+    @validate("load_balancing_algorithm")
+    def _validate_load_balancing_algorithm(self, proposal: Dict[str, str]) -> str:
+        value = proposal["value"]
+        try:
+            assert value in ["round-robin", "least-connection"]
+        except ValueError:
+            raise TraitError(
+                f"Invalid load_balancing_algorithm value {value}, not in [round-robin,least-connection]"
+            )
+        return value
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.kernel_log = None
+        self.local_stdout = None
+        self.least_connection = self.load_balancing_algorithm == "least-connection"
 
     @property
     def has_process(self) -> bool:
@@ -70,7 +137,8 @@ class DistributedProvisioner(RemoteProvisionerBase):
 
         NOTE: This overrides the superclass `launch_kernel` method entirely.
         """
-        self.assigned_host = self._determine_next_host()
+        env_dict = kwargs.get("env", {})
+        self.assigned_host = self._determine_next_host(env_dict)
         self.ip = gethostbyname(self.assigned_host)  # convert to ip if host is provided
         self.assigned_ip = self.ip
 
@@ -135,20 +203,20 @@ class DistributedProvisioner(RemoteProvisionerBase):
         proven unsuccessful.
         """
         # If we have a local process, use its method, else signal soft kill first before hard kill.
-        result = await self.terminate()  # Send -15 signal first
+        await self.terminate()  # Send -15 signal first
         i = 1
         while await self.poll() is None and i <= max_poll_attempts:
             await asyncio.sleep(poll_interval)
             i = i + 1
         if i > max_poll_attempts:  # Send -9 signal if process is still alive
             if self.local_proc:
-                result = self.local_proc.kill()
-                self.log.debug(f"DistributedProvisioner.kill(): {result}")
+                self.local_proc.kill()
+                self.log.debug("DistributedProvisioner.kill() called.")
             else:
                 if self.ip and self.pid > 0:
                     await self.send_signal(signal.SIGKILL)
                     self.log.debug(f"SIGKILL signal sent to pid: {self.pid}")
-        return result
+        return None
 
     async def terminate(self, restart=False) -> None:
         """
@@ -158,18 +226,33 @@ class DistributedProvisioner(RemoteProvisionerBase):
         proven unsuccessful.
         """
         # If we have a local process, use its method, else send signal SIGTERM to soft kill.
-        result = None
         if self.local_proc:
-            result = self.local_proc.terminate()
-            self.log.debug(f"DistributedProvisioner.terminate(): {result}")
+            self.local_proc.terminate()
+            self.log.debug("DistributedProvisioner.terminate() called.")
         else:
             if self.ip and self.pid > 0:
                 await self.send_signal(signal.SIGTERM)
                 self.log.debug(f"SIGTERM signal sent to pid: {self.pid}")
-        return result
+        return None
+
+    def _unregister_assigned_host(self) -> None:
+        if self.least_connection:
+            DistributedProvisioner.kernel_on_host.delete_kernel_id(self.kernel_id)
 
     async def cleanup(self, restart=False) -> None:
-        pass
+        # DistributedProvisioner can have a tendency to leave zombies, particularly when the
+        # server is abruptly terminated.  This extra call to shutdown_lister does the trick.
+        await self.shutdown_listener()
+        self._unregister_assigned_host()
+        if self.local_stdout:
+            self.local_stdout.close()
+            self.local_stdout = None
+        await super().cleanup()
+
+    async def shutdown_listener(self) -> None:
+        """Ensure that kernel process is terminated."""
+        await self.send_signal(signal.SIGTERM)
+        await super().shutdown_listener()
 
     def log_kernel_launch(self, cmd: tyList[str]) -> None:
         self.log.info(f"{self.__class__.__name__}: kernel launched.  Host: '{self.assigned_host}', "
@@ -188,9 +271,9 @@ class DistributedProvisioner(RemoteProvisionerBase):
 
         if RemoteProvisionerBase.ip_is_local(self.ip):
             # launch the local command with redirection in place
-            log_fd = open(self.kernel_log, mode='w')
+            self.local_stdout = open(self.kernel_log, mode='a')
             self.local_proc = launch_kernel(cmd,
-                                            stdout=log_fd,
+                                            stdout=self.local_stdout,
                                             stderr=subprocess.STDOUT,
                                             **kwargs)
             result_pid = str(self.local_proc.pid)
@@ -215,38 +298,48 @@ class DistributedProvisioner(RemoteProvisionerBase):
         # Optimized case needs to also redirect the kernel output, so unconditionally compose kernel_log
         env_dict = kwargs['env']
         kid = env_dict.get('KERNEL_ID')
-        self.kernel_log = os.path.join(kernel_log_dir, "kernel-{}.log".format(kid))
+        self.kernel_log = os.path.join(kernel_log_dir, f"kernel-{kid}.log")
 
         if RemoteProvisionerBase.ip_is_local(self.ip):  # We're local so just use what we're given
             startup_cmd = cmd
         else:  # Add additional envs, including those in kernelspec
             startup_cmd = ''
             if kid:
-                startup_cmd += 'export KERNEL_ID="{}";'.format(kid)
+                startup_cmd += f'export KERNEL_ID="{kid}";'
 
-            kuser = env_dict.get('KERNEL_USERNAME')
-            if kuser:
-                startup_cmd += 'export KERNEL_USERNAME="{}";'.format(kuser)
+            kernel_user = env_dict.get('KERNEL_USERNAME')
+            if kernel_user:
+                startup_cmd += f'export KERNEL_USERNAME="{kernel_user}";'
 
             impersonation = env_dict.get('RP_IMPERSONATION_ENABLED')
             if impersonation:
-                startup_cmd += 'export RP_IMPERSONATION_ENABLED="{}";'.format(impersonation)
+                startup_cmd += f'export RP_IMPERSONATION_ENABLED="{impersonation}";'
 
             for key, value in self.kernel_spec.env.items():
                 startup_cmd += "export {}={};".format(key, json.dumps(value).replace("'", "''"))
 
-            startup_cmd += 'nohup'
+            startup_cmd += "nohup"
             for arg in cmd:
-                startup_cmd += ' {}'.format(arg)
+                startup_cmd += f" {arg}"
 
-            startup_cmd += ' >> {} 2>&1 & echo $!'.format(self.kernel_log)  # return the process id
+            startup_cmd += f" >> {self.kernel_log} 2>&1 & echo $!"  # return the process id
 
         return startup_cmd
 
-    def _determine_next_host(self):
+    def _determine_next_host(self, env_dict: Dict) -> str:
         """Simple round-robin index into list of hosts."""
-        next_host = self.remote_hosts[DistributedProvisioner.host_index % self.remote_hosts.__len__()]
-        DistributedProvisioner.host_index += 1
+        remote_host = env_dict.get("KERNEL_REMOTE_HOST")
+        if self.least_connection:
+            next_host = DistributedProvisioner.kernel_on_host.min_or_remote_host(remote_host)
+            DistributedProvisioner.kernel_on_host.add_kernel_id(next_host, self.kernel_id)
+        else:
+            next_host = (
+                remote_host
+                if remote_host
+                else self.remote_hosts[DistributedProvisioner.host_index % self.remote_hosts.__len__()]
+            )
+            DistributedProvisioner.host_index += 1
+
         return next_host
 
     async def confirm_remote_startup(self):
