@@ -4,6 +4,7 @@
 
 import asyncio
 import base64
+import errno
 import json
 import os
 import random
@@ -17,12 +18,14 @@ from jupyter_client import localinterfaces
 from socket import socket, timeout, AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET
 from tornado.ioloop import PeriodicCallback
 from traitlets.config import SingletonConfigurable
+from typing import Any
 
 from .config_mixin import poll_interval, socket_timeout
 
-eg_response_ip = os.getenv('EG_RESPONSE_IP', None)
-response_port = int(os.getenv('EG_RESPONSE_PORT', 8877))
-response_addr_any = bool(os.getenv('EG_RESPONSE_ADDR_ANY', 'False').lower() == 'true')
+response_ip = os.getenv('RP_RESPONSE_IP', None)
+desired_response_port = int(os.getenv('RP_RESPONSE_PORT', 8877))
+response_port_retries = int(os.getenv("RP_RESPONSE_PORT_RETRIES", 10))
+response_addr_any = bool(os.getenv('RP_RESPONSE_ADDR_ANY', 'False').lower() == 'true')
 
 connection_interval = poll_interval / 100.0  # already polling, so make connection timeout a fraction of outer poll
 
@@ -31,10 +34,10 @@ connection_interval = poll_interval / 100.0  # already polling, so make connecti
 # when determining the response address.  For example, on systems with many network interfaces,
 # some may have their IPs appear the local interfaces list (e.g., docker's 172.17.0.* is an example)
 # that should not be used.  This env can be used to indicate such IPs.
-prohibited_local_ips = os.getenv('EG_PROHIBITED_LOCAL_IPS', '').split(',')
+prohibited_local_ips = os.getenv('RP_PROHIBITED_LOCAL_IPS', '').split(',')
 
 
-def _get_local_ip():
+def _get_local_ip() -> str:
     """
     Honor the prohibited IPs, locating the first not in the list.
     """
@@ -88,10 +91,10 @@ class ResponseManager(SingletonConfigurable):
         based on their registration (of kernel_id).
      """
 
-    KEY_SIZE = 1024  # Can be small since its only used to {en,de}crypt the AES key.
+    KEY_SIZE = 1024  # Can be small since its' only used to {en,de}crypt the AES key.
     _instance = None
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any):
         super(ResponseManager, self).__init__(**kwargs)
         self._response_ip = None
         self._response_port = None
@@ -119,7 +122,7 @@ class ResponseManager(SingletonConfigurable):
 
     @property
     def response_address(self) -> str:
-        return self._response_ip + ':' + str(self._response_port)
+        return f"{self._response_ip}:{self._response_port}"
 
     def register_event(self, kernel_id: str) -> None:
         """Register kernel_id so its connection information can be processed."""
@@ -140,19 +143,42 @@ class ResponseManager(SingletonConfigurable):
         # (which is the default).
         # Multiple IP bindings should be configured for containerized configurations (k8s) that need to
         # launch kernels into external YARN clusters.
-        bind_ip = (local_ip if eg_response_ip is None else eg_response_ip)
+        bind_ip = (local_ip if response_ip is None else response_ip)
         bind_ip = (bind_ip if response_addr_any is False else '')
 
-        try:
-            s.bind((bind_ip, response_port))
-        except Exception as ex:
-            raise RuntimeError("Failed to bind to port '{}' for response address due to: '{}'".
-                               format(response_port, ex))
+        response_port = desired_response_port
+        for port in ResponseManager._random_ports(response_port, response_port_retries + 1):
+            try:
+                s.bind((bind_ip, port))
+            except OSError as e:
+                if e.errno == errno.EADDRINUSE:
+                    self.log.info(f"Response port {port} is already in use, trying another port...")
+                    continue
+                elif e.errno in (errno.EACCES, getattr(errno, "WSAEACCES", errno.EACCES)):
+                    self.log.warning(
+                        f"Permission to bind to response port {port} denied - continuing..."
+                    )
+                    continue
+                else:
+                    raise RuntimeError(
+                        f"Failed to bind to port '{port}' for response address due to: '{e}'"
+                    )
+            else:
+                response_port = port
+                break
+        else:
+            msg = f"No available response port could be found after {response_port_retries + 1} attempts"
+            self.log.critical(msg)
+            raise RuntimeError(msg)
+
+        self.log.info(
+            f"ResponseManager is bound to port {response_port} for remote kernel connection information."
+        )
         s.listen(128)
         s.settimeout(socket_timeout)
         self._response_socket = s
         self._response_port = response_port
-        self._response_ip = (local_ip if eg_response_ip is None else eg_response_ip)
+        self._response_ip = (local_ip if response_ip is None else response_ip)
 
     def _start_response_manager(self) -> None:
         """If not already started, creates and starts the periodic callback to process connections."""
@@ -175,15 +201,15 @@ class ResponseManager(SingletonConfigurable):
     async def _process_connections(self) -> None:
         """Checks the socket for data, if found, decrypts the payload and posts to 'wait map'."""
         loop = asyncio.get_event_loop()
-        data = ''
+        data = ""
         try:
             conn, addr = await loop.sock_accept(self._response_socket)
             while True:
                 buffer = await loop.sock_recv(conn, 1024)
                 if not buffer:  # send is complete, process payload
-                    self.log.debug("Received payload '{}'".format(data))
+                    self.log.debug(f"Received payload '{data}'")
                     payload = self._decode_payload(data)
-                    self.log.debug("Decrypted payload '{}'".format(payload))
+                    self.log.debug(f"Decrypted payload '{payload}'")
                     self._post_connection(payload)
                     break
                 data = data + buffer.decode(encoding='utf-8')  # append what we received until we get no more...
@@ -191,7 +217,7 @@ class ResponseManager(SingletonConfigurable):
         except timeout:
             pass
         except Exception as ex:
-            self.log.error("Failure occurred processing connection: {}".format(ex))
+            self.log.error(f"Failure occurred processing connection: {ex}")
 
     def _decode_payload(self, data) -> dict:
         """
@@ -222,7 +248,7 @@ class ResponseManager(SingletonConfigurable):
             version = payload.get('version')
             if version is None:
                 raise ValueError("Payload received from kernel does not include a version indicator!")
-            self.log.debug("Version {} payload received.".format(version))
+            self.log.debug(f"Version {version} payload received.")
 
             if version == 1:
                 # Decrypt the AES key using the RSA private key
@@ -236,11 +262,11 @@ class ResponseManager(SingletonConfigurable):
                 encrypted_connection_info = base64.b64decode(payload['conn_info'].encode())
                 connection_info_str = unpad(cipher.decrypt(encrypted_connection_info), 16).decode()
             else:
-                raise ValueError("Unexpected version indicator received: {}!".format(version))
+                raise ValueError(f"Unexpected version indicator received: {version}!")
         except Exception as ex:
             # Could be version "0", walk the registrant kernel-ids and attempt to decrypt using each as a key.
             # If none are found, re-raise the triggering exception.
-            self.log.debug("decode_payload exception - {}: {}".format(ex.__class__.__name__, ex))
+            self.log.debug(f"decode_payload exception - {ex.__class__.__name__}: {ex}")
             connection_info_str = None
             for kernel_id in self._response_registry.keys():
                 aes_key = kernel_id[0:16]
@@ -254,13 +280,13 @@ class ResponseManager(SingletonConfigurable):
                     # Add kernel_id into dict, then dump back to string so this can be processed as valid response
                     new_connection_info['kernel_id'] = kernel_id
                     connection_info_str = json.dumps(new_connection_info)
-                    self.log.warning("WARNING!!!! Legacy kernel response received for kernel_id '{}'! "
-                                     "Update kernel launchers to current version!".format(kernel_id))
+                    self.log.warning(f"WARNING!!!! Legacy kernel response received for kernel_id '{kernel_id}'! "
+                                     "Update kernel launchers to current version!")
                     break  # If we're here, we made it!
                 except Exception as ex2:
                     # Any exception fails this experiment and we continue
-                    self.log.debug("Received the following exception detecting legacy kernel response - {}: {}".
-                                   format(ex2.__class__.__name__, ex2))
+                    self.log.debug(f"Received the following exception detecting legacy kernel "
+                                   f"response - {ex2.__class__.__name__}: {ex2}")
                     connection_info_str = None
 
             if connection_info_str is None:
@@ -277,8 +303,20 @@ class ResponseManager(SingletonConfigurable):
             self.log.error("No kernel id found in response!  Kernel launch will fail.")
             return
         if kernel_id not in self._response_registry:
-            self.log.error("Kernel id '{}' has not been registered and will not be processed!")
+            self.log.error(f"Kernel id '{kernel_id}' has not been registered and will not be processed!")
             return
 
-        self.log.debug("Connection info received for kernel '{}': {}".format(kernel_id, connection_info))
+        self.log.debug(f"Connection info received for kernel '{kernel_id}': {connection_info}")
         self._response_registry[kernel_id].response = connection_info
+
+    @staticmethod
+    def _random_ports(port: int, n):
+        """Generate a list of n random ports near the given port.
+
+        The first 5 ports will be sequential, and the remaining n-5 will be
+        randomly selected in the range [port-2*n, port+2*n].
+        """
+        for i in range(min(5, n)):
+            yield port + i
+        for _ in range(n - 5):
+            yield max(1, port + random.randint(-2 * n, 2 * n))
