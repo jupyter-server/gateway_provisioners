@@ -24,16 +24,12 @@ from socket import socket, timeout,\
 from typing import Any, Dict, List, Optional, Tuple
 from zmq.ssh import tunnel
 
-from .config_mixin import RemoteProvisionerConfigMixin
+from .config_mixin import RemoteProvisionerConfigMixin, poll_interval, max_poll_attempts, socket_timeout
 from .response_manager import ResponseManager
 
 # Pop certain env variables that don't need to be logged, e.g. remote_pwd
 env_pop_list = ['RP_REMOTE_PWD', 'LS_COLORS']
 default_kernel_launch_timeout = float(os.getenv('KERNEL_LAUNCH_TIMEOUT', '30'))
-
-max_poll_attempts = int(os.getenv('RP_MAX_POLL_ATTEMPTS', '10'))
-poll_interval = float(os.getenv('RP_POLL_INTERVAL', '0.5'))
-socket_timeout = float(os.getenv('RP_SOCKET_TIMEOUT', '0.005'))
 
 # Minimum port range size and max retries
 min_port_range_size = int(os.getenv('RP_MIN_PORT_RANGE_SIZE', '1000'))
@@ -640,7 +636,6 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 # FIXME - should we wait prior to unset?
                 self.local_proc = None
 
-    # TODO - convert to async
     async def _send_listener_request(self, request: dict, shutdown_socket: Optional[bool] = False) -> None:
         """
         Sends the request dictionary to the kernel listener via the comm port.  Caller is responsible for

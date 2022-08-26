@@ -18,8 +18,8 @@ from socket import socket, timeout, AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCK
 from tornado.ioloop import PeriodicCallback
 from traitlets.config import SingletonConfigurable
 
-poll_interval = float(os.getenv('EG_POLL_INTERVAL', '0.5'))
-socket_timeout = float(os.getenv('EG_SOCKET_TIMEOUT', '0.005'))
+from .config_mixin import poll_interval, socket_timeout
+
 eg_response_ip = os.getenv('EG_RESPONSE_IP', None)
 response_port = int(os.getenv('EG_RESPONSE_PORT', 8877))
 response_addr_any = bool(os.getenv('EG_RESPONSE_ADDR_ANY', 'False').lower() == 'true')

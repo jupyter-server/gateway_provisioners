@@ -15,9 +15,10 @@ from traitlets import default, Unicode, Bool
 from typing import Any, Dict, List, Optional, Tuple
 from yarn_api_client.resource_manager import ResourceManager
 
-from .remote_provisioner import RemoteProvisionerBase, poll_interval, max_poll_attempts
+from .config_mixin import poll_interval, max_poll_attempts
+from .remote_provisioner import RemoteProvisionerBase
 
-# Default logging level of yarn-api and underlying connectionpool produce too much noise - raise to warning only.
+# Default logging level of yarn-api and underlying connection pool produce too much noise - raise to warning only.
 logging.getLogger('yarn_api_client').setLevel(os.getenv('RP_YARN_LOG_LEVEL', logging.WARNING))
 logging.getLogger('urllib3.connectionpool').setLevel(os.environ.get('RP_YARN_LOG_LEVEL', logging.WARNING))
 

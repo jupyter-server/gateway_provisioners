@@ -16,7 +16,8 @@ from traitlets import default, List, TraitError, Unicode, validate
 from typing import Any, Dict, List as tyList, Optional
 from jupyter_client import launch_kernel, KernelConnectionInfo
 
-from .remote_provisioner import RemoteProvisionerBase, poll_interval, max_poll_attempts
+from .config_mixin import poll_interval, max_poll_attempts
+from .remote_provisioner import RemoteProvisionerBase
 
 kernel_log_dir = os.getenv("RP_KERNEL_LOG_DIR", '/tmp')  # would prefer /var/log, but its only writable by root
 

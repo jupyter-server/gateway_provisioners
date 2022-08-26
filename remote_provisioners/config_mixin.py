@@ -16,8 +16,13 @@ from traitlets import default, List, Set, Unicode, Type, Instance, Bool, CBool, 
 from traitlets.config import Configurable
 
 
-class RemoteProvisionerConfigMixin(Configurable):
+# Commonly used envs
+max_poll_attempts = int(os.getenv('RP_MAX_POLL_ATTEMPTS', '10'))
+poll_interval = float(os.getenv('RP_POLL_INTERVAL', '0.5'))
+socket_timeout = float(os.getenv('RP_SOCKET_TIMEOUT', '0.005'))
 
+
+class RemoteProvisionerConfigMixin(Configurable):
 
     _log_formatter_cls = LogFormatter  # traitlet default is LevelFormatter
 
