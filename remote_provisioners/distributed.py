@@ -1,6 +1,7 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in YARN clusters."""
+from __future__ import annotations
 
 import asyncio
 import getpass
@@ -9,33 +10,62 @@ import os
 import paramiko
 import signal
 import subprocess
+import warnings
 
 from socket import gethostbyname, gethostname
-from traitlets import default, List
+from traitlets import default, List, TraitError, Unicode, validate
 from typing import Any, Dict, List as tyList, Optional
 from jupyter_client import launch_kernel, KernelConnectionInfo
 
+from .config_mixin import poll_interval, max_poll_attempts, ssh_port
 from .remote_provisioner import RemoteProvisionerBase
 
-poll_interval = float(os.getenv('RP_POLL_INTERVAL', '0.5'))
-max_poll_attempts = int(os.getenv('RP_MAX_POLL_ATTEMPTS', '10'))
 kernel_log_dir = os.getenv("RP_KERNEL_LOG_DIR", '/tmp')  # would prefer /var/log, but its only writable by root
 
-ssh_port = int(os.getenv('RP_SSH_PORT', '22'))
 
-# These envs are not documented and should default to current user and None, respectively.  These
-# exist just in case we find them necessary in some configurations (where the service user
-# must be different).  However, tests show that that configuration doesn't work - so there
-# might be more to do.  At any rate, we'll use these variables for now.
-remote_user = None
-remote_pwd = None
+class TrackKernelOnHost:
+    """
+    Class used to track the number of active kernels on the set of hosts
+    so that the least-utilized host can be used for the next distributed
+    request.
+    """
+    _host_kernels = {}
+    _kernel_host_mapping = {}
+
+    def add_kernel_id(self, host: str, kernel_id: str) -> None:
+        self._kernel_host_mapping[kernel_id] = host
+        self.increment(host)
+
+    def delete_kernel_id(self, kernel_id: str) -> None:
+        host = self._kernel_host_mapping.get(kernel_id)
+        if host:
+            self.decrement(host)
+            del self._kernel_host_mapping[kernel_id]
+
+    def min_or_remote_host(self, remote_host: str | None = None) -> str:
+        if remote_host:
+            return remote_host
+        return min(self._host_kernels, key=lambda k: self._host_kernels[k])
+
+    def increment(self, host: str) -> None:
+        val = int(self._host_kernels.get(host, 0))
+        self._host_kernels[host] = val + 1
+
+    def decrement(self, host: str) -> None:
+        val = int(self._host_kernels.get(host, 0))
+        self._host_kernels[host] = val - 1
+
+    def init_host_kernels(self, hosts) -> None:
+        if len(self._host_kernels) == 0:
+            self._host_kernels.update({key: 0 for key in hosts})
 
 
 class DistributedProvisioner(RemoteProvisionerBase):
     """
-    Kernel lifecycle management for clusters via ssh.
+    Kernel lifecycle management for clusters via ssh and a set of hosts.
     """
     host_index = 0
+    kernel_on_host = TrackKernelOnHost()
 
     remote_hosts_env = 'RP_REMOTE_HOSTS'
     remote_hosts_default_value = 'localhost'
@@ -48,9 +78,52 @@ class DistributedProvisioner(RemoteProvisionerBase):
     def remote_hosts_default(self):
         return os.getenv(self.remote_hosts_env, self.remote_hosts_default_value).split(',')
 
+    load_balancing_algorithm_env = "RP_LOAD_BALANCING_ALGORITHM"
+    load_balancing_algorithm_default_value = "round-robin"
+    load_balancing_algorithm = Unicode(
+        load_balancing_algorithm_default_value,
+        config=True,
+        help="""Specifies which load balancing algorithm DistributedProvisioner should use.
+            Must be one of "round-robin" or "least-connection".  (RP_LOAD_BALANCING_ALGORITHM
+            env var)
+            """,
+    )
+
+    @default("load_balancing_algorithm")
+    def load_balancing_algorithm_default(self) -> str:
+        return os.getenv(
+            self.load_balancing_algorithm_env, self.load_balancing_algorithm_default_value
+        )
+
+    @validate("load_balancing_algorithm")
+    def _validate_load_balancing_algorithm(self, proposal: Dict[str, str]) -> str:
+        value = proposal["value"]
+        try:
+            assert value in ["round-robin", "least-connection"]
+        except ValueError:
+            raise TraitError(
+                f"Invalid load_balancing_algorithm value {value}, not in [round-robin,least-connection]"
+            )
+        return value
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.kernel_log = None
+        self.local_stdout = None
+        self.least_connection = self.load_balancing_algorithm == "least-connection"
+        _remote_user = os.getenv("RP_REMOTE_USER")
+        self.remote_pwd = os.getenv("RP_REMOTE_PWD")
+        self.use_gss = os.getenv("RP_REMOTE_GSS_SSH", "False").lower() == "true"
+        if self.use_gss:
+            if self.remote_pwd or _remote_user:
+                warnings.warn(
+                    "Both `RP_REMOTE_GSS_SSH` and one of `RP_REMOTE_PWD` or `RP_REMOTE_USER` is set. "
+                    "Those options are mutually exclusive, you configuration may be incorrect. "
+                    "RP_REMOTE_GSS_SSH will take priority."
+                )
+            self.remote_user = None
+        else:
+            self.remote_user = _remote_user if _remote_user else getpass.getuser()
 
     @property
     def has_process(self) -> bool:
@@ -70,7 +143,8 @@ class DistributedProvisioner(RemoteProvisionerBase):
 
         NOTE: This overrides the superclass `launch_kernel` method entirely.
         """
-        self.assigned_host = self._determine_next_host()
+        env_dict = kwargs.get("env", {})
+        self.assigned_host = self._determine_next_host(env_dict)
         self.ip = gethostbyname(self.assigned_host)  # convert to ip if host is provided
         self.assigned_ip = self.ip
 
@@ -135,20 +209,20 @@ class DistributedProvisioner(RemoteProvisionerBase):
         proven unsuccessful.
         """
         # If we have a local process, use its method, else signal soft kill first before hard kill.
-        result = await self.terminate()  # Send -15 signal first
+        await self.terminate()  # Send -15 signal first
         i = 1
         while await self.poll() is None and i <= max_poll_attempts:
             await asyncio.sleep(poll_interval)
             i = i + 1
         if i > max_poll_attempts:  # Send -9 signal if process is still alive
             if self.local_proc:
-                result = self.local_proc.kill()
-                self.log.debug(f"DistributedProvisioner.kill(): {result}")
+                self.local_proc.kill()
+                self.log.debug("DistributedProvisioner.kill() called.")
             else:
                 if self.ip and self.pid > 0:
                     await self.send_signal(signal.SIGKILL)
                     self.log.debug(f"SIGKILL signal sent to pid: {self.pid}")
-        return result
+        return None
 
     async def terminate(self, restart=False) -> None:
         """
@@ -158,18 +232,33 @@ class DistributedProvisioner(RemoteProvisionerBase):
         proven unsuccessful.
         """
         # If we have a local process, use its method, else send signal SIGTERM to soft kill.
-        result = None
         if self.local_proc:
-            result = self.local_proc.terminate()
-            self.log.debug(f"DistributedProvisioner.terminate(): {result}")
+            self.local_proc.terminate()
+            self.log.debug("DistributedProvisioner.terminate() called.")
         else:
             if self.ip and self.pid > 0:
                 await self.send_signal(signal.SIGTERM)
                 self.log.debug(f"SIGTERM signal sent to pid: {self.pid}")
-        return result
+        return None
+
+    def _unregister_assigned_host(self) -> None:
+        if self.least_connection:
+            DistributedProvisioner.kernel_on_host.delete_kernel_id(self.kernel_id)
 
     async def cleanup(self, restart=False) -> None:
-        pass
+        # DistributedProvisioner can have a tendency to leave zombies, particularly when the
+        # server is abruptly terminated.  This extra call to shutdown_lister does the trick.
+        await self.shutdown_listener()
+        self._unregister_assigned_host()
+        if self.local_stdout:
+            self.local_stdout.close()
+            self.local_stdout = None
+        await super().cleanup()
+
+    async def shutdown_listener(self) -> None:
+        """Ensure that kernel process is terminated."""
+        await self.send_signal(signal.SIGTERM)
+        await super().shutdown_listener()
 
     def log_kernel_launch(self, cmd: tyList[str]) -> None:
         self.log.info(f"{self.__class__.__name__}: kernel launched.  Host: '{self.assigned_host}', "
@@ -188,9 +277,9 @@ class DistributedProvisioner(RemoteProvisionerBase):
 
         if RemoteProvisionerBase.ip_is_local(self.ip):
             # launch the local command with redirection in place
-            log_fd = open(self.kernel_log, mode='w')
+            self.local_stdout = open(self.kernel_log, mode='a')
             self.local_proc = launch_kernel(cmd,
-                                            stdout=log_fd,
+                                            stdout=self.local_stdout,
                                             stderr=subprocess.STDOUT,
                                             **kwargs)
             result_pid = str(self.local_proc.pid)
@@ -215,38 +304,48 @@ class DistributedProvisioner(RemoteProvisionerBase):
         # Optimized case needs to also redirect the kernel output, so unconditionally compose kernel_log
         env_dict = kwargs['env']
         kid = env_dict.get('KERNEL_ID')
-        self.kernel_log = os.path.join(kernel_log_dir, "kernel-{}.log".format(kid))
+        self.kernel_log = os.path.join(kernel_log_dir, f"kernel-{kid}.log")
 
         if RemoteProvisionerBase.ip_is_local(self.ip):  # We're local so just use what we're given
             startup_cmd = cmd
         else:  # Add additional envs, including those in kernelspec
             startup_cmd = ''
             if kid:
-                startup_cmd += 'export KERNEL_ID="{}";'.format(kid)
+                startup_cmd += f'export KERNEL_ID="{kid}";'
 
-            kuser = env_dict.get('KERNEL_USERNAME')
-            if kuser:
-                startup_cmd += 'export KERNEL_USERNAME="{}";'.format(kuser)
+            kernel_user = env_dict.get('KERNEL_USERNAME')
+            if kernel_user:
+                startup_cmd += f'export KERNEL_USERNAME="{kernel_user}";'
 
             impersonation = env_dict.get('RP_IMPERSONATION_ENABLED')
             if impersonation:
-                startup_cmd += 'export RP_IMPERSONATION_ENABLED="{}";'.format(impersonation)
+                startup_cmd += f'export RP_IMPERSONATION_ENABLED="{impersonation}";'
 
             for key, value in self.kernel_spec.env.items():
                 startup_cmd += "export {}={};".format(key, json.dumps(value).replace("'", "''"))
 
-            startup_cmd += 'nohup'
+            startup_cmd += "nohup"
             for arg in cmd:
-                startup_cmd += ' {}'.format(arg)
+                startup_cmd += f" {arg}"
 
-            startup_cmd += ' >> {} 2>&1 & echo $!'.format(self.kernel_log)  # return the process id
+            startup_cmd += f" >> {self.kernel_log} 2>&1 & echo $!"  # return the process id
 
         return startup_cmd
 
-    def _determine_next_host(self):
+    def _determine_next_host(self, env_dict: Dict) -> str:
         """Simple round-robin index into list of hosts."""
-        next_host = self.remote_hosts[DistributedProvisioner.host_index % self.remote_hosts.__len__()]
-        DistributedProvisioner.host_index += 1
+        remote_host = env_dict.get("KERNEL_REMOTE_HOST")
+        if self.least_connection:
+            next_host = DistributedProvisioner.kernel_on_host.min_or_remote_host(remote_host)
+            DistributedProvisioner.kernel_on_host.add_kernel_id(next_host, self.kernel_id)
+        else:
+            next_host = (
+                remote_host
+                if remote_host
+                else self.remote_hosts[DistributedProvisioner.host_index % self.remote_hosts.__len__()]
+            )
+            DistributedProvisioner.host_index += 1
+
         return next_host
 
     async def confirm_remote_startup(self):
@@ -276,7 +375,7 @@ class DistributedProvisioner(RemoteProvisionerBase):
             await asyncio.get_event_loop().run_in_executor(None, self.kill)
             self.log_and_raise(TimeoutError(timeout_message))
 
-    def _get_ssh_client(self, host):
+    def _get_ssh_client(self, host) -> paramiko.SSHClient:
         """
         Create a SSH Client based on host, username and password if provided.
         If there is any AuthenticationException/SSHException, raise HTTP Error 403 as permission denied.
@@ -286,31 +385,44 @@ class DistributedProvisioner(RemoteProvisionerBase):
         """
         ssh = None
 
-        global remote_user
-        global remote_pwd
-        if remote_user is None:
-            remote_user = os.getenv('RP_REMOTE_USER', getpass.getuser())
-            remote_pwd = os.getenv('RP_REMOTE_PWD')  # this should use password-less ssh
-
         try:
             ssh = paramiko.SSHClient()
             ssh.load_system_host_keys()
-            ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
             host_ip = gethostbyname(host)
-            if remote_pwd:
-                ssh.connect(host_ip, port=ssh_port, username=remote_user, password=remote_pwd)
+            if self.use_gss:
+                self.log.debug("Connecting to remote host via GSS.")
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                ssh.connect(host_ip, port=ssh_port, gss_auth=True)
             else:
-                ssh.connect(host_ip, port=ssh_port, username=remote_user)
+                ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
+                if self.remote_pwd:
+                    self.log.debug("Connecting to remote host with username and password.")
+                    ssh.connect(
+                        host_ip,
+                        port=ssh_port,
+                        username=self.remote_user,
+                        password=self.remote_pwd,
+                    )
+                else:
+                    self.log.debug("Connecting to remote host with ssh key.")
+                    ssh.connect(host_ip, port=ssh_port, username=self.remote_user)
         except Exception as e:
+            http_status_code = 500
             current_host = gethostbyname(gethostname())
-            error_message = "Exception '{}' occurred when creating a SSHClient at {} connecting " \
-                            "to '{}:{}' with user '{}', message='{}'.". \
-                format(type(e).__name__, current_host, host, ssh_port, remote_user, e)
+            error_message = (
+                f"Exception '{type(e).__name__}' occurred when creating a SSHClient at {current_host} connecting "
+                f"to '{host}:{ssh_port}' with user '{self.remote_user}', message='{e}'."
+            )
             if e is paramiko.SSHException or paramiko.AuthenticationException:
+                http_status_code = 403
                 error_message_prefix = "Failed to authenticate SSHClient with password"
-                error_message = error_message_prefix + (" provided" if remote_pwd else "-less SSH")
-                self.log_and_raise(PermissionError(error_message))
+                error_message = error_message_prefix + (
+                    " provided" if self.remote_pwd else "-less SSH"
+                )
+                error_message = error_message + f"and RP_REMOTE_GSS_SSH={self.use_gss}"
+
             self.log_and_raise(RuntimeError(error_message))
+
         return ssh
 
     def rsh(self, host, command):

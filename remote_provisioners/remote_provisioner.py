@@ -24,16 +24,12 @@ from socket import socket, timeout,\
 from typing import Any, Dict, List, Optional, Tuple
 from zmq.ssh import tunnel
 
-from .config_mixin import RemoteProvisionerConfigMixin
+from .config_mixin import RemoteProvisionerConfigMixin, poll_interval, max_poll_attempts, socket_timeout, ssh_port
 from .response_manager import ResponseManager
 
 # Pop certain env variables that don't need to be logged, e.g. remote_pwd
 env_pop_list = ['RP_REMOTE_PWD', 'LS_COLORS']
 default_kernel_launch_timeout = float(os.getenv('KERNEL_LAUNCH_TIMEOUT', '30'))
-
-max_poll_attempts = int(os.getenv('RP_MAX_POLL_ATTEMPTS', '10'))
-poll_interval = float(os.getenv('RP_POLL_INTERVAL', '0.5'))
-socket_timeout = float(os.getenv('RP_SOCKET_TIMEOUT', '0.005'))
 
 # Minimum port range size and max retries
 min_port_range_size = int(os.getenv('RP_MIN_PORT_RANGE_SIZE', '1000'))
@@ -43,8 +39,7 @@ max_port_range_retries = int(os.getenv('RP_MAX_PORT_RANGE_RETRIES', '5'))
 max_keep_alive_interval_default = 100 * 365 * 24 * 60 * 60
 max_keep_alive_interval = int(os.getenv("RP_TUNNEL_MAX_KEEP_ALIVE", max_keep_alive_interval_default))
 
-ssh_port = int(os.getenv('RP_SSH_PORT', '22'))
-tunneling_enabled = bool(os.getenv('EG_ENABLE_TUNNELING', 'False').lower() == 'true')
+tunneling_enabled = bool(os.getenv('RP_ENABLE_TUNNELING', 'False').lower() == 'true')
 
 local_ip = localinterfaces.public_ips()[0]
 
@@ -58,7 +53,7 @@ class KernelChannel(Enum):
     STDIN = "STDIN"
     HEARTBEAT = "HB"
     CONTROL = "CONTROL"
-    COMMUNICATION = "EG_COMM"  # Optional channel for remote launcher to issue interrupts - NOT a ZMQ channel
+    COMMUNICATION = "RP_COMM"  # Optional channel for remote launcher to issue interrupts - NOT a ZMQ channel
 
 
 class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase):
@@ -97,17 +92,6 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
         Returns potentially updated kwargs.
         """
-        self.start_time = None
-        self.assigned_ip = None
-        self.assigned_host = ''
-        self.comm_ip = None
-        self.comm_port = 0
-        self.tunneled_connect_info = None
-        self.tunnel_processes = {}
-        self.local_proc = None
-        self.ip = None
-        self.pid = 0
-        self.pgid = 0
         self.response_manager.register_event(self.kernel_id)
 
         cmd = self.kernel_spec.argv  # Build launch command, provide substitutions
@@ -134,7 +118,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
         env = kwargs.get('env', {})
         self.kernel_username = env.get('KERNEL_USERNAME', getpass.getuser())  # Let env override
-        env['KERNEL_USERNAME'] = self.kernel_username  # reset in env in case its not there
+        env['KERNEL_USERNAME'] = self.kernel_username  # reset in env in case it's not there
 
         self._enforce_authorization(**kwargs)
 
@@ -220,16 +204,15 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         # Note that if the target process is running as a different user than the REMOTE_USER,
         # using anything other than the socket-based signal (via signal_addr) will not work.
         if self.comm_port > 0:
-            signal_request = dict()
-            signal_request['signum'] = signum
 
             try:
-                await self._send_listener_request(signal_request)
+                await self._send_listener_request({"signum": signum})
                 if signum > 0:  # Polling (signum == 0) is too frequent
-                    self.log.debug("Signal ({}) sent via gateway communication port.".format(signum))
+                    self.log.debug(f"Signal ({signum}) sent via gateway communication port.")
                 return True
             except Exception as e:
-                if isinstance(e, OSError) and e.errno == errno.ECONNREFUSED:  # Return since there's no process.
+                if isinstance(e, OSError) and e.errno == errno.ECONNREFUSED:  # Return False since there's no process.
+                    self.log.debug("ERROR: ECONNREFUSED, no process listening, cannot send signal.")
                     return True
 
                 self.log.warning(f"An unexpected exception occurred sending signal ({signum}) "
@@ -319,7 +302,19 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         The superclass method must always be called first to ensure proper ordering.  Since this is the
         most base class, no call to `super()` is necessary.
         """
-        provisioner_info = {}
+        provisioner_info = await super().get_provisioner_info()
+        provisioner_info.update(
+            {
+                "pid": self.pid,
+                "pgid": self.pgid,
+                "ip": self.ip,
+                "assigned_ip": self.assigned_ip,
+                "assigned_host": self.assigned_host,
+                "comm_ip": self.comm_ip,
+                "comm_port": self.comm_port,
+                "tunneled_connect_info": self.tunneled_connect_info,
+            }
+        )
         return provisioner_info
 
     async def load_provisioner_info(self, provisioner_info: Dict) -> None:
@@ -328,7 +323,15 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         The superclass method must always be called first to ensure proper ordering.  Since this is the
         most base class, no call to `super()` is necessary.
         """
-        pass
+        await super().load_provisioner_info(provisioner_info)
+        self.pid = provisioner_info.get("pid")
+        self.pgid = provisioner_info.get("pgid")
+        self.ip = provisioner_info.get("ip")
+        self.assigned_ip = provisioner_info.get("assigned_ip")
+        self.assigned_host = provisioner_info.get("assigned_host")
+        self.comm_ip = provisioner_info.get("comm_ip")
+        self.comm_port = provisioner_info.get("comm_port")
+        self.tunneled_connect_info = provisioner_info.get("tunneled_connect_info")
 
     def get_shutdown_wait_time(self, recommended: Optional[float] = 5.0) -> float:
         """Returns the time allowed for a complete shutdown.  This may vary by provisioner.
@@ -378,12 +381,11 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 self.local_proc = None
                 self.log_and_raise(RuntimeError(error_message))
 
-    # Done
     def _enforce_authorization(self, **kwargs):
         """Applies any authorization configuration using the kernel user.
 
         Regardless of impersonation enablement, this method first adds the appropriate value for
-        EG_IMPERSONATION_ENABLED into environment (for use by kernelspecs), then ensures that KERNEL_USERNAME
+        RP_IMPERSONATION_ENABLED into environment (for use by kernelspecs), then ensures that KERNEL_USERNAME
         has a value and is present in the environment (again, for use by kernelspecs).  If unset, KERNEL_USERNAME
         will be defaulted to the current user.
 
@@ -400,7 +402,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
         # Although it may already be set in the env, just override in case it was only set via command line or config
         # Convert to string since execve() (called by Popen in base classes) wants string values.
-        env_dict['EG_IMPERSONATION_ENABLED'] = str(self.impersonation_enabled)  # TODO - Leave EG_ for kernelspec?
+        env_dict['RP_IMPERSONATION_ENABLED'] = str(self.impersonation_enabled)
 
         # Now perform authorization checks
         if self.kernel_username in self.unauthorized_users:
@@ -411,7 +413,6 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             if self.kernel_username not in self.authorized_users:
                 self._raise_authorization_error("not in the set of users authorized")
 
-    # Done
     def _raise_authorization_error(self, differentiator_clause):
         """Raises a 403 status code after building the appropriate message."""
         kernel_name = self.kernel_spec.display_name
@@ -420,7 +421,6 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                         "Ensure KERNEL_USERNAME is set to an appropriate value and retry the request."
         self.log_and_raise(PermissionError(error_message))
 
-    # Done
     def _validate_port_range(self) -> Tuple[int, int]:
         """Validates the port range configuration option to ensure appropriate values."""
 
@@ -436,8 +436,8 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             if port_range_size != 0:
                 if port_range_size < min_port_range_size:
                     self.log_and_raise(ValueError(f"Port range validation failed for range: '{port_range}'.  "
-                                       f"Range size must be at least {min_port_range_size} as specified by "
-                                       "env EG_MIN_PORT_RANGE_SIZE"))
+                                                  f"Range size must be at least {min_port_range_size} as "
+                                                  f"specified by env RP_MIN_PORT_RANGE_SIZE"))
 
                 # According to RFC 793, port is a 16-bit unsigned int. Which means the port
                 # numbers must be in the range (0, 65535). However, within that range,
@@ -471,7 +471,6 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
         return lower_port, upper_port
 
-    # Done
     def log_and_raise(self, ex: Exception, chained: Optional[Exception] = None) -> None:
         """Helper method that logs the stringized exception 'ex' and raises that exception.
 
@@ -500,17 +499,15 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         # active, even after the kernel has terminated, leading to less than graceful terminations.
 
         if self.comm_port > 0:
-            shutdown_request = dict()
-            shutdown_request['shutdown'] = 1
 
             try:
-                await self._send_listener_request(shutdown_request, shutdown_socket=True)
+                await self._send_listener_request({"shutdown": 1}, shutdown_socket=True)
                 self.log.debug("Shutdown request sent to listener via gateway communication port.")
             except Exception as e:
                 if not isinstance(e, OSError) or e.errno != errno.ECONNREFUSED:
-                    self.log.warning("An unexpected exception occurred sending listener shutdown to {}:{} for "
-                                     "KernelID '{}': {}"
-                                     .format(self.comm_ip, self.comm_port, self.kernel_id, str(e)))
+                    self.log.warning(f"An unexpected exception occurred sending listener shutdown "
+                                     f"to {self.comm_ip}:{self.comm_port} for "
+                                     f"KernelID '{self.kernel_id}': {str(e)}")
 
             # Also terminate the tunnel process for the communication port - if in play.  Failure to terminate
             # this process results in the kernel (launcher) appearing to remain alive following the shutdown
@@ -519,7 +516,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             comm_port_name = KernelChannel.COMMUNICATION.value
             comm_port_tunnel = self.tunnel_processes.get(comm_port_name, None)
             if comm_port_tunnel:
-                self.log.debug("shutdown_listener: terminating {} tunnel process.".format(comm_port_name))
+                self.log.debug(f"shutdown_listener: terminating {comm_port_name} tunnel process.")
                 comm_port_tunnel.terminate()
                 del self.tunnel_processes[comm_port_name]
 
@@ -640,7 +637,6 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 # FIXME - should we wait prior to unset?
                 self.local_proc = None
 
-    # TODO - convert to async
     async def _send_listener_request(self, request: dict, shutdown_socket: Optional[bool] = False) -> None:
         """
         Sends the request dictionary to the kernel listener via the comm port.  Caller is responsible for
@@ -659,12 +655,23 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                         sock.shutdown(SHUT_WR)
                     except Exception as e2:
                         if isinstance(e2, OSError) and e2.errno == errno.ENOTCONN:
-                            pass  # Listener is not connected.  This is probably a follow-on to ECONNREFUSED on connect
+                            # Listener is not connected.  This is probably a follow-on to ECONNREFUSED on connect
+                            self.log.debug(
+                                "ERROR: OSError(ENOTCONN) raised on socket shutdown, "
+                                "listener likely not connected. Cannot send {request}",
+                                request=request,
+                            )
                         else:
                             self.log.warning("Exception occurred attempting to shutdown communication socket to {}:{} "
                                              "for KernelID '{}' (ignored): {}".format(self.comm_ip, self.comm_port,
                                                                                       self.kernel_id, str(e2)))
                 sock.close()
+        else:
+            self.log.debug(
+                "Invalid comm port, not sending request '{}' to comm_port '{}'.",
+                request,
+                self.comm_port,
+            )
 
     @staticmethod
     def get_current_time() -> int:
@@ -827,18 +834,3 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         if range_size == 0:
             return 0
         return random.randint(self.lower_port, self.upper_port)
-
-    # FIXME - Use jupyter_client/utils once its available.
-    @staticmethod
-    def run_sync(coro):
-        def wrapped(*args, **kwargs):
-            import nest_asyncio
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-            nest_asyncio.apply(loop)
-            return loop.run_until_complete(coro(*args, **kwargs))
-        wrapped.__doc__ = coro.__doc__
-        return wrapped

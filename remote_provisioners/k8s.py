@@ -19,15 +19,15 @@ urllib3.disable_warnings()
 # Default logging level of kubernetes produces too much noise - raise to warning only.
 logging.getLogger('kubernetes').setLevel(os.environ.get('EG_KUBERNETES_LOG_LEVEL', logging.WARNING))
 
-enterprise_gateway_namespace = os.environ.get('EG_NAMESPACE', 'default')
-default_kernel_service_account_name = os.environ.get('EG_DEFAULT_KERNEL_SERVICE_ACCOUNT_NAME', 'default')
-kernel_cluster_role = os.environ.get('EG_KERNEL_CLUSTER_ROLE', 'cluster-admin')
+k8s_provisioner_namespace = os.environ.get('RP_NAMESPACE', 'default')
+default_kernel_service_account_name = os.environ.get('RP_DEFAULT_KERNEL_SERVICE_ACCOUNT_NAME', 'default')
+kernel_cluster_role = os.environ.get('RP_KERNEL_CLUSTER_ROLE', 'cluster-admin')
 
-# TODO: The default for this value should probably flip for single-user/Notebook scenarios (True) vs.
-# multi-tenant/Gateway scenarios (False).  The app config will be available from `kernel_manager.app_config`
-# so we should be able to move this into constructor (or after) and infer from that information.
 # Since provisioners are a single-user scenario (not going through EG), use a shared namespace.
 shared_namespace = bool(os.environ.get('RP_SHARED_NAMESPACE', 'True').lower() == 'true')
+kpt_dir = os.environ.get("RP_POD_TEMPLATE_DIR", "/tmp")
+
+app_name = os.environ.get("RP_APP_NAME", "k8s-provisioner")
 
 if bool(os.environ.get('RP_USE_INCLUSTER_CONFIG', 'True').lower() == 'true'):
     config.load_incluster_config()
@@ -63,11 +63,14 @@ class KubernetesProvisioner(ContainerProvisioner):
 
     async def get_container_status(self, iteration: Optional[str]) -> str:
         """Return current container state."""
-        # Locates the kernel pod using the kernel_id selector.  If the phase indicates Running, the pod's IP
-        # is used for the assigned_ip.
+        # Locates the kernel pod using the kernel_id selector.  Note that we also include 'component=kernel'
+        # in the selector so that executor pods (when Spark is in use) are not considered.
+        # If the phase indicates Running, the pod's IP is used for the assigned_ip.
         pod_status = None
-        ret = client.CoreV1Api().list_namespaced_pod(namespace=self.kernel_namespace,
-                                                     label_selector="kernel_id=" + self.kernel_id)
+        kernel_label_selector = f"kernel_id={self.kernel_id},component=kernel"
+        ret = client.CoreV1Api().list_namespaced_pod(
+            namespace=self.kernel_namespace, label_selector=kernel_label_selector
+        )
         if ret and ret.items:
             pod_info = ret.items[0]
             self.container_name = pod_info.metadata.name
@@ -96,43 +99,89 @@ class KubernetesProvisioner(ContainerProvisioner):
         result = False
         body = client.V1DeleteOptions(grace_period_seconds=0, propagation_policy='Background')
 
-        # Delete the namespace or pod...
-        object_name: str = 'pod'  # default to pod
+        # Delete the pod then, if applicable, the namespace
         try:
-            # What gets returned from this call is a 'V1Status'.  It looks a bit like JSON but appears to be
-            # intentionally obfuscated.  Attempts to load the status field fail due to malformed json.  As a
-            # result, we'll rely on the fact that the api will raise exceptions on failure and we'll tolerate
-            # 404 (for this case).
+            object_name = "pod"
+            status = None
+            termination_stati = ["Succeeded", "Failed", "Terminating"]
 
-            if self.delete_kernel_namespace and not restart:
-                object_name = 'namespace'
-                client.CoreV1Api().delete_namespace(name=self.kernel_namespace, body=body)
-            else:
-                client.CoreV1Api().delete_namespaced_pod(namespace=self.kernel_namespace,
-                                                         body=body, name=self.container_name)
-            result = True
+            # Deleting a Pod will return a v1.Pod if found and its status will be a PodStatus containing
+            # a phase string property
+            # https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#podstatus-v1-core
+            v1_pod = client.CoreV1Api().delete_namespaced_pod(
+                namespace=self.kernel_namespace, body=body, name=self.container_name
+            )
+            if v1_pod and v1_pod.status:
+                status = v1_pod.status.phase
+
+            if status in termination_stati:
+                result = True
+
+            if not result:
+                # If the status indicates the pod is not terminated, capture its current status.
+                # If None, update the result to True, else issue warning that it is not YET deleted
+                # since we still have the hard termination sequence to occur.
+                cur_status = self.get_container_status(None)
+                if cur_status is None:
+                    result = True
+                else:
+                    self.log.warning(
+                        f"Pod {self.kernel_namespace}.{self.container_name} is not yet deleted.  "
+                        f"Current status is '{cur_status}'."
+                    )
+
+            if self.delete_kernel_namespace and not self.kernel_manager.restarting:
+                object_name = "namespace"
+                # Status is a return value for calls that don't return other objects.
+                # https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#status-v1-meta
+                v1_status = client.CoreV1Api().delete_namespace(
+                    name=self.kernel_namespace, body=body
+                )
+                if v1_status:
+                    status = v1_status.status
+
+                if status:
+                    if any(s in status for s in termination_stati):
+                        result = True
+
+                if not result:
+                    self.log.warning(
+                        f"Namespace {self.kernel_namespace} is not yet deleted.  "
+                        f"Current status is '{status}'."
+                    )
+
         except Exception as err:
-            if isinstance(err, ApiException) and err.status == 404:
+            if isinstance(err, client.rest.ApiException) and err.status == 404:
                 result = True  # okay if its not found
             else:
                 self.log.warning(f"Error occurred deleting {object_name}: {err}")
 
         if result:
-            self.log.debug(f"KubernetesProvisioner.terminate_container_resources, "
-                           f"pod: {self.kernel_namespace}.{self.container_name}, "
-                           f"kernel ID: {self.kernel_id} has been terminated.")
+            self.log.debug(
+                f"KubernetesProvisioner.terminate_container_resources, pod: {self.kernel_namespace}."
+                f"{self.container_name}, kernel ID: {self.kernel_id} has been terminated."
+            )
             self.container_name = None
             result = None  # maintain jupyter contract
         else:
-            self.log.warning(f"KubernetesProvisioner.terminate_container_resources, "
-                             f"pod: {self.kernel_namespace}.{self.container_name}, "
-                             f"kernel ID: {self.kernel_id} has not been terminated.")
+            self.log.warning(
+                f"KubernetesProvisioner.terminate_container_resources, pod: {self.kernel_namespace}."
+                f"{self.container_name}, kernel ID: {self.kernel_id} has not been terminated."
+            )
+
+        # Check if there's a kernel pod template file for this kernel and silently delete it.
+        kpt_file = f"{kpt_dir}/kpt_{self.kernel_id}"
+        try:
+            os.remove(kpt_file)
+        except OSError:
+            pass
+
         return result
 
     def _determine_kernel_pod_name(self, **kwargs):
         pod_name = kwargs['env'].get('KERNEL_POD_NAME')
         if pod_name is None:
-            pod_name = self.kernel_username + '-' + self.kernel_id
+            pod_name = f"{self.kernel_username}-{self.kernel_id}"
 
         # Rewrite pod_name to be compatible with DNS name convention
         # And put back into env since kernel needs this
@@ -156,15 +205,15 @@ class KubernetesProvisioner(ContainerProvisioner):
         namespace = kwargs['env'].get('KERNEL_NAMESPACE')
         if namespace is None:
             # check if share gateway namespace is configured...
-            if shared_namespace:  # if so, set to EG namespace
-                namespace = enterprise_gateway_namespace
-                self.log.warning("Shared namespace has been configured.  All kernels will reside in EG namespace: {}".
-                                 format(namespace))
+            if shared_namespace:  # if so, set to RP namespace
+                namespace = k8s_provisioner_namespace
+                self.log.warning(f"Shared namespace has been configured.  All kernels will reside "
+                                 f"in the namespace: {namespace}")
             else:
                 namespace = self._create_kernel_namespace(service_account_name)
             kwargs['env']['KERNEL_NAMESPACE'] = namespace  # record in env since kernel needs this
         else:
-            self.log.info("KERNEL_NAMESPACE provided by client: {}".format(namespace))
+            self.log.info(f"KERNEL_NAMESPACE provided by client: {namespace}")
 
         return namespace
 
@@ -186,7 +235,7 @@ class KubernetesProvisioner(ContainerProvisioner):
         namespace = self.kernel_pod_name
 
         # create the namespace ...
-        labels = {'app': 'enterprise-gateway', 'component': 'kernel', 'kernel_id': self.kernel_id}
+        labels = {'app': app_name, 'component': 'kernel', 'kernel_id': self.kernel_id}
         namespace_metadata = client.V1ObjectMeta(name=namespace, labels=labels)
         body = client.V1Namespace(metadata=namespace_metadata)
 
@@ -194,7 +243,7 @@ class KubernetesProvisioner(ContainerProvisioner):
         try:
             client.CoreV1Api().create_namespace(body=body)
             self.delete_kernel_namespace = True
-            self.log.info("Created kernel namespace: {}".format(namespace))
+            self.log.info(f"Created kernel namespace: {namespace}")
 
             # Now create a RoleBinding for this namespace for the default ServiceAccount.  We'll reference
             # the ClusterRole, but that will only be applied for this namespace.  This prevents the need for
@@ -202,7 +251,7 @@ class KubernetesProvisioner(ContainerProvisioner):
             self._create_role_binding(namespace, service_account_name)
         except Exception as err:
             # FIXME - self.parent is the kernel manager. We probably want a better means of determining
-            # a launch is for the purpose of a restart.
+            # if a launch is for the purpose of a restart.
             if isinstance(err, ApiException) and err.status == 409 and self.parent.restarting:
                 self.delete_kernel_namespace = True  # okay if ns already exists and restarting, still mark for delete
                 self.log.info(f"Re-using kernel namespace: {namespace}")
@@ -229,7 +278,7 @@ class KubernetesProvisioner(ContainerProvisioner):
         # We will not use a try/except clause here since _create_kernel_namespace will handle exceptions.
 
         role_binding_name = kernel_cluster_role  # use same name for binding as cluster role
-        labels = {'app': 'enterprise-gateway', 'component': 'kernel', 'kernel_id': self.kernel_id}
+        labels = {'app': app_name, 'component': 'kernel', 'kernel_id': self.kernel_id}
         binding_metadata = client.V1ObjectMeta(name=role_binding_name, labels=labels)
         binding_role_ref = client.V1RoleRef(api_group='', kind='ClusterRole', name=kernel_cluster_role)
         binding_subjects = client.V1Subject(api_group='', kind='ServiceAccount', name=service_account_name,

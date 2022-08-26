@@ -1,6 +1,7 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in YARN clusters."""
+from __future__ import annotations
 
 import asyncio
 import errno
@@ -14,19 +15,18 @@ from traitlets import default, Unicode, Bool
 from typing import Any, Dict, List, Optional, Tuple
 from yarn_api_client.resource_manager import ResourceManager
 
+from .config_mixin import poll_interval, max_poll_attempts
 from .remote_provisioner import RemoteProvisionerBase
 
-# Default logging level of yarn-api and underlying connectionpool produce too much noise - raise to warning only.
-logging.getLogger('yarn_api_client').setLevel(os.getenv('YP_YARN_LOG_LEVEL', logging.WARNING))
-logging.getLogger('urllib3.connectionpool').setLevel(os.environ.get('YP_YARN_LOG_LEVEL', logging.WARNING))
+# Default logging level of yarn-api and underlying connection pool produce too much noise - raise to warning only.
+logging.getLogger('yarn_api_client').setLevel(os.getenv('RP_YARN_LOG_LEVEL', logging.WARNING))
+logging.getLogger('urllib3.connectionpool').setLevel(os.environ.get('RP_YARN_LOG_LEVEL', logging.WARNING))
 
-poll_interval = float(os.getenv('EG_POLL_INTERVAL', '0.5'))
-max_poll_attempts = int(os.getenv('EG_MAX_POLL_ATTEMPTS', '10'))
 yarn_shutdown_wait_time = float(os.getenv('RP_YARN_SHUTDOWN_WAIT_TIME', '15.0'))
 # cert_path: Boolean, defaults to `True`, that controls
 #            whether we verify the server's TLS certificate in yarn-api-client.
 #            Or a string, in which case it must be a path to a CA bundle(.pem file) to use.
-cert_path = os.getenv('EG_YARN_CERT_BUNDLE', True)
+cert_path = os.getenv('RP_YARN_CERT_BUNDLE', True)
 
 
 class YarnProvisioner(RemoteProvisionerBase):
@@ -79,6 +79,14 @@ class YarnProvisioner(RemoteProvisionerBase):
         self.candidate_queue = None
         self.candidate_partition = None
 
+        # If yarn resource check is enabled, and it isn't available immediately,
+        # 20% of kernel_launch_timeout is used to wait
+        # and retry at fixed interval before pronouncing as not feasible to launch.
+        self.yarn_resource_check_wait_time = 0.20 * self.launch_timeout
+
+    def _initialize_resource_manager(self, **kwargs: dict[str, Any] | None) -> None:
+        """Initialize the Hadoop YARN Resource Manager instance used for this kernel's lifecycle."""
+
         endpoints = None
         if self.yarn_endpoint:
             endpoints = [self.yarn_endpoint]
@@ -87,19 +95,29 @@ class YarnProvisioner(RemoteProvisionerBase):
             if self.alt_yarn_endpoint:
                 endpoints.append(self.alt_yarn_endpoint)
 
-        auth = None
         if self.yarn_endpoint_security_enabled:
             from requests_kerberos import HTTPKerberosAuth
-            auth = HTTPKerberosAuth()
 
-        self.resource_mgr = ResourceManager(service_endpoints=endpoints, auth=auth, verify=cert_path)
+            auth = HTTPKerberosAuth()
+        else:
+            # If we have the appropriate version of yarn-api-client, use its SimpleAuth class.
+            # This allows EG to continue to issue requests against the YARN api when anonymous
+            # access is not allowed. (Default is to allow anonymous access.)
+            try:
+                from yarn_api_client.auth import SimpleAuth
+
+                auth = SimpleAuth(self.kernel_username)
+                self.log.debug(
+                    f"Using SimpleAuth with '{self.kernel_username}' against endpoints: {endpoints}"
+                )
+            except ImportError:
+                auth = None
+
+        self.resource_mgr = ResourceManager(
+            service_endpoints=endpoints, auth=auth, verify=cert_path
+        )
 
         self.rm_addr = self.resource_mgr.get_active_endpoint()
-
-        # If yarn resource check is enabled and it isn't available immediately,
-        # 20% of kernel_launch_timeout is used to wait
-        # and retry at fixed interval before pronouncing as not feasible to launch.
-        self.yarn_resource_check_wait_time = 0.20 * self.launch_timeout
 
     async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
         """
@@ -111,6 +129,8 @@ class YarnProvisioner(RemoteProvisionerBase):
         self.candidate_partition = None
 
         kwargs = await super().pre_launch(**kwargs)
+
+        self._initialize_resource_manager(**kwargs)
 
         # checks to see if the queue resource is available
         # if not available, kernel startup is not attempted
@@ -309,14 +329,14 @@ class YarnProvisioner(RemoteProvisionerBase):
         while state not in YarnProvisioner.final_states and i <= max_poll_attempts:
             await asyncio.sleep(poll_interval)
             state = self._query_app_state_by_id(self.application_id)
-            i = i + 1
+            i += 1
 
         if state in YarnProvisioner.final_states:
             result = None
 
         return result, state
 
-    async def cleanup(self, restart: bool = False):
+    async def cleanup(self, restart: bool = False) -> None:
         """"""
         # we might have a defunct process (if using waitAppCompletion = false) - so poll, kill, wait when we have
         # a local_proc.
@@ -335,7 +355,7 @@ class YarnProvisioner(RemoteProvisionerBase):
         # for cleanup, we should call the superclass last
         await super().cleanup(restart=restart)
 
-    async def confirm_remote_startup(self):
+    async def confirm_remote_startup(self) -> None:
         """
         Confirms the yarn application is in a started state before returning.
 
@@ -369,7 +389,7 @@ class YarnProvisioner(RemoteProvisionerBase):
             else:
                 self.detect_launch_failure()
 
-    async def handle_launch_timeout(self):
+    async def handle_launch_timeout(self) -> None:
         """
         Checks to see if the kernel launch timeout has been exceeded while awaiting connection info.
 
@@ -404,11 +424,14 @@ class YarnProvisioner(RemoteProvisionerBase):
     async def load_provisioner_info(self, provisioner_info: Dict) -> None:
         """Loads the base information necessary for kernel persistence relative to YARN clusters."""
         await super().load_provisioner_info(provisioner_info)
-        self.application_id = provisioner_info['application_id']
+        self.application_id = provisioner_info.get("application_id")
 
     def _get_application_state(self) -> str:
-        # Gets the current application state using the application_id already obtained.  Once the assigned host
-        # has been identified, 'amHostHttpAddress' is nolonger accessed.
+        """
+        Gets the current application state using the application_id already obtained.
+
+        Once the assigned host has been identified, 'amHostHttpAddress' is no longer accessed.
+        """
         app_state = self.last_known_state
         app = self._query_app_by_id(self.application_id)
         if app:
@@ -418,14 +441,19 @@ class YarnProvisioner(RemoteProvisionerBase):
 
             if self.assigned_host == '' and app.get('amHostHttpAddress'):
                 self.assigned_host = app.get('amHostHttpAddress').split(':')[0]
-                # Set the kernel manager ip to the actual host where the application landed.
+                # Set the assigned ip to the actual host where the application landed.
                 self.assigned_ip = socket.gethostbyname(self.assigned_host)
 
         return app_state
 
-    def _get_application_id(self, ignore_final_states: bool = False) -> str:
-        # Return the kernel's YARN application ID if available, otherwise None.  If we're obtaining application_id
-        # from scratch, do not consider kernels in final states.
+    def _get_application_id(self, ignore_final_states: bool = False) -> str | None:
+        """
+        Return the kernel's YARN application ID if available, otherwise None.
+
+        If we're obtaining application_id from scratch, do not consider kernels in final states.
+        :param ignore_final_states:
+        :returns Optional[str] - the YARN application ID or None if not available
+        """
         if not self.application_id:
             app = self._query_app_by_name(self.kernel_id)
             state_condition = True
@@ -445,8 +473,10 @@ class YarnProvisioner(RemoteProvisionerBase):
                 self.log.debug(f"ApplicationID not yet assigned for KernelID: '{self.kernel_id}' - retrying...")
         return self.application_id
 
-    def _query_app_by_name(self, kernel_id: str) -> dict:
-        """Retrieve application by using kernel_id as the unique app name.
+    def _query_app_by_name(self, kernel_id: str) -> dict | None:
+        """
+        Retrieve application by using kernel_id as the unique app name.
+
         With the started_time_begin as a parameter to filter applications started earlier than the target one from YARN.
         When submit a new app, it may take a while for YARN to accept and run and generate the application ID.
         Note: if a kernel restarts with the same kernel id as app name, multiple applications will be returned.
@@ -454,7 +484,7 @@ class YarnProvisioner(RemoteProvisionerBase):
         ID will be incremented automatically on the YARN side.
 
         :param kernel_id: as the unique app name for query
-        :return: The JSON object of an application.
+        :return: The JSON object of an application or None on failure
         """
         top_most_app_id = ''
         target_app = None
@@ -479,11 +509,11 @@ class YarnProvisioner(RemoteProvisionerBase):
                         top_most_app_id = app.get('id')
         return target_app
 
-    def _query_app_by_id(self, app_id: str) -> dict:
+    def _query_app_by_id(self, app_id: str) -> dict | None:
         """Retrieve an application by application ID.
 
         :param app_id
-        :return: The JSON object of an application.
+        :return: The JSON object of an application or None on failure.
         """
         app = None
         try:
