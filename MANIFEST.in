@@ -4,6 +4,7 @@ include README.rst
 recursive-include remote_provisioners/tests *
 recursive-include remote_provisioners/kernel-launchers *
 recursive-include remote_provisioners/kernel-resources *
+recursive-include remote_provisioners/kernel-specs *
 
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]

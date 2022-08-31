@@ -1,0 +1,33 @@
+{
+  "language": "${language}",
+  "display_name": "${display_name}",
+  "metadata": {
+    "kernel_provisioner": {
+      "provisioner_name": "yarn-provisioner",
+      "config": {
+      }
+    }
+  },
+  "env": {
+    "SPARK_HOME": "${spark_home}",
+    "PYSPARK_PYTHON": "${python_root}/bin/python",
+    "PYTHONPATH": "${HOME}/.local/lib/python3.7/site-packages:${spark_home}/python${py4j_path}",
+    "SPARK_OPTS": "--master yarn --deploy-mode cluster --name ${KERNEL_ID:-ERROR__NO__KERNEL_ID} --conf spark.yarn.submit.waitAppCompletion=false --conf spark.yarn.appMasterEnv.PYTHONUSERBASE=/home/${KERNEL_USERNAME}/.local --conf spark.yarn.appMasterEnv.PYTHONPATH=${HOME}/.local/lib/python3.7/site-packages:${spark_home}/python${py4j_path} --conf spark.yarn.appMasterEnv.PATH=${python_root}/bin:$PATH ${extra_spark_opts} ${KERNEL_EXTRA_SPARK_OPTS}",
+    "LAUNCH_OPTS": ""
+  },
+  "argv": [
+    "${install_dir}/bin/run.sh",
+    "--kernel-id",
+    "{kernel_id}",
+    "--port-range",
+    "{port_range}",
+    "--response-address",
+    "{response_address}",
+    "--public-key",
+    "{public_key}",
+    "--spark-context-initialization-mode",
+    "${spark_init_mode}",
+    "--kernel_class_name",
+    "${ipykernel_subclass_name}"
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "language": "${language}",
+  "display_name": "${display_name}",
+  "metadata": {
+    "kernel_provisioner": {
+      "provisioner_name": "kubernetes-provisioner",
+      "config": {
+        "image_name": "${image_name}",
+        "executor_image_name": "${executor_image_name}"
+      }
+    }
+  },
+  "env": {
+    "SPARK_HOME": "${spark_home}",
+    "SPARK_OPTS": "--master k8s://https://${KUBERNETES_SERVICE_HOST}:${KUBERNETES_SERVICE_PORT} --deploy-mode cluster --name ${KERNEL_USERNAME}-${KERNEL_ID} --conf spark.kubernetes.namespace=${KERNEL_NAMESPACE} --conf spark.kubernetes.driver.label.app=kubernetes-kernel-provider --conf spark.kubernetes.driver.label.kernel_id=${KERNEL_ID} --conf spark.kubernetes.driver.label.component=kernel --conf spark.kubernetes.executor.label.app=kubernetes-kernel-provider --conf spark.kubernetes.executor.label.kernel_id=${KERNEL_ID} --conf spark.kubernetes.executor.label.component=kernel --conf spark.kubernetes.driver.container.image=${KERNEL_IMAGE} --conf spark.kubernetes.executor.container.image=${KERNEL_EXECUTOR_IMAGE} --conf spark.kubernetes.authenticate.driver.serviceAccountName=${KERNEL_SERVICE_ACCOUNT_NAME} --conf spark.kubernetes.submission.waitAppCompletion=false ${extra_spark_opts} ${KERNEL_EXTRA_SPARK_OPTS}",
+    "LAUNCH_OPTS": ""
+  },
+  "argv": [
+    "${install_dir}/bin/run.sh",
+    "--kernel-id",
+    "{kernel_id}",
+    "--port-range",
+    "{port_range}",
+    "--response-address",
+    "{response_address}",
+    "--public-key",
+    "{public_key}",
+    "--spark-context-initialization-mode",
+    "${spark_init_mode}"
+  ]
+}
