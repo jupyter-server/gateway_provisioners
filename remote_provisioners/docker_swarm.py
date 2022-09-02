@@ -34,7 +34,7 @@ class DockerSwarmProvisioner(ContainerProvisioner):
 
         # Convey the network to the docker launch script
         kwargs['env']['RP_DOCKER_NETWORK'] = docker_network
-        kwargs['env']['ERP_DOCKER_MODE'] = 'swarm'
+        kwargs['env']['RP_DOCKER_MODE'] = 'swarm'
         return kwargs
 
     def get_initial_states(self) -> Set[str]:

@@ -68,6 +68,16 @@ class YarnProvisioner(RemoteProvisionerBase):
         return bool(os.getenv(self.yarn_endpoint_security_enabled_env,
                               self.yarn_endpoint_security_enabled_default_value))
 
+    # Impersonation enabled - TODO - Applies to Yarn
+    impersonation_enabled_env = 'RP_IMPERSONATION_ENABLED'
+    impersonation_enabled = Bool(False, config=True,
+                                 help="""Indicates whether impersonation will be performed during kernel launch.
+                                 (RP_IMPERSONATION_ENABLED env var)""")
+
+    @default('impersonation_enabled')
+    def impersonation_enabled_default(self):
+        return bool(os.getenv(self.impersonation_enabled_env, 'false').lower() == 'true')
+
     initial_states = {'NEW', 'SUBMITTED', 'ACCEPTED', 'RUNNING'}
     final_states = {'FINISHED', 'KILLED', 'FAILED'}
 

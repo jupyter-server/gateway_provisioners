@@ -102,6 +102,12 @@ setup_args = dict(
         'pytest'
     ],
     entry_points={
+        'console_scripts': [
+            'jupyter-k8s-spec = remote_provisioners.cli.k8s_specapp:K8sProvisionerApp.launch_instance',
+            'jupyter-yarn-spec = remote_provisioners.cli.yarn_specapp:YarnProvisionerApp.launch_instance',
+            'jupyter-ssh-spec = remote_provisioners.cli.ssh_specapp:SshProvisionerApp.launch_instance',
+            'jupyter-docker-spec = remote_provisioners.cli.docker_specapp:DockerProvisionerApp.launch_instance',
+        ],
         'jupyter_client.kernel_provisioners': [
             'yarn-provisioner = remote_provisioners.yarn:YarnProvisioner',
             'distributed-provisioner = remote_provisioners.distributed:DistributedProvisioner',

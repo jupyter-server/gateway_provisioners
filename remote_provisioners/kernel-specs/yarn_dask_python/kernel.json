@@ -1,0 +1,32 @@
+{
+  "language": "${language}",
+  "display_name": "${display_name}",
+  "metadata": {
+    "kernel_provisioner": {
+      "provisioner_name": "yarn-provisioner",
+      "config": {
+      }
+    }
+  },
+  "env": {
+    "SPARK_HOME": "${spark_home}",
+    "DASK_YARN_EXE": "${python_root}/bin/dask-yarn",
+    "DASK_OPTS": "--name ${KERNEL_ID:-ERROR__NO__KERNEL_ID} --environment python://${python_root}/bin/python --temporary-security-credentials --deploy-mode remote ${extra_dask_opts}",
+    "LAUNCH_OPTS": ""
+  },
+  "argv": [
+    "${install_dir}/bin/run.sh",
+    "--kernel-id",
+    "{kernel_id}",
+    "--port-range",
+    "{port_range}",
+    "--response-address",
+    "{response_address}",
+    "--public-key",
+    "{public_key}",
+    "--cluster-type",
+    "dask",
+    "--kernel_class_name",
+    "${ipykernel_subclass_name}"
+  ]
+}

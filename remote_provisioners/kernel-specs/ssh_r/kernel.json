@@ -1,0 +1,25 @@
+{
+  "language": "${language}",
+  "display_name": "${display_name}",
+  "metadata": {
+    "kernel_provisioner": {
+      "provisioner_name": "distributed-provisioner",
+      "config": {
+      }
+    }
+  },
+  "env": {
+  },
+  "argv": [
+    "Rscript",
+    "${install_dir}/scripts/launch_IRkernel.R",
+    "--RemoteProcessProxy.kernel-id",
+    "{kernel_id}",
+    "--RemoteProcessProxy.response-address",
+    "{response_address}",
+    "--RemoteProcessProxy.public-key",
+    "{public_key}",
+    "--RemoteProcessProxy.port-range",
+    "{port_range}"
+  ]
+}

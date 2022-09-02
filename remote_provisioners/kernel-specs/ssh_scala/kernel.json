@@ -1,0 +1,27 @@
+{
+  "language": "${language}",
+  "display_name": "${display_name}",
+  "metadata": {
+    "kernel_provisioner": {
+      "provisioner_name": "distributed-provisioner",
+      "config": {
+      }
+    }
+  },
+  "env": {
+    "__TOREE_SPARK_OPTS__": "--name ${KERNEL_ID:-ERROR__NO__KERNEL_ID} ${KERNEL_EXTRA_SPARK_OPTS}",
+    "__TOREE_OPTS__": "--alternate-sigint USR2",
+    "LAUNCH_OPTS": "",
+  },
+  "argv": [
+    "${install_dir}/bin/run.sh",
+    "--RemoteProcessProxy.kernel-id",
+    "{kernel_id}",
+    "--RemoteProcessProxy.response-address",
+    "{response_address}",
+    "--RemoteProcessProxy.public-key",
+    "{public_key}",
+    "--RemoteProcessProxy.port-range",
+    "{port_range}",
+  ]
+}

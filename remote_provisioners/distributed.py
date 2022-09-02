@@ -70,9 +70,8 @@ class DistributedProvisioner(RemoteProvisionerBase):
     remote_hosts_env = 'RP_REMOTE_HOSTS'
     remote_hosts_default_value = 'localhost'
     remote_hosts = List(default_value=[remote_hosts_default_value], config=True,
-                        help="""Bracketed comma-separated list of hosts on which DistributedProcessProxy
-                        kernels will be launched e.g., ['host1','host2']. (RP_REMOTE_HOSTS env var
-                        - non-bracketed, just comma-separated)""")
+                        help="""List of host names on which this kernel can be launched.  Multiple entries must
+                        each be specified via separate options: --remote-hosts host1 --remote-hosts host2""")
 
     @default('remote_hosts')
     def remote_hosts_default(self):

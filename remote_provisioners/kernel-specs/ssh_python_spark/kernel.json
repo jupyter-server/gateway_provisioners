@@ -1,0 +1,32 @@
+{
+  "language": "${language}",
+  "display_name": "${display_name}",
+  "metadata": {
+    "debugger": true,
+    "kernel_provisioner": {
+      "provisioner_name": "distributed-provisioner",
+      "config": {
+      }
+    }
+  },
+  "env": {
+    "SPARK_HOME": "${spark_home}",
+    "PYSPARK_PYTHON": "/opt/conda/bin/python",
+    "PYTHONPATH": "${HOME}/.local/lib/python3.7/site-packages:/usr/hdp/current/spark2-client/python:/usr/hdp/current/spark2-client/python/lib/py4j-0.10.6-src.zip",
+    "SPARK_OPTS": "--master ${spark_master} --deploy-mode client --name ${KERNEL_ID:-ERROR__NO__KERNEL_ID} ${KERNEL_EXTRA_SPARK_OPTS}",
+    "LAUNCH_OPTS": ""
+  },
+  "argv": [
+    "${install_dir}/bin/run.sh",
+    "--RemoteProcessProxy.kernel-id",
+    "{kernel_id}",
+    "--RemoteProcessProxy.response-address",
+    "{response_address}",
+    "--RemoteProcessProxy.public-key",
+    "{public_key}",
+    "--RemoteProcessProxy.port-range",
+    "{port_range}",
+    "--RemoteProcessProxy.spark-context-initialization-mode",
+    "${spark_init_mode}"
+  ]
+}

@@ -1,0 +1,29 @@
+{
+  "language": "${language}",
+  "display_name": "${display_name}",
+  "metadata": {
+    "kernel_provisioner": {
+      "provisioner_name": "yarn-provisioner",
+      "config": {
+      }
+    }
+  },
+  "env": {
+    "SPARK_HOME": "${spark_home}",
+    "SPARK_OPTS": "--master yarn --deploy-mode cluster --name ${KERNEL_ID:-ERROR__NO__KERNEL_ID} --conf spark.yarn.submit.waitAppCompletion=false --conf spark.yarn.am.waitTime=1d --conf spark.yarn.appMasterEnv.PATH=${python_root}/bin:$PATH --conf spark.sparkr.r.command=${python_root}/lib/R/bin/Rscript ${extra_spark_opts} ${KERNEL_EXTRA_SPARK_OPTS}",
+    "LAUNCH_OPTS": ""
+  },
+  "argv": [
+    "${install_dir}/bin/run.sh",
+    "--kernel-id",
+    "{kernel_id}",
+    "--port-range",
+    "{port_range}",
+    "--response-address",
+    "{response_address}",
+    "--public-key",
+    "{public_key}",
+    "--spark-context-initialization-mode",
+    "${spark_init_mode}"
+  ]
+}

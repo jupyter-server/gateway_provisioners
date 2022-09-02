@@ -1,0 +1,31 @@
+{
+  "language": "${language}",
+  "display_name": "${display_name}",
+  "metadata": {
+    "kernel_provisioner": {
+      "provisioner_name": "yarn-provisioner",
+      "config": {
+      }
+    }
+  },
+  "env": {
+    "SPARK_HOME": "${spark_home}",
+    "__TOREE_SPARK_OPTS__": "--master yarn --deploy-mode cluster --name ${KERNEL_ID:-ERROR__NO__KERNEL_ID} --conf spark.yarn.submit.waitAppCompletion=false --conf spark.yarn.am.waitTime=1d ${extra_spark_opts} ${KERNEL_EXTRA_SPARK_OPTS}",
+    "__TOREE_OPTS__": "--alternate-sigint USR2",
+    "LAUNCH_OPTS": "",
+    "DEFAULT_INTERPRETER": "Scala"
+  },
+  "argv": [
+    "${install_dir}/bin/run.sh",
+    "--kernel-id",
+    "{kernel_id}",
+    "--port-range",
+    "{port_range}",
+    "--response-address",
+    "{response_address}",
+    "--public-key",
+    "{public_key}",
+    "--spark-context-initialization-mode",
+    "${spark_init_mode}"
+  ]
+}
