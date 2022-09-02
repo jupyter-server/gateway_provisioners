@@ -178,6 +178,7 @@ Default = {DEFAULT_INIT_MODE}.""")
                                                                         kernel_name=self.kernel_name,
                                                                         user=self.user,
                                                                         prefix=self.prefix)
+        self._delete_directory(staging_dir)
 
     def _copy_kernel_spec_files(self, staging_dir: str):
         """Copies the launcher, resource and kernel-spec files to the staging directory."""
@@ -204,6 +205,12 @@ Default = {DEFAULT_INIT_MODE}.""")
         if self.launcher_dir_name in [PYTHON, R]:
             src_dir = os.path.join(kernel_launchers_dir, 'shared')
             dir_util.copy_tree(src=src_dir, dst=staging_dir)
+
+        # The source launcher 'scripts' directory may contain a __pycache__ directory.
+        # Check for this condition in the staging area and delete the directory if present.
+        pycache_dir = os.path.join(staging_dir, 'scripts', '__pycache__')
+        if os.path.isdir(pycache_dir):
+            self._delete_directory(pycache_dir)
 
         # Copy the resource files
         src_dir = os.path.join(kernel_resources_dir, self.resource_dir_name)
@@ -286,8 +293,8 @@ Default = {DEFAULT_INIT_MODE}.""")
         return tempfile.mkdtemp(prefix="staging_", dir=parent_dir)
 
     @staticmethod
-    def _delete_staging_directory(dir_name):
-        """Deletes the specified staging directory."""
+    def _delete_directory(dir_name):
+        """Deletes the specified directory."""
         shutil.rmtree(dir_name)
 
     @staticmethod
