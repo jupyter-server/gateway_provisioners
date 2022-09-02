@@ -195,15 +195,21 @@ Default = {DEFAULT_INIT_MODE}.""")
             raise ValueError(f"Invalid resource_dir_name '{self.resource_dir_name}' "
                              f"detected! Must be one of: {resource_dirs}")
 
-        # Copy the launcher
+        # Copy the launcher files
         src_dir = os.path.join(kernel_launchers_dir, self.launcher_dir_name)
         dir_util.copy_tree(src=src_dir, dst=staging_dir)
 
-        # Copy the resources
+        # When the launcher_dir_name is either 'r' or 'python', we need to also copy the files
+        # from the 'shared' launcher directory.
+        if self.launcher_dir_name in [PYTHON, R]:
+            src_dir = os.path.join(kernel_launchers_dir, 'shared')
+            dir_util.copy_tree(src=src_dir, dst=staging_dir)
+
+        # Copy the resource files
         src_dir = os.path.join(kernel_resources_dir, self.resource_dir_name)
         dir_util.copy_tree(src=src_dir, dst=staging_dir)
 
-        # Copy the kernel-spec
+        # Copy the kernel-spec files
         src_dir = os.path.join(kernel_specs_dir, self.kernel_spec_dir_name)
         dir_util.copy_tree(src=src_dir, dst=staging_dir)
 
