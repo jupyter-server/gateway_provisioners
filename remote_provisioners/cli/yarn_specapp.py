@@ -115,6 +115,15 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
     }
     flags.update(BaseSpecApp.super_flags)
 
+    def detect_missing_extras(self):
+        """Issues a warning message whenever an "extra" library is detected as missing."""
+        try:
+            import yarn_api_client
+        except ImportError:
+            self.log.warning("The extra package 'yarn_api_client'is not installed in this environment and is "
+                             "required.  Ensure that remote_provisioners is installed by specifying the "
+                             "extra 'yarn' (e.g., pip install 'remote_provisioners[yarn]').")
+
     def validate_parameters(self):
         """Validate input parameters and prepare for their injection into templated files."""
         super().validate_parameters()

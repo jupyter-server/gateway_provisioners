@@ -6,7 +6,7 @@ import os
 
 from tornado.log import LogFormatter
 
-from traitlets import default, Set, Unicode, Integer
+from traitlets import default, Bool, Integer, Set, Unicode
 from traitlets.config import Configurable
 
 
@@ -80,6 +80,16 @@ enforcement.  (RP_PORT_RANGE env var)""")
     # @default('conductor_endpoint')
     # def conductor_endpoint_default(self):
     #     return os.getenv(self.conductor_endpoint_env, self.conductor_endpoint_default_value)
+
+    # Impersonation enabled
+    impersonation_enabled_env = 'RP_IMPERSONATION_ENABLED'
+    impersonation_enabled = Bool(False, config=True,
+                                 help="""Indicates whether impersonation will be performed during kernel launch.
+                                 (RP_IMPERSONATION_ENABLED env var)""")
+
+    @default('impersonation_enabled')
+    def impersonation_enabled_default(self):
+        return bool(os.getenv(self.impersonation_enabled_env, 'false').lower() == 'true')
 
     launch_timeout_env = 'RP_LAUNCH_TIMEOUT'
     launch_timeout_default_value = 30

@@ -92,6 +92,16 @@ Spark-enabled kernel specifications.  (RP_EXECUTOR_IMAGE_NAME env var)""")
     flags = {}
     flags.update(BaseSpecApp.super_flags)
 
+    def detect_missing_extras(self):
+        """Issues a warning message whenever an "extra" library is detected as missing."""
+        try:
+            import kubernetes
+            import jinja2
+        except ImportError:
+            self.log.warning("At least one of the extra packages 'kubernetes' or 'jinja2' are not installed in "
+                             "this environment and are required.  Ensure that remote_provisioners is installed "
+                             "by specifying the extra 'k8s' (e.g., pip install 'remote_provisioners[k8s]').")
+
     def validate_parameters(self):
         """Validate input parameters and prepare for their injection into templated files."""
         super().validate_parameters()

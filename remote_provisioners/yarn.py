@@ -13,7 +13,14 @@ import time
 
 from traitlets import default, Unicode, Bool
 from typing import Any, Dict, List, Optional, Tuple
-from yarn_api_client.resource_manager import ResourceManager
+
+try:
+    from yarn_api_client.resource_manager import ResourceManager
+except ImportError:
+    logging.warning("The extra package 'yarn_api_client'is not installed in this environment and is "
+                    "required.  Ensure that remote_provisioners is installed by specifying the "
+                    "extra 'yarn' (e.g., pip install 'remote_provisioners[yarn]').")
+    raise
 
 from .config_mixin import poll_interval, max_poll_attempts
 from .remote_provisioner import RemoteProvisionerBase
@@ -67,16 +74,6 @@ class YarnProvisioner(RemoteProvisionerBase):
     def yarn_endpoint_security_enabled_default(self):
         return bool(os.getenv(self.yarn_endpoint_security_enabled_env,
                               self.yarn_endpoint_security_enabled_default_value))
-
-    # Impersonation enabled - TODO - Applies to Yarn
-    impersonation_enabled_env = 'RP_IMPERSONATION_ENABLED'
-    impersonation_enabled = Bool(False, config=True,
-                                 help="""Indicates whether impersonation will be performed during kernel launch.
-                                 (RP_IMPERSONATION_ENABLED env var)""")
-
-    @default('impersonation_enabled')
-    def impersonation_enabled_default(self):
-        return bool(os.getenv(self.impersonation_enabled_env, 'false').lower() == 'true')
 
     initial_states = {'NEW', 'SUBMITTED', 'ACCEPTED', 'RUNNING'}
     final_states = {'FINISHED', 'KILLED', 'FAILED'}

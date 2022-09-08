@@ -134,9 +134,14 @@ Default = {DEFAULT_INIT_MODE}.""")
 
     def start(self):
         """Drive the kernel specification creation."""
+        self.detect_missing_extras()
         self.validate_parameters()
         self._assemble_kernel_specs()
         self._finalize_kernel_json()
+
+    def detect_missing_extras(self):
+        """Issues a warning message whenever an "extra" library is detected as missing."""
+        pass
 
     def validate_parameters(self):
         """

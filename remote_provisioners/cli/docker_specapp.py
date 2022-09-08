@@ -6,6 +6,7 @@ from traitlets import Unicode, Bool, default
 from traitlets.config.application import Application
 
 from .._version import __version__
+from ..docker_swarm import
 from .base_specapp import BaseSpecApp, DEFAULT_LANGUAGE, PYTHON, SCALA, R
 
 
@@ -76,6 +77,15 @@ enabled for Spark usage, this image will be the driver image. (RP_IMAGE_NAME env
         'swarm': ({'DockerSpecApp': {'swarm': True}}, "Install kernel for use within a Docker Swarm cluster."),
     }
     flags.update(BaseSpecApp.super_flags)
+
+    def detect_missing_extras(self):
+        """Issues a warning message whenever an "extra" library is detected as missing."""
+        try:
+            import docker
+        except ImportError:
+            self.log.warning("The extra package 'docker' is not installed in this environment and is required.  "
+                             "Ensure that remote_provisioners is installed by specifying the extra 'docker' "
+                             "(e.g., pip install 'remote_provisioners[docker]').")
 
     def validate_parameters(self):
         """Validate input parameters and prepare for their injection into templated files."""
