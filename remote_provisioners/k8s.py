@@ -7,10 +7,18 @@ import logging
 import re
 
 import urllib3
-
-from kubernetes import client, config
-from kubernetes.client.rest import ApiException
 from typing import Any, Dict, Optional, Set
+
+try:
+    from kubernetes import client, config
+    from kubernetes.client.rest import ApiException
+    from jinja2 import Environment  # noqa - used by launcher so check presence here
+except ImportError:
+    logging.warning("At least one of the extra packages 'kubernetes' or 'jinja2' are not installed in "
+                    "this environment and are required.  Ensure that remote_provisioners is installed "
+                    "by specifying the extra 'k8s' (e.g., pip install 'remote_provisioners[k8s]').")
+    raise
+
 
 from .container import ContainerProvisioner
 

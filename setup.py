@@ -93,8 +93,8 @@ setup_args = dict(
     ],
     extras_require={
         "kerberos": ['requests_kerberos'],
-        "yarn": ['requests', 'yarn-api-client'],
-        "k8s": ['kubernetes>=4.0.0', 'jinja2>=2.10'],
+        "yarn": ['yarn-api-client'],
+        "k8s": ['kubernetes>=18.20.0', 'jinja2>=3.1'],
         "docker": ['docker>=3.5.0'],
     },
     tests_require=[
@@ -113,7 +113,7 @@ setup_args = dict(
             'distributed-provisioner = remote_provisioners.distributed:DistributedProvisioner',
             'kubernetes-provisioner = remote_provisioners.k8s:KubernetesProvisioner',
             'docker-provisioner = remote_provisioners.docker_swarm:DockerProvisioner',
-            'docker_swarm-provisioner = remote_provisioners.docker_swarm:DockerSwarmProvisioner',
+            'docker-swarm-provisioner = remote_provisioners.docker_swarm:DockerSwarmProvisioner',
         ]
     },
     python_requires=">=3.6",

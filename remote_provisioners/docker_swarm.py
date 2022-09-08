@@ -5,12 +5,19 @@ from __future__ import annotations
 
 import os
 import logging
-
-from docker.client import DockerClient
-from docker.errors import NotFound
-from docker.models.containers import Container
-from docker.models.services import Service
+from traitlets import validate
 from typing import Any, Dict, Optional, Set
+
+try:
+    from docker.client import DockerClient
+    from docker.errors import NotFound
+    from docker.models.containers import Container
+    from docker.models.services import Service
+except ImportError as ie:
+    logging.warning("The extra package 'docker' is not installed in this environment and is required.  "
+                    "Ensure that remote_provisioners is installed by specifying the extra 'docker' "
+                    "(e.g., pip install 'remote_provisioners[docker]').")
+    raise
 
 from .container import ContainerProvisioner
 
@@ -19,14 +26,21 @@ logging.getLogger('urllib3.connectionpool').setLevel(os.environ.get('RP_DOCKER_L
 
 docker_network = os.environ.get('RP_DOCKER_NETWORK', 'bridge')
 
-client = DockerClient.from_env()
-
 
 class DockerSwarmProvisioner(ContainerProvisioner):
     """Kernel lifecycle management for kernels in Docker Swarm."""
 
+    @validate('impersonation_enabled')
+    def impersonation_enabled_validate(self, proposal):
+        value = proposal["value"]
+        # If impersonation is enabled, issue warning and disable.
+        if bool(value) is True:
+            self.log.warning("Impersonation is not supported by DockerSwarmProvisioner - disabling.")
+        return False
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.client = DockerClient.from_env()
 
     async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
         """Prepares a kernel's launch within a Docker Swarm environment."""
@@ -44,7 +58,7 @@ class DockerSwarmProvisioner(ContainerProvisioner):
     def _get_service(self) -> Service:
         # Fetches the service object corresponding to the kernel with a matching label.
         service = None
-        services = client.services.list(filters={'label': 'kernel_id=' + self.kernel_id})
+        services = self.client.services.list(filters={'label': 'kernel_id=' + self.kernel_id})
         num_services = len(services)
         if num_services != 1:
             if num_services > 1:
@@ -133,8 +147,17 @@ class DockerSwarmProvisioner(ContainerProvisioner):
 class DockerProvisioner(ContainerProvisioner):
     """Kernel lifecycle management for Docker kernels (non-Swarm)."""
 
+    @validate('impersonation_enabled')
+    def impersonation_enabled_validate(self, proposal):
+        value = proposal["value"]
+        # If impersonation is enabled, issue warning and disable.
+        if bool(value) is True:
+            self.log.warning("Impersonation is not supported by DockerProvisioner - disabling.")
+        return False
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        self.client = DockerClient.from_env()
 
     async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
         """Prepares a kernel's launch within a Docker environment."""
@@ -150,11 +173,11 @@ class DockerProvisioner(ContainerProvisioner):
         return {'created', 'running'}
 
     def _get_container(self) -> Container:
-        # Fetches the container object corresponding the the kernel_id label.
+        # Fetches the container object corresponding the kernel_id label.
         # Only used when docker mode == regular (not swarm)
 
         container = None
-        containers = client.containers.list(filters={'label': 'kernel_id=' + self.kernel_id})
+        containers = self.client.containers.list(filters={'label': 'kernel_id=' + self.kernel_id})
         num_containers = len(containers)
         if num_containers != 1:
             if num_containers > 1:
