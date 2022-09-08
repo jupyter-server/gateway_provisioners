@@ -27,7 +27,7 @@
     "{public_key}",
     "--spark-context-initialization-mode",
     "${spark_init_mode}",
-    "--kernel_class_name",
+    "--kernel-class-name",
     "${ipykernel_subclass_name}"
   ]
 }

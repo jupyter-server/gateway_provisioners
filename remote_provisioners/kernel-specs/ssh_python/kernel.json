@@ -22,7 +22,7 @@
     "{response_address}",
     "--public-key",
     "{public_key}",
-    "--kernel_class_name",
+    "--kernel-class-name",
     "${ipykernel_subclass_name}"
   ]
 }
