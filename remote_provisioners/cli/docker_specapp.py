@@ -6,7 +6,6 @@ from traitlets import Unicode, Bool, default
 from traitlets.config.application import Application
 
 from .._version import __version__
-from ..docker_swarm import
 from .base_specapp import BaseSpecApp, DEFAULT_LANGUAGE, PYTHON, SCALA, R
 
 
