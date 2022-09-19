@@ -13,7 +13,7 @@ from traitlets.config import Configurable
 # Commonly used envs
 max_poll_attempts = int(os.getenv('RP_MAX_POLL_ATTEMPTS', '10'))
 poll_interval = float(os.getenv('RP_POLL_INTERVAL', '0.5'))
-socket_timeout = float(os.getenv('RP_SOCKET_TIMEOUT', '0.005'))
+socket_timeout = float(os.getenv('RP_SOCKET_TIMEOUT', '0.01'))
 ssh_port = int(os.getenv('RP_SSH_PORT', '22'))
 
 
