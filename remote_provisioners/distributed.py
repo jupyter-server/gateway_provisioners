@@ -208,6 +208,10 @@ class DistributedProvisioner(RemoteProvisionerBase):
         proven unsuccessful.
         """
         # If we have a local process, use its method, else signal soft kill first before hard kill.
+        res = await self.poll()
+        if res is not None:  # Already terminated
+            self.log.debug("Distributed: kill: already terminated.")
+            return None
         await self.terminate()  # Send -15 signal first
         i = 1
         while await self.poll() is None and i <= max_poll_attempts:
@@ -245,19 +249,11 @@ class DistributedProvisioner(RemoteProvisionerBase):
             DistributedProvisioner.kernel_on_host.delete_kernel_id(self.kernel_id)
 
     async def cleanup(self, restart=False) -> None:
-        # DistributedProvisioner can have a tendency to leave zombies, particularly when the
-        # server is abruptly terminated.  This extra call to shutdown_lister does the trick.
-        await self.shutdown_listener()
         self._unregister_assigned_host()
         if self.local_stdout:
             self.local_stdout.close()
             self.local_stdout = None
         await super().cleanup()
-
-    async def shutdown_listener(self) -> None:
-        """Ensure that kernel process is terminated."""
-        await self.send_signal(signal.SIGTERM)
-        await super().shutdown_listener()
 
     def log_kernel_launch(self, cmd: tyList[str]) -> None:
         self.log.info(f"{self.__class__.__name__}: kernel launched.  Host: '{self.assigned_host}', "
