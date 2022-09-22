@@ -157,16 +157,23 @@ def get_server_request(sock: socket) -> Dict:
     data = ""
     request_info = None
     try:
+        logger.info("DEBUG: get_server_request: waiting for socket accept")
         conn, addr = sock.accept()
+        logger.info("DEBUG: get_server_request: socket accepted")
         while True:
-            buffer = conn.recv(1024).decode("utf-8")
-            if not buffer:  # send is complete
-                request_info = json.loads(data)
+            buffer: bytes = conn.recv(1024)
+            if buffer == b'':  # send is complete
+                if len(data) > 0:
+                    request_info = json.loads(data)
+                else:
+                    logger.info("DEBUG: get_server_request: no data received - returning None")
                 break
-            data = data + buffer  # append what we received until we get no more...
-    except Exception as e:
-        if type(e) is not socket.timeout:
-            raise e
+            else:
+                logger.info(f"DEBUG: get_server_request: received buffer: '{buffer}'")
+            data = data + buffer.decode("utf-8")  # append what we received until we get no more...
+    except Exception as ex:
+        if type(ex) is not socket.timeout:
+            raise ex
     finally:
         if conn:
             conn.close()
@@ -174,14 +181,23 @@ def get_server_request(sock: socket) -> Dict:
     return request_info
 
 
-def server_listener(sock: socket, parent_pid: int, cluster_type: Optional[str] = "none") -> None:
+def server_listener(connection_file: str, response_addr: str, lower_port: int, upper_port: int,
+                    kernel_id: str, public_key: str, parent_pid: int, cluster_type: Optional[str] = "none") -> None:
     """Waits for requests from the server and processes each when received.  Currently,
     these will be one of a sending a signal to the corresponding kernel process (signum) or
     stopping the listener and exiting the kernel (shutdown).
     """
+    comm_socket: socket = return_connection_info(
+        connection_file,
+        response_addr,
+        int(lower_port),
+        int(upper_port),
+        kernel_id,
+        public_key
+    )
     shutdown = False
     while not shutdown:
-        request = get_server_request(sock)
+        request = get_server_request(comm_socket)
         if request:
             signum = -1  # prevent logging poll requests since that occurs every 3 seconds
             if request.get("signum") is not None:
@@ -196,16 +212,16 @@ def server_listener(sock: socket, parent_pid: int, cluster_type: Optional[str] =
 
 
 def setup_server_listener(
-    conn_filename: str,
-    parent_pid: int,
-    lower_port: int,
-    upper_port: int,
-    response_addr: str,
-    kernel_id: str,
-    public_key: str,
-    cluster_type: Optional[str] = None,
-    as_thread: Optional[bool] = True
-):
+        conn_filename: str,
+        parent_pid: int,
+        lower_port: int,
+        upper_port: int,
+        response_addr: str,
+        kernel_id: str,
+        public_key: str,
+        cluster_type: Optional[str] = None,
+        as_thread: Optional[bool] = True
+) -> None:
     """Initializes the server listener thread or process depending on the `as_thread` parameter.
 
     Currently, R kernels use a thread for the listener while Python kernels use a process.
@@ -224,36 +240,34 @@ def setup_server_listener(
         hb_port=ports[3],
         control_port=ports[4],
     )
-    if response_addr:
-        comm_socket = return_connection_info(
-            conn_filename,
-            response_addr,
-            int(lower_port),
-            int(upper_port),
-            kernel_id,
-            public_key
+    if as_thread:
+        server_listener_thread = Thread(
+            target=server_listener,
+            args=(conn_filename,
+                  response_addr,
+                  int(lower_port),
+                  int(upper_port),
+                  kernel_id,
+                  public_key,
+                  int(parent_pid),
+                  cluster_type,
+                  ),
         )
-        if comm_socket:  # socket in use, start server listener thread
-            if as_thread:
-                server_listener_thread = Thread(
-                    target=server_listener,
-                    args=(
-                        comm_socket,
-                        int(parent_pid),
-                        cluster_type,
-                    ),
-                )
-                server_listener_thread.start()
-            else:
-                server_listener_process = Process(
-                    target=server_listener,
-                    args=(
-                        comm_socket,
-                        os.getpid(),
-                        cluster_type,
-                    ),
-                )
-                server_listener_process.start()
+        server_listener_thread.start()
+    else:
+        server_listener_process = Process(
+            target=server_listener,
+            args=(conn_filename,
+                  response_addr,
+                  int(lower_port),
+                  int(upper_port),
+                  kernel_id,
+                  public_key,
+                  int(parent_pid),
+                  cluster_type,
+                  ),
+        )
+        server_listener_process.start()
 
     return
 
