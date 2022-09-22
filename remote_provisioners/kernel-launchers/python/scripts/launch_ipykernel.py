@@ -175,7 +175,7 @@ def _validate_port_range(port_range: Optional[str]) -> Tuple[int, int]:
 
 
 def determine_connection_file(kid: str) -> str:
-    # Create a temporary file using kernel-id
+    # Create a temporary (and empty) file using kernel-id
     fd, conn_file = tempfile.mkstemp(suffix=".json", prefix=f"kernel-{kid}_")
     os.close(fd)
     logger.debug(f"Using connection file '{conn_file}'.")
@@ -329,6 +329,9 @@ if __name__ == "__main__":
 
     if kernel_id is None:
         raise RuntimeError("Parameter '--kernel-id' must be provided!")
+
+    if response_addr is None:
+        raise RuntimeError("Parameter '--response-address' must be provided!")
 
     if public_key is None:
         raise RuntimeError("Parameter '--public-key' must be provided!")

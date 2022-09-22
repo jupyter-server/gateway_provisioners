@@ -649,6 +649,9 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 await asyncio.get_event_loop().sock_connect(sock, (self.comm_ip, self.comm_port))  # TODO - validate
                 # sock.connect((self.comm_ip, self.comm_port))
                 sock.send(json.dumps(request).encode(encoding='utf-8'))
+            except Exception as e:
+                self.log.warning(f"_send_listener_request {request} failed with: {e}")
+                raise e
             finally:
                 if shutdown_socket:
                     try:
