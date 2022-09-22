@@ -330,6 +330,9 @@ if __name__ == "__main__":
     if kernel_id is None:
         raise RuntimeError("Parameter '--kernel-id' must be provided!")
 
+    if response_addr is None:
+        raise RuntimeError("Parameter '--response-address' must be provided!")
+
     if public_key is None:
         raise RuntimeError("Parameter '--public-key' must be provided!")
 
