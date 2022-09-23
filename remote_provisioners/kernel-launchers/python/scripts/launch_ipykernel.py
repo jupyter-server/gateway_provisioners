@@ -18,8 +18,9 @@ log_level = int(log_level) if log_level.isdigit() else log_level
 
 logging.basicConfig(format="[%(levelname)1.1s %(asctime)s.%(msecs).03d %(name)s] %(message)s")
 
-logger = logging.getLogger("launch_ipykernel")
-logger.setLevel(log_level)
+# Protect the instance with a dunder so it isn't remove from the namespace
+__logger = logging.getLogger("launch_ipykernel")
+__logger.setLevel(log_level)
 
 DEFAULT_KERNEL_CLASS_NAME = "ipykernel.ipkernel.IPythonKernel"
 __spark_context = None
@@ -54,7 +55,7 @@ def initialize_namespace(namespace: Dict, cluster_type: str = "spark") -> None:
         try:
             from pyspark.sql import SparkSession
         except ImportError:
-            logger.info(
+            __logger.info(
                 "A spark context was desired but the pyspark distribution is not present.  "
                 "Spark context creation will not occur."
             )
@@ -178,7 +179,7 @@ def determine_connection_file(kid: str) -> str:
     # Create a temporary (and empty) file using kernel-id
     fd, conn_file = tempfile.mkstemp(suffix=".json", prefix=f"kernel-{kid}_")
     os.close(fd)
-    logger.debug(f"Using connection file '{conn_file}'.")
+    __logger.debug(f"Using connection file '{conn_file}'.")
 
     return conn_file
 
@@ -193,11 +194,11 @@ def cancel_spark_jobs(sig: int, frame: Any) -> None:
             try:
                 __spark_context.cancelAllJobs()
             except Exception as ex:
-                print(
+                __logger.error(
                     f"Error occurred while re-attempting Spark job cancellation when interrupting the kernel: {ex}"
                 )
         else:
-            print(
+            __logger.error(
                 f"Error occurred while attempting Spark job cancellation when interrupting the kernel: {e}"
             )
 
@@ -258,12 +259,13 @@ def start_ipython(
 
     # cleanup
     conn_file = kwargs["connection_file"]
+    __logger.info(f"IPKernelApp has terminated, removing connection file '{conn_file}'.")
     try:
         import os  # re-import os since it's removed during namespace manipulation during startup
 
         os.remove(conn_file)
     except Exception as e:
-        print(f"Could not delete connection file '{conn_file}' at exit due to error: {e}")
+        __logger.error(f"Could not delete connection file '{conn_file}' at exit due to error: {e}")
 
 
 if __name__ == "__main__":
@@ -344,7 +346,7 @@ if __name__ == "__main__":
     connection_file = determine_connection_file(kernel_id)
 
     setup_server_listener(connection_file, os.getpid(), lower_port, upper_port,
-                          response_addr, kernel_id, public_key, cluster_type, False)
+                          response_addr, kernel_id, public_key, cluster_type)
 
     # setup sig handler to cancel spark jobs on interrupts
     if cluster_type == "spark":
@@ -355,6 +357,6 @@ if __name__ == "__main__":
         locals(),
         cluster_type=cluster_type,
         connection_file=connection_file,
-        ip="0.0.0.0",
+        ip=ip,
         kernel_class_name=kernel_class_name,
     )
