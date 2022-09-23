@@ -173,26 +173,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         The kernel launcher listening on its communication port will receive the signum and perform
         the necessary signal operation local to the process.
         """
-        signal_delivered = await self._send_signal_via_listener(signum)
-        if not signal_delivered:
-            # Fallback
-            # if we have a local process, use its method, else determine if the ip is local or remote and issue
-            # the appropriate version to signal the process.
-            if self.local_proc:
-                if self.pgid > 0 and hasattr(os, "killpg"):
-                    try:
-                        os.killpg(self.pgid, signum)
-                        return
-                    except OSError:
-                        pass
-                self.local_proc.send_signal(signum)
-            # else:
-            #     if self.ip and self.pid > 0:
-            #         if ip_is_local(self.ip):
-            #             self.local_signal(signum)
-            #         else:
-            #             self.remote_signal(signum)
-        return
+        await self._send_signal_via_listener(signum)
 
     async def _send_signal_via_listener(self, signum: int) -> bool:
         """Sends signal 'signum' to kernel process via listener.
@@ -204,7 +185,6 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         # Note that if the target process is running as a different user than the REMOTE_USER,
         # using anything other than the socket-based signal (via signal_addr) will not work.
         if self.comm_port > 0:
-
             try:
                 await self._send_listener_request({"signum": signum})
                 if signum > 0:  # Polling (signum == 0) is too frequent
@@ -212,11 +192,11 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 return True
             except Exception as e:
                 if isinstance(e, OSError) and e.errno == errno.ECONNREFUSED:  # Return False since there's no process.
-                    self.log.debug("ERROR: ECONNREFUSED, no process listening, cannot send signal.")
-                    return True
-
-                self.log.warning(f"An unexpected exception occurred sending signal ({signum}) "
-                                 f"via listener for KernelID '{self.kernel_id}': {e}")
+                    if signum > 0:  # Since poll's purpose is to check status, consider this as terminated.
+                        self.log.debug("ERROR: ECONNREFUSED, no process listening, cannot send signal.")
+                else:
+                    self.log.warning(f"An unexpected exception occurred sending signal ({signum}) "
+                                     f"via listener for KernelID '{self.kernel_id}': {e}")
         return False
 
     @abstractmethod
@@ -507,7 +487,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 if not isinstance(e, OSError) or e.errno != errno.ECONNREFUSED:
                     self.log.warning(f"An unexpected exception occurred sending listener shutdown "
                                      f"to {self.comm_ip}:{self.comm_port} for "
-                                     f"KernelID '{self.kernel_id}': {str(e)}")
+                                     f"KernelID '{self.kernel_id}': {e}")
 
             # Also terminate the tunnel process for the communication port - if in play.  Failure to terminate
             # this process results in the kernel (launcher) appearing to remain alive following the shutdown
@@ -646,28 +626,26 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             sock = socket(AF_INET, SOCK_STREAM)
             try:
                 sock.settimeout(socket_timeout)
-                await asyncio.get_event_loop().sock_connect(sock, (self.comm_ip, self.comm_port))  # TODO - validate
-                # sock.connect((self.comm_ip, self.comm_port))
+                await asyncio.get_event_loop().sock_connect(sock, (self.comm_ip, self.comm_port))
                 sock.send(json.dumps(request).encode(encoding='utf-8'))
-            except Exception as e:
-                self.log.warning(f"_send_listener_request {request} failed with: {e}")
-                raise e
             finally:
                 if shutdown_socket:
                     try:
                         sock.shutdown(SHUT_WR)
                     except Exception as e2:
+                        issue_warning: bool = True
                         if isinstance(e2, OSError) and e2.errno == errno.ENOTCONN:
                             # Listener is not connected.  This is probably a follow-on to ECONNREFUSED on connect
-                            self.log.debug(
-                                "ERROR: OSError(ENOTCONN) raised on socket shutdown, "
-                                "listener likely not connected. Cannot send {request}",
-                                request=request,
-                            )
-                        else:
-                            self.log.warning("Exception occurred attempting to shutdown communication socket to {}:{} "
-                                             "for KernelID '{}' (ignored): {}".format(self.comm_ip, self.comm_port,
-                                                                                      self.kernel_id, str(e2)))
+                            if 'shutdown' in request:  # If this is a shutdown request, dampen the urgency
+                                issue_warning = False
+                                self.log.debug(
+                                    "OSError(ENOTCONN) raised on socket shutdown, listener likely "
+                                    f"not connected due to listener's expected termination."
+                                )
+                        if issue_warning:
+                            self.log.warning(f"Exception occurred attempting to shutdown communication "
+                                             f"socket to {self.comm_ip}:{self.comm_port} for KernelID "
+                                             f"'{self.kernel_id}' (ignored): {str(e2)}")
                 sock.close()
         else:
             self.log.debug(

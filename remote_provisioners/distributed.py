@@ -167,37 +167,10 @@ class DistributedProvisioner(RemoteProvisionerBase):
         If this corresponds to a local (popen) process, poll() is called on the subprocess.
         Otherwise, the zero signal is used to determine if active.
         """
-        if self.local_proc:  # Use the subprocess if we have one
-            return self.local_proc.poll()
-
-        return await self.send_signal(0)  # else use the communication port
-
-    async def send_signal(self, signum: int) -> None:
-        """
-        Sends `signum` via the communication port.
-        The kernel launcher listening on its communication port will receive the signum and perform
-        the necessary signal operation local to the process.
-        """
-        signal_delivered = await self._send_signal_via_listener(signum)
-        if not signal_delivered:
-            # Fallback
-            # if we have a local process, use its method, else determine if the ip is local or remote and issue
-            # the appropriate version to signal the process.
-            if self.local_proc:
-                if self.pgid > 0 and hasattr(os, "killpg"):
-                    try:
-                        os.killpg(self.pgid, signum)
-                        return
-                    except OSError:
-                        pass
-                self.local_proc.send_signal(signum)
-            else:
-                if self.ip and self.pid > 0:
-                    if RemoteProvisionerBase.ip_is_local(self.ip):
-                        self.local_signal(signum)
-                    else:
-                        self.remote_signal(signum)
-        return
+        signal_delivered = await self._send_signal_via_listener(0)
+        if signal_delivered:  # kernel process still alive, return None
+            return None
+        return 0
 
     async def kill(self, restart=False) -> None:
         """
@@ -218,14 +191,7 @@ class DistributedProvisioner(RemoteProvisionerBase):
             await asyncio.sleep(poll_interval)
             i = i + 1
         if i > max_poll_attempts:  # Send -9 signal if process is still alive
-            if self.local_proc:
-                self.local_proc.kill()
-                self.log.debug("DistributedProvisioner.kill() called.")
-            else:
-                if self.ip and self.pid > 0:
-                    await self.send_signal(signal.SIGKILL)
-                    self.log.debug(f"SIGKILL signal sent to pid: {self.pid}")
-        return None
+            await self.send_signal(signal.SIGKILL)
 
     async def terminate(self, restart=False) -> None:
         """
@@ -234,15 +200,7 @@ class DistributedProvisioner(RemoteProvisionerBase):
         Note that this should only be necessary if the message-based kernel termination has
         proven unsuccessful.
         """
-        # If we have a local process, use its method, else send signal SIGTERM to soft kill.
-        if self.local_proc:
-            self.local_proc.terminate()
-            self.log.debug("DistributedProvisioner.terminate() called.")
-        else:
-            if self.ip and self.pid > 0:
-                await self.send_signal(signal.SIGTERM)
-                self.log.debug(f"SIGTERM signal sent to pid: {self.pid}")
-        return None
+        await self.send_signal(signal.SIGTERM)
 
     def _unregister_assigned_host(self) -> None:
         if self.least_connection:
@@ -452,45 +410,3 @@ class DistributedProvisioner(RemoteProvisionerBase):
 
         return lines
 
-    def remote_signal(self, signum):
-        """
-        Sends signal `signum` to process proxy on remote host.
-        """
-        val = None
-        # if we have a process group, use that, else use the pid...
-        target = '-' + str(self.pgid) if self.pgid > 0 and signum > 0 else str(self.pid)
-        cmd = 'kill -{} {}; echo $?'.format(signum, target)
-        if signum > 0:  # only log if meaningful signal (not for poll)
-            self.log.debug("Sending signal: {} to target: {} on host: {}".format(signum, target, self.ip))
-
-        try:
-            result = self.rsh(self.ip, cmd)
-        except Exception as e:
-            self.log.warning("Remote signal({}) to '{}' on host '{}' failed with exception '{}'.".
-                             format(signum, target, self.ip, e))
-            return False
-
-        for line in result:
-            val = line.strip()
-        if val == '0':
-            return None
-
-        return False
-
-    def local_signal(self, signum):
-        """
-        Sends signal `signum` to local process.
-        """
-        # if we have a process group, use that, else use the pid...
-        target = '-' + str(self.pgid) if self.pgid > 0 and signum > 0 else str(self.pid)
-        if signum > 0:  # only log if meaningful signal (not for poll)
-            self.log.debug("Sending signal: {} to target: {}".format(signum, target))
-
-        cmd = ['kill', '-' + str(signum), target]
-
-        with open(os.devnull, 'w') as devnull:
-            result = subprocess.call(cmd, stderr=devnull)
-
-        if result == 0:
-            return None
-        return False

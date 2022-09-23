@@ -6,9 +6,9 @@ import random
 import signal
 import socket
 import uuid
-from multiprocessing import Process
+from multiprocessing import Process, set_start_method
 from threading import Thread
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from Cryptodome.Cipher import AES, PKCS1_v1_5
 from Cryptodome.PublicKey import RSA
@@ -28,6 +28,10 @@ logging.basicConfig(format="[%(levelname)1.1s %(asctime)s.%(msecs).03d %(name)s]
 logger = logging.getLogger("server_listener")
 logger.setLevel(log_level)
 
+# Global that can be set to True in signal handler (SIGTERM)
+# when parent kernel process is asked to shutdown.
+shutdown: bool = False
+
 
 class ServerListener:
     def __init__(self,
@@ -38,8 +42,7 @@ class ServerListener:
                  response_addr: str,
                  kernel_id: str,
                  public_key: str,
-                 cluster_type: Optional[str] = None,
-                 as_thread: Optional[bool] = True):
+                 cluster_type: Optional[str] = None):
         # Note, in the R integration, parameters come into Python as strings, so
         # we need to explicitly cast non-strings.
         self.conn_filename: str = conn_filename
@@ -50,7 +53,7 @@ class ServerListener:
         self.kernel_id: str = kernel_id
         self.public_key: bytes = public_key.encode("utf-8")
         self.cluster_type: str = cluster_type
-        self.as_thread: bool = bool(as_thread)
+
         # Initialized later...
         self.comm_socket: Optional[socket] = None
 
@@ -185,9 +188,7 @@ class ServerListener:
         data: str = ""
         request_info: Optional[Dict] = None
         try:
-            logger.info("DEBUG: get_server_request: waiting for socket accept")
             conn, addr = self.comm_socket.accept()
-            logger.info("DEBUG: get_server_request: socket accepted")
             while True:
                 buffer: bytes = conn.recv(1024)
                 if buffer == b'':  # send is complete
@@ -196,8 +197,6 @@ class ServerListener:
                     else:
                         logger.info("DEBUG: get_server_request: no data received - returning None")
                     break
-                else:
-                    logger.info(f"DEBUG: get_server_request: received buffer: '{buffer}'")
                 data = data + buffer.decode("utf-8")  # append what we received until we get no more...
         except Exception as ex:
             if type(ex) is not socket.timeout:
@@ -213,12 +212,16 @@ class ServerListener:
         these will be one of a sending a signal to the corresponding kernel process (signum) or
         stopping the listener and exiting the kernel (shutdown).
         """
+        global shutdown
+
+        # Setup signal handler for SIGTERM so we can detect that kernel process is
+        # terminating its children (IPyKernel does this).
+        signal.signal(signal.SIGTERM, handle_sigterm)
 
         # Since this creates the communication socket, we should do this here so the socket
         # gets created in the sub-process/thread.  This is necessary on MacOS/Python.
         self.return_connection_info()
 
-        shutdown = False
         while not shutdown:
             request = self.get_server_request()
             if request:
@@ -233,6 +236,16 @@ class ServerListener:
                 if signum != 0:
                     logger.info(f"server_listener got request: {request}")
 
+        logger.info("ServerListener.process_requests exiting.")
+
+
+def handle_sigterm(sig: int, frame: Any) -> None:
+    """Revert to the default handler and set shutdown to True. """
+    signal.signal(signal.SIGTERM, signal.SIG_DFL)
+    logger.info("SIGTERM caught and reset to default handler...")
+    global shutdown
+    shutdown = True
+
 
 def setup_server_listener(
         conn_filename: str,
@@ -242,22 +255,19 @@ def setup_server_listener(
         response_addr: str,
         kernel_id: str,
         public_key: str,
-        cluster_type: Optional[str] = None,
-        as_thread: Optional[bool] = True
+        cluster_type: Optional[str] = None
 ) -> None:
-    """Initializes the server listener thread or process depending on the `as_thread` parameter.
-
-    Currently, R kernels use a thread for the listener while Python kernels use a process.
-    """
+    """Initializes the server listener sub-process to handle requests from the server."""
 
     # Create the ServerListener instance and build the connection file PRIOR to sub-process.
     # This is synchronous relative to the launcher, so the launcher can start the kernel
     # using the connection file and no race condition is introduced.
     sl = ServerListener(conn_filename, parent_pid, lower_port, upper_port, response_addr,
-                        kernel_id, public_key, cluster_type, as_thread)
+                        kernel_id, public_key, cluster_type)
     sl.build_connection_file()
 
-    server_listener = Thread(target=sl.process_requests) if as_thread else Process(target=sl.process_requests)
+    set_start_method("fork")
+    server_listener = Process(target=sl.process_requests)
     server_listener.start()
 
 
