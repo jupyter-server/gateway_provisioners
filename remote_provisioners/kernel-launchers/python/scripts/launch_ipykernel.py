@@ -233,7 +233,10 @@ def import_item(name: str) -> Any:
 
 
 def start_ipython(
-    namespace: Dict, cluster_type: str = "spark", kernel_class_name: str = DEFAULT_KERNEL_CLASS_NAME, **kwargs: Any
+    namespace: Dict,
+    cluster_type: str = "spark",
+    kernel_class_name: str = DEFAULT_KERNEL_CLASS_NAME,
+    **kwargs: Any,
 ) -> None:
     from ipykernel.kernelapp import IPKernelApp
 
@@ -345,8 +348,16 @@ if __name__ == "__main__":
     # Create connection information
     connection_file = determine_connection_file(kernel_id)
 
-    setup_server_listener(connection_file, os.getpid(), lower_port, upper_port,
-                          response_addr, kernel_id, public_key, cluster_type)
+    setup_server_listener(
+        connection_file,
+        os.getpid(),
+        lower_port,
+        upper_port,
+        response_addr,
+        kernel_id,
+        public_key,
+        cluster_type,
+    )
 
     # setup sig handler to cancel spark jobs on interrupts
     if cluster_type == "spark":

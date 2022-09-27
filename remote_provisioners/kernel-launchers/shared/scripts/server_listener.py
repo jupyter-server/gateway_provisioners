@@ -7,7 +7,6 @@ import signal
 import socket
 import uuid
 from multiprocessing import Process, set_start_method
-from threading import Thread
 from typing import Any, Dict, List, Optional
 
 from Cryptodome.Cipher import AES, PKCS1_v1_5
@@ -34,15 +33,17 @@ shutdown: bool = False
 
 
 class ServerListener:
-    def __init__(self,
-                 conn_filename: str,
-                 parent_pid: int,
-                 lower_port: int,
-                 upper_port: int,
-                 response_addr: str,
-                 kernel_id: str,
-                 public_key: str,
-                 cluster_type: Optional[str] = None):
+    def __init__(
+        self,
+        conn_filename: str,
+        parent_pid: int,
+        lower_port: int,
+        upper_port: int,
+        response_addr: str,
+        kernel_id: str,
+        public_key: str,
+        cluster_type: Optional[str] = None,
+    ):
         # Note, in the R integration, parameters come into Python as strings, so
         # we need to explicitly cast non-strings.
         self.conn_filename: str = conn_filename
@@ -191,13 +192,15 @@ class ServerListener:
             conn, addr = self.comm_socket.accept()
             while True:
                 buffer: bytes = conn.recv(1024)
-                if buffer == b'':  # send is complete
+                if buffer == b"":  # send is complete
                     if len(data) > 0:
                         request_info = json.loads(data)
                     else:
                         logger.info("DEBUG: get_server_request: no data received - returning None")
                     break
-                data = data + buffer.decode("utf-8")  # append what we received until we get no more...
+                data = data + buffer.decode(
+                    "utf-8"
+                )  # append what we received until we get no more...
         except Exception as ex:
             if type(ex) is not socket.timeout:
                 raise ex
@@ -240,7 +243,7 @@ class ServerListener:
 
 
 def handle_sigterm(sig: int, frame: Any) -> None:
-    """Revert to the default handler and set shutdown to True. """
+    """Revert to the default handler and set shutdown to True."""
     signal.signal(signal.SIGTERM, signal.SIG_DFL)
     logger.info("SIGTERM caught and reset to default handler...")
     global shutdown
@@ -248,22 +251,30 @@ def handle_sigterm(sig: int, frame: Any) -> None:
 
 
 def setup_server_listener(
-        conn_filename: str,
-        parent_pid: int,
-        lower_port: int,
-        upper_port: int,
-        response_addr: str,
-        kernel_id: str,
-        public_key: str,
-        cluster_type: Optional[str] = None
+    conn_filename: str,
+    parent_pid: int,
+    lower_port: int,
+    upper_port: int,
+    response_addr: str,
+    kernel_id: str,
+    public_key: str,
+    cluster_type: Optional[str] = None,
 ) -> None:
     """Initializes the server listener sub-process to handle requests from the server."""
 
     # Create the ServerListener instance and build the connection file PRIOR to sub-process.
     # This is synchronous relative to the launcher, so the launcher can start the kernel
     # using the connection file and no race condition is introduced.
-    sl = ServerListener(conn_filename, parent_pid, lower_port, upper_port, response_addr,
-                        kernel_id, public_key, cluster_type)
+    sl = ServerListener(
+        conn_filename,
+        parent_pid,
+        lower_port,
+        upper_port,
+        response_addr,
+        kernel_id,
+        public_key,
+        cluster_type,
+    )
     sl.build_connection_file()
 
     set_start_method("fork")

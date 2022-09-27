@@ -2,15 +2,14 @@
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in containers."""
 
+import abc
 import os
 import signal
-import abc
+from typing import Any, Dict, List, Optional, Set
 
 import urllib3  # docker ends up using this and it causes lots of noise, so turn off warnings
-
 from jupyter_client import localinterfaces
-from traitlets import default, Unicode
-from typing import Any, Dict, List, Optional, Set
+from traitlets import Unicode, default
 
 from .remote_provisioner import RemoteProvisionerBase
 
@@ -18,36 +17,44 @@ urllib3.disable_warnings()
 
 local_ip = localinterfaces.public_ips()[0]
 
-default_kernel_uid = '1000'  # jovyan user is the default
-default_kernel_gid = '100'  # users group is the default
+default_kernel_uid = "1000"  # jovyan user is the default
+default_kernel_gid = "100"  # users group is the default
 
 # These could be enforced via a PodSecurityPolicy, but those affect
 # all pods so the cluster admin would need to configure those for
 # all applications.
-prohibited_uids = os.getenv("RP_PROHIBITED_UIDS", "0").split(',')
-prohibited_gids = os.getenv("RP_PROHIBITED_GIDS", "0").split(',')
+prohibited_uids = os.getenv("RP_PROHIBITED_UIDS", "0").split(",")
+prohibited_gids = os.getenv("RP_PROHIBITED_GIDS", "0").split(",")
 
-mirror_working_dirs = bool((os.getenv('RP_MIRROR_WORKING_DIRS', 'false').lower() == 'true'))
+mirror_working_dirs = bool(os.getenv("RP_MIRROR_WORKING_DIRS", "false").lower() == "true")
 
 
 class ContainerProvisioner(RemoteProvisionerBase):
     """Kernel provisioner for container-based kernels."""
 
-    image_name_env = 'RP_IMAGE_NAME'
-    image_name = Unicode(None, config=True, allow_none=True,
-                         help="""The image name to use when launching container-based kernels.
-                              (RP_IMAGE_NAME env var)""")
+    image_name_env = "RP_IMAGE_NAME"
+    image_name = Unicode(
+        None,
+        config=True,
+        allow_none=True,
+        help="""The image name to use when launching container-based kernels.
+                              (RP_IMAGE_NAME env var)""",
+    )
 
-    @default('image_name')
+    @default("image_name")
     def image_name_default(self):
         return os.getenv(self.image_name_env)
 
-    executor_image_name_env = 'RP_EXECUTOR_IMAGE_NAME'
-    executor_image_name = Unicode(None, config=True, allow_none=True,
-                         help="""The image name to use as the Spark executor image when launching 
-                               container-based kernels within Spark environments. (RP_EXECUTOR_IMAGE_NAME env var)""")
+    executor_image_name_env = "RP_EXECUTOR_IMAGE_NAME"
+    executor_image_name = Unicode(
+        None,
+        config=True,
+        allow_none=True,
+        help="""The image name to use as the Spark executor image when launching
+                               container-based kernels within Spark environments. (RP_EXECUTOR_IMAGE_NAME env var)""",
+    )
 
-    @default('executor_image_name')
+    @default("executor_image_name")
     def executor_image_name_default(self):
         return os.getenv(self.executor_image_name_env) or self.image_name
 
@@ -66,35 +73,43 @@ class ContainerProvisioner(RemoteProvisionerBase):
 
         kwargs = await super().pre_launch(**kwargs)
 
-        kwargs['env']['KERNEL_IMAGE'] = self.image_name
-        kwargs['env']['KERNEL_EXECUTOR_IMAGE'] = self.executor_image_name
+        kwargs["env"]["KERNEL_IMAGE"] = self.image_name
+        kwargs["env"]["KERNEL_EXECUTOR_IMAGE"] = self.executor_image_name
 
-        if not mirror_working_dirs:  # If mirroring is not enabled, remove working directory if present
-            if 'KERNEL_WORKING_DIR' in kwargs['env']:
-                del kwargs['env']['KERNEL_WORKING_DIR']
+        if (
+            not mirror_working_dirs
+        ):  # If mirroring is not enabled, remove working directory if present
+            if "KERNEL_WORKING_DIR" in kwargs["env"]:
+                del kwargs["env"]["KERNEL_WORKING_DIR"]
 
         self._enforce_prohibited_ids(**kwargs)
         return kwargs
 
     def log_kernel_launch(self, cmd: List[str]) -> None:
-        self.log.info(f"{self.__class__.__name__}: kernel launched. Kernel image: {self.image_name}, "
-                      f"KernelID: {self.kernel_id}, cmd: '{cmd}'")
+        self.log.info(
+            f"{self.__class__.__name__}: kernel launched. Kernel image: {self.image_name}, "
+            f"KernelID: {self.kernel_id}, cmd: '{cmd}'"
+        )
 
     def _enforce_prohibited_ids(self, **kwargs):
         """Determine UID and GID with which to launch container and ensure they are not prohibited."""
-        kernel_uid = kwargs['env'].get('KERNEL_UID', default_kernel_uid)
-        kernel_gid = kwargs['env'].get('KERNEL_GID', default_kernel_gid)
+        kernel_uid = kwargs["env"].get("KERNEL_UID", default_kernel_uid)
+        kernel_gid = kwargs["env"].get("KERNEL_GID", default_kernel_gid)
 
         if kernel_uid in prohibited_uids:
-            error_message = f"Kernel's UID value of '{kernel_uid}' has been denied via RP_PROHIBITED_UIDS!"
+            error_message = (
+                f"Kernel's UID value of '{kernel_uid}' has been denied via RP_PROHIBITED_UIDS!"
+            )
             self.log_and_raise(PermissionError(error_message))
         elif kernel_gid in prohibited_gids:
-            error_message = f"Kernel's GID value of '{kernel_gid}' has been denied via RP_PROHIBITED_GIDS!"
+            error_message = (
+                f"Kernel's GID value of '{kernel_gid}' has been denied via RP_PROHIBITED_GIDS!"
+            )
             self.log_and_raise(PermissionError(error_message))
 
         # Ensure the kernel's env has what it needs in case they came from defaults
-        kwargs['env']['KERNEL_UID'] = kernel_uid
-        kwargs['env']['KERNEL_GID'] = kernel_gid
+        kwargs["env"]["KERNEL_UID"] = kernel_uid
+        kwargs["env"]["KERNEL_GID"] = kernel_gid
 
     async def poll(self) -> Optional[int]:
         """Determines if container is still active.
@@ -174,9 +189,11 @@ class ContainerProvisioner(RemoteProvisionerBase):
 
             container_status = await self.get_container_status(str(i))
             if container_status:
-                if self.assigned_host != '':
+                if self.assigned_host != "":
                     ready_to_connect = await self.receive_connection_info()
-                    self.pid = 0  # We won't send the process signals from container-based provisioners
+                    self.pid = (
+                        0  # We won't send the process signals from container-based provisioners
+                    )
                     self.pgid = 0
             else:
                 self.detect_launch_failure()
@@ -184,7 +201,11 @@ class ContainerProvisioner(RemoteProvisionerBase):
     async def get_provisioner_info(self) -> Dict:
         """Captures the base information necessary for kernel persistence relative to containers."""
         provisioner_info = await super().get_provisioner_info()
-        provisioner_info.update({'assigned_node_ip': self.assigned_node_ip, })
+        provisioner_info.update(
+            {
+                "assigned_node_ip": self.assigned_node_ip,
+            }
+        )
         return provisioner_info
 
     async def load_provisioner_info(self, provisioner_info: Dict) -> None:
