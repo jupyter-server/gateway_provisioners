@@ -4,8 +4,7 @@
   "metadata": {
     "kernel_provisioner": {
       "provisioner_name": "yarn-provisioner",
-      "config": {
-      }
+      "config": {}
     }
   },
   "env": {

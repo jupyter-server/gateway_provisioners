@@ -4,12 +4,10 @@
   "metadata": {
     "kernel_provisioner": {
       "provisioner_name": "distributed-provisioner",
-      "config": {
-      }
+      "config": {}
     }
   },
-  "env": {
-  },
+  "env": {},
   "argv": [
     "Rscript",
     "${install_dir}/scripts/launch_IRkernel.R",

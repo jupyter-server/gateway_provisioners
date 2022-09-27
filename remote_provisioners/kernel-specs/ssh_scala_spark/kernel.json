@@ -4,15 +4,14 @@
   "metadata": {
     "kernel_provisioner": {
       "provisioner_name": "distributed-provisioner",
-      "config": {
-      }
+      "config": {}
     }
   },
   "env": {
     "SPARK_HOME": "${spark_home}",
     "__TOREE_SPARK_OPTS__": "--master ${spark_master} --deploy-mode client --name ${KERNEL_ID:-ERROR__NO__KERNEL_ID} ${KERNEL_EXTRA_SPARK_OPTS}",
     "__TOREE_OPTS__": "--alternate-sigint USR2",
-    "LAUNCH_OPTS": "",
+    "LAUNCH_OPTS": ""
   },
   "argv": [
     "${install_dir}/bin/run.sh",

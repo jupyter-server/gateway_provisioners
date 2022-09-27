@@ -1,40 +1,37 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
-import os
 import json
-import sys
+import os
 import shutil
+import sys
 import tempfile
-
 from distutils import dir_util
 from string import Template
 from typing import Any
 
-from jupyter_core.application import base_aliases
-from jupyter_core.application import base_flags
-from jupyter_core.application import JupyterApp
 from jupyter_client.kernelspec import KernelSpec, KernelSpecManager
-from traitlets import Instance, Unicode, Bool, default, validate, TraitError
+from jupyter_core.application import JupyterApp, base_aliases, base_flags
+from traitlets import Bool, Instance, TraitError, Unicode, default, validate
 
-from ..config_mixin import RemoteProvisionerConfigMixin
 from .._version import __version__
+from ..config_mixin import RemoteProvisionerConfigMixin
 
-kernel_launchers_dir = os.path.join(os.path.dirname(__file__), '..', 'kernel-launchers')
-kernel_resources_dir = os.path.join(os.path.dirname(__file__), '..', 'kernel-resources')
-kernel_specs_dir = os.path.join(os.path.dirname(__file__), '..', 'kernel-specs')
+kernel_launchers_dir = os.path.join(os.path.dirname(__file__), "..", "kernel-launchers")
+kernel_resources_dir = os.path.join(os.path.dirname(__file__), "..", "kernel-resources")
+kernel_specs_dir = os.path.join(os.path.dirname(__file__), "..", "kernel-specs")
 
-launcher_dirs = ['python', 'r', 'scala', 'kubernetes', 'docker', 'operators']
-resource_dirs = ['python', 'r', 'scala']
+launcher_dirs = ["python", "r", "scala", "kubernetes", "docker", "operators"]
+resource_dirs = ["python", "r", "scala"]
 
 KERNEL_JSON = "kernel.json"
-PYTHON = 'python'
-SCALA = 'scala'
-R = 'r'
-DASK = 'dask'
+PYTHON = "python"
+SCALA = "scala"
+R = "r"
+DASK = "dask"
 DEFAULT_LANGUAGE = PYTHON
 SUPPORTED_LANGUAGES = [PYTHON, SCALA, R]
-DEFAULT_INIT_MODE = 'lazy'
-SPARK_INIT_MODES = [DEFAULT_INIT_MODE, 'eager', 'none']
+DEFAULT_INIT_MODE = "lazy"
+SPARK_INIT_MODES = [DEFAULT_INIT_MODE, "eager", "none"]
 LANGUAGE_SUBSTITUTIONS = {PYTHON: PYTHON, R: "R", SCALA: SCALA}
 DEFAULT_PYTHON_KERNEL_CLASS_NAME = "ipykernel.ipkernel.IPythonKernel"
 
@@ -53,15 +50,20 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, JupyterApp):
     kernel_spec_dir_name = Unicode()  # kernel-specs directory name
     install_dir = Unicode()  # Final location for kernel spec
 
-    kernel_name = Unicode(config=True,
-                          help="""Install the kernel spec into a directory with this name.""")
+    kernel_name = Unicode(
+        config=True, help="""Install the kernel spec into a directory with this name."""
+    )
 
-    display_name = Unicode(config=True,
-                           help="""The display name of the kernel - used by user-facing applications.""")
+    display_name = Unicode(
+        config=True, help="""The display name of the kernel - used by user-facing applications."""
+    )
 
-    language = Unicode('Python', config=True,
-                       help="""The language of the underlying kernel.  Must be one of 'Python', 'R', or "
-"'Scala'.  Default = 'Python'.""")
+    language = Unicode(
+        "Python",
+        config=True,
+        help="""The language of the underlying kernel.  Must be one of 'Python', 'R', or "
+"'Scala'.  Default = 'Python'.""",
+    )
 
     @validate("language")
     def language_validate(self, proposal: dict[str, str]) -> str:
@@ -69,20 +71,27 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, JupyterApp):
         try:
             assert value.lower() in SUPPORTED_LANGUAGES
         except ValueError:
-            raise TraitError(
-                f"Invalid language value {value}, not in {SUPPORTED_LANGUAGES}"
-            )
+            raise TraitError(f"Invalid language value {value}, not in {SUPPORTED_LANGUAGES}")
         return value
 
-    ipykernel_subclass_name = Unicode(DEFAULT_PYTHON_KERNEL_CLASS_NAME, config=True,
-                                      help="""For Python kernels, the name of the ipykernel subclass.""")
+    ipykernel_subclass_name = Unicode(
+        DEFAULT_PYTHON_KERNEL_CLASS_NAME,
+        config=True,
+        help="""For Python kernels, the name of the ipykernel subclass.""",
+    )
 
-    spark_home = Unicode(os.getenv("SPARK_HOME", '/opt/spark'), config=True,
-                         help="""Specify where the spark files can be found.""")
+    spark_home = Unicode(
+        os.getenv("SPARK_HOME", "/opt/spark"),
+        config=True,
+        help="""Specify where the spark files can be found.""",
+    )
 
-    spark_init_mode = Unicode(DEFAULT_INIT_MODE, config=True,
-                              help=f"""Spark context initialization mode.  Must be one of {SPARK_INIT_MODES}.  
-Default = {DEFAULT_INIT_MODE}.""")
+    spark_init_mode = Unicode(
+        DEFAULT_INIT_MODE,
+        config=True,
+        help=f"""Spark context initialization mode.  Must be one of {SPARK_INIT_MODES}.
+Default = {DEFAULT_INIT_MODE}.""",
+    )
 
     @validate("spark_init_mode")
     def spark_init_mode_validate(self, proposal: dict[str, str]) -> str:
@@ -95,41 +104,49 @@ Default = {DEFAULT_INIT_MODE}.""")
             )
         return value
 
-    extra_spark_opts = Unicode('', config=True, help="Specify additional Spark options.")
+    extra_spark_opts = Unicode("", config=True, help="Specify additional Spark options.")
 
     # Flags
-    user = Bool(False, config=True,
-                help="Try to install the kernel spec to the per-user directory instead of the system "
-                     "or environment directory.")
+    user = Bool(
+        False,
+        config=True,
+        help="Try to install the kernel spec to the per-user directory instead of the system "
+        "or environment directory.",
+    )
 
-    prefix = Unicode('', config=True,
-                     help="Specify a prefix to install to, e.g. an env. The kernelspec will be "
-                          "installed in PREFIX/share/jupyter/kernels/")
+    prefix = Unicode(
+        "",
+        config=True,
+        help="Specify a prefix to install to, e.g. an env. The kernelspec will be "
+        "installed in PREFIX/share/jupyter/kernels/",
+    )
 
     spark = Bool(False, config=True, help="Install kernel for use with Spark.")
 
     super_aliases = {
-        'prefix': 'BaseSpecApp.prefix',
-        'kernel-name': 'BaseSpecApp.kernel_name',
-        'display-name': 'BaseSpecApp.display_name',
-        'language': 'BaseSpecApp.language',
-        'spark-home': 'BaseSpecApp.spark_home',
-        'spark-init-mode': 'BaseSpecApp.spark_init_mode',
-        'extra-spark-opts': 'BaseSpecApp.extra_spark_opts',
-        'authorized-users': 'BaseSpecApp.authorized_users',
-        'unauthorized-users': 'BaseSpecApp.unauthorized_users',
-        'port-range': 'BaseSpecApp.port_range',
-        'launch-timeout': 'BaseSpecApp.launch_timeout',
-        'ipykernel-subclass-name': "BaseSpecApp.ipykernel_subclass_name"
+        "prefix": "BaseSpecApp.prefix",
+        "kernel-name": "BaseSpecApp.kernel_name",
+        "display-name": "BaseSpecApp.display_name",
+        "language": "BaseSpecApp.language",
+        "spark-home": "BaseSpecApp.spark_home",
+        "spark-init-mode": "BaseSpecApp.spark_init_mode",
+        "extra-spark-opts": "BaseSpecApp.extra_spark_opts",
+        "authorized-users": "BaseSpecApp.authorized_users",
+        "unauthorized-users": "BaseSpecApp.unauthorized_users",
+        "port-range": "BaseSpecApp.port_range",
+        "launch-timeout": "BaseSpecApp.launch_timeout",
+        "ipykernel-subclass-name": "BaseSpecApp.ipykernel_subclass_name",
     }
     super_aliases.update(base_aliases)
 
     super_flags = {
-        'user': ({'BaseSpecApp': {'user': True}}, "Install to the per-user kernel registry"),
-        'sys-prefix': ({'BaseSpecApp': {'prefix': sys.prefix}},
-                       "Install to Python's sys.prefix. Useful in conda/virtual environments."),
-        'spark': ({'BaseSpecApp': {'spark': True}}, "Install kernelspec with Spark support."),
-        'debug': base_flags['debug'],
+        "user": ({"BaseSpecApp": {"user": True}}, "Install to the per-user kernel registry"),
+        "sys-prefix": (
+            {"BaseSpecApp": {"prefix": sys.prefix}},
+            "Install to Python's sys.prefix. Useful in conda/virtual environments.",
+        ),
+        "spark": ({"BaseSpecApp": {"spark": True}}, "Install kernelspec with Spark support."),
+        "debug": base_flags["debug"],
     }
 
     def start(self):
@@ -154,19 +171,25 @@ Default = {DEFAULT_INIT_MODE}.""")
 
         if self.ipykernel_subclass_name != DEFAULT_PYTHON_KERNEL_CLASS_NAME:
             if self.language.lower() != PYTHON:
-                self.log.warning("--ipykernel_subclass_name will be ignored since --language is not Python.")
+                self.log.warning(
+                    "--ipykernel_subclass_name will be ignored since --language is not Python."
+                )
             else:  # Attempt to validate the value is a subclass of ipykernel, but only warn if ImportError
                 try:
                     from ipykernel.ipkernel import IPythonKernel
 
                     ipykernel_subclass = self.import_item(self.ipykernel_subclass_name)
                     if not issubclass(ipykernel_subclass, IPythonKernel):
-                        self.log_and_exit(f"Parameter ipykernel-subclass-name of '{self.ipykernel_subclass_name}' "
-                                          f"does not appear to be a subclass of '{DEFAULT_PYTHON_KERNEL_CLASS_NAME}'")
+                        self.log_and_exit(
+                            f"Parameter ipykernel-subclass-name of '{self.ipykernel_subclass_name}' "
+                            f"does not appear to be a subclass of '{DEFAULT_PYTHON_KERNEL_CLASS_NAME}'"
+                        )
                 except ImportError:
-                    self.log.warning(f"Cannot determine if parameter ipykernel-subclass-name "
-                                     f"'{self.ipykernel_subclass_name}' is a subclass of "
-                                     f"'{DEFAULT_PYTHON_KERNEL_CLASS_NAME}'.  Continuing...")
+                    self.log.warning(
+                        f"Cannot determine if parameter ipykernel-subclass-name "
+                        f"'{self.ipykernel_subclass_name}' is a subclass of "
+                        f"'{DEFAULT_PYTHON_KERNEL_CLASS_NAME}'.  Continuing..."
+                    )
 
     def _assemble_kernel_specs(self):
         """Assembles kernel-specs, launchers and resources into staging directory, then installs as kernel-spec."""
@@ -178,28 +201,39 @@ Default = {DEFAULT_INIT_MODE}.""")
         self._copy_kernel_spec_files(staging_dir)
 
         # install to destination
-        self.log.info("Installing kernel specification for '{}'".format(self.display_name))
-        self.install_dir = self.kernel_spec_manager.install_kernel_spec(staging_dir,
-                                                                        kernel_name=self.kernel_name,
-                                                                        user=self.user,
-                                                                        prefix=self.prefix)
+        self.log.info(f"Installing kernel specification for '{self.display_name}'")
+        self.install_dir = self.kernel_spec_manager.install_kernel_spec(
+            staging_dir, kernel_name=self.kernel_name, user=self.user, prefix=self.prefix
+        )
         self._delete_directory(staging_dir)
 
     def _copy_kernel_spec_files(self, staging_dir: str):
         """Copies the launcher, resource and kernel-spec files to the staging directory."""
 
-        if any(dir_name is None
-               for dir_name in [self.launcher_dir_name, self.resource_dir_name, self.kernel_spec_dir_name]):
-            raise ValueError("Invalid parameters.  Each of launcher_dir_name, resource_dir_name, "
-                             "and kernel_spec_dir_name must have a value!")
+        if any(
+            dir_name is None
+            for dir_name in [
+                self.launcher_dir_name,
+                self.resource_dir_name,
+                self.kernel_spec_dir_name,
+            ]
+        ):
+            raise ValueError(
+                "Invalid parameters.  Each of launcher_dir_name, resource_dir_name, "
+                "and kernel_spec_dir_name must have a value!"
+            )
 
         if self.launcher_dir_name not in launcher_dirs:
-            raise ValueError(f"Invalid launcher_dir_name '{self.launcher_dir_name}' "
-                             f"detected! Must be one of: {launcher_dirs}")
+            raise ValueError(
+                f"Invalid launcher_dir_name '{self.launcher_dir_name}' "
+                f"detected! Must be one of: {launcher_dirs}"
+            )
 
         if self.resource_dir_name not in resource_dirs:
-            raise ValueError(f"Invalid resource_dir_name '{self.resource_dir_name}' "
-                             f"detected! Must be one of: {resource_dirs}")
+            raise ValueError(
+                f"Invalid resource_dir_name '{self.resource_dir_name}' "
+                f"detected! Must be one of: {resource_dirs}"
+            )
 
         # Copy the launcher files
         src_dir = os.path.join(kernel_launchers_dir, self.launcher_dir_name)
@@ -208,12 +242,12 @@ Default = {DEFAULT_INIT_MODE}.""")
         # When the launcher_dir_name is either 'r' or 'python', we need to also copy the files
         # from the 'shared' launcher directory.
         if self.launcher_dir_name in [PYTHON, R]:
-            src_dir = os.path.join(kernel_launchers_dir, 'shared')
+            src_dir = os.path.join(kernel_launchers_dir, "shared")
             dir_util.copy_tree(src=src_dir, dst=staging_dir)
 
         # The source launcher 'scripts' directory may contain a __pycache__ directory.
         # Check for this condition in the staging area and delete the directory if present.
-        pycache_dir = os.path.join(staging_dir, 'scripts', '__pycache__')
+        pycache_dir = os.path.join(staging_dir, "scripts", "__pycache__")
         if os.path.isdir(pycache_dir):
             self._delete_directory(pycache_dir)
 
@@ -227,13 +261,13 @@ Default = {DEFAULT_INIT_MODE}.""")
 
     def _finalize_kernel_json(self):
         """Apply substitutions to the kernel.json string, update a kernel spec using these values,
-           then write to the target kernel.json file.
+        then write to the target kernel.json file.
         """
         subs = self.get_substitutions(self.install_dir)
-        kernel_json_str = ''
+        kernel_json_str = ""
         with open(os.path.join(self.install_dir, KERNEL_JSON)) as f:
             for line in f:
-                line = line.split('#', 1)[0]
+                line = line.split("#", 1)[0]
                 kernel_json_str = kernel_json_str + line
             f.close()
         post_subs = Template(kernel_json_str).safe_substitute(subs)
@@ -250,8 +284,8 @@ Default = {DEFAULT_INIT_MODE}.""")
         self.add_optional_config_entries(kernel_spec["metadata"]["kernel_provisioner"]["config"])
 
         kernel_json_file = os.path.join(self.install_dir, KERNEL_JSON)
-        self.log.debug("Finalizing kernel json file for kernel: '{}'".format(self.display_name))
-        with open(kernel_json_file, 'w+') as f:
+        self.log.debug(f"Finalizing kernel json file for kernel: '{self.display_name}'")
+        with open(kernel_json_file, "w+") as f:
             json.dump(kernel_spec, f, indent=2)
 
     def add_optional_config_entries(self, config_stanza: dict) -> None:
@@ -262,7 +296,10 @@ Default = {DEFAULT_INIT_MODE}.""")
         """
         if self.authorized_users and list(self.authorized_users) != self.authorized_users_default():
             config_stanza["authorized_users"] = list(self.authorized_users)
-        if self.unauthorized_users and list(self.unauthorized_users) != self.unauthorized_users_default():
+        if (
+            self.unauthorized_users
+            and list(self.unauthorized_users) != self.unauthorized_users_default()
+        ):
             config_stanza["unauthorized_users"] = list(self.unauthorized_users)
         if self.port_range and self.port_range != self.port_range_default_value:
             config_stanza["port_range"] = self.port_range
@@ -276,13 +313,13 @@ Default = {DEFAULT_INIT_MODE}.""")
         This method is overridden by subclasses which should first call super().get_substitutions().
         """
         substitutions = dict()
-        substitutions['spark_home'] = self.spark_home
-        substitutions['extra_spark_opts'] = self.extra_spark_opts
-        substitutions['spark_init_mode'] = self.spark_init_mode
-        substitutions['display_name'] = self.display_name
-        substitutions['install_dir'] = install_dir
-        substitutions['language'] = LANGUAGE_SUBSTITUTIONS[self.language.lower()]
-        substitutions['ipykernel_subclass_name'] = self.ipykernel_subclass_name
+        substitutions["spark_home"] = self.spark_home
+        substitutions["extra_spark_opts"] = self.extra_spark_opts
+        substitutions["spark_init_mode"] = self.spark_init_mode
+        substitutions["display_name"] = self.display_name
+        substitutions["install_dir"] = install_dir
+        substitutions["language"] = LANGUAGE_SUBSTITUTIONS[self.language.lower()]
+        substitutions["ipykernel_subclass_name"] = self.ipykernel_subclass_name
         return substitutions
 
     def log_and_exit(self, msg, exit_status=1):
@@ -293,7 +330,7 @@ Default = {DEFAULT_INIT_MODE}.""")
     @staticmethod
     def _create_staging_directory(parent_dir=None):
         """Creates a temporary staging directory at the specified location.
-           If no `parent_dir` is specified, the platform-specific "temp" directory is used.
+        If no `parent_dir` is specified, the platform-specific "temp" directory is used.
         """
         return tempfile.mkdtemp(prefix="staging_", dir=parent_dir)
 

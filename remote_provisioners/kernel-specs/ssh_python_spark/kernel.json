@@ -5,8 +5,7 @@
     "debugger": true,
     "kernel_provisioner": {
       "provisioner_name": "distributed-provisioner",
-      "config": {
-      }
+      "config": {}
     }
   },
   "env": {

@@ -9,32 +9,34 @@ import json
 import os
 import random
 import re
-
 from asyncio import Event
-from Cryptodome.Cipher import PKCS1_v1_5, AES
+from socket import AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET, socket, timeout
+from typing import Any
+
+from Cryptodome.Cipher import AES, PKCS1_v1_5
 from Cryptodome.PublicKey import RSA
 from Cryptodome.Util.Padding import unpad
 from jupyter_client import localinterfaces
-from socket import socket, timeout, AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET
 from tornado.ioloop import PeriodicCallback
 from traitlets.config import SingletonConfigurable
-from typing import Any
 
 from .config_mixin import poll_interval, socket_timeout
 
-response_ip = os.getenv('RP_RESPONSE_IP', None)
-desired_response_port = int(os.getenv('RP_RESPONSE_PORT', 8877))
+response_ip = os.getenv("RP_RESPONSE_IP", None)
+desired_response_port = int(os.getenv("RP_RESPONSE_PORT", 8877))
 response_port_retries = int(os.getenv("RP_RESPONSE_PORT_RETRIES", 10))
-response_addr_any = bool(os.getenv('RP_RESPONSE_ADDR_ANY', 'False').lower() == 'true')
+response_addr_any = bool(os.getenv("RP_RESPONSE_ADDR_ANY", "False").lower() == "true")
 
-connection_interval = poll_interval / 100.0  # already polling, so make connection timeout a fraction of outer poll
+connection_interval = (
+    poll_interval / 100.0
+)  # already polling, so make connection timeout a fraction of outer poll
 
 
 # Allow users to specify local ips (regular expressions can be used) that should not be included
 # when determining the response address.  For example, on systems with many network interfaces,
 # some may have their IPs appear the local interfaces list (e.g., docker's 172.17.0.* is an example)
 # that should not be used.  This env can be used to indicate such IPs.
-prohibited_local_ips = os.getenv('RP_PROHIBITED_LOCAL_IPS', '').split(',')
+prohibited_local_ips = os.getenv("RP_PROHIBITED_LOCAL_IPS", "").split(",")
 
 
 def _get_local_ip() -> str:
@@ -76,26 +78,26 @@ class Response(Event):
 class ResponseManager(SingletonConfigurable):
     """Singleton that manages the responses from each kernel launcher at startup.
 
-     This singleton does the following:
-     1. Acquires a public and private RSA key pair at first use to encrypt and decrypt the
-        received responses.  The public key is sent to the launcher during startup
-        and is used by the launcher to encrypt the AES key the launcher uses to encrypt
-        the connection information, while the private key remains in the server and is
-        used to decrypt the AES key from the response - which it then uses to decrypt
-        the connection information.
-     2. Creates a single socket based on the configuration settings that is listened on
-        via a periodic callback.
-     3. On receipt, it decrypts the response (key then connection info) and posts the
-        response payload to a map identified by the kernel_id embedded in the response.
-     4. Provides a wait mechanism for callers to poll to get their connection info
-        based on their registration (of kernel_id).
-     """
+    This singleton does the following:
+    1. Acquires a public and private RSA key pair at first use to encrypt and decrypt the
+       received responses.  The public key is sent to the launcher during startup
+       and is used by the launcher to encrypt the AES key the launcher uses to encrypt
+       the connection information, while the private key remains in the server and is
+       used to decrypt the AES key from the response - which it then uses to decrypt
+       the connection information.
+    2. Creates a single socket based on the configuration settings that is listened on
+       via a periodic callback.
+    3. On receipt, it decrypts the response (key then connection info) and posts the
+       response payload to a map identified by the kernel_id embedded in the response.
+    4. Provides a wait mechanism for callers to poll to get their connection info
+       based on their registration (of kernel_id).
+    """
 
     KEY_SIZE = 1024  # Can be small since its' only used to {en,de}crypt the AES key.
     _instance = None
 
     def __init__(self, **kwargs: Any):
-        super(ResponseManager, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self._response_ip = None
         self._response_port = None
         self._response_socket = None
@@ -104,7 +106,7 @@ class ResponseManager(SingletonConfigurable):
         # Create encryption keys...
         self._private_key = RSA.generate(ResponseManager.KEY_SIZE)
         self._public_key = self._private_key.publickey()
-        self._public_pem = self._public_key.export_key('PEM')
+        self._public_pem = self._public_key.export_key("PEM")
 
         # Event facility...
         self._response_registry = {}
@@ -115,10 +117,12 @@ class ResponseManager(SingletonConfigurable):
     @property
     def public_key(self) -> str:
         """Provides the string-form of public key PEM with header/footer/newlines stripped."""
-        return self._public_pem.decode()\
-            .replace('-----BEGIN PUBLIC KEY-----', '')\
-            .replace('-----END PUBLIC KEY-----', '')\
-            .replace('\n', '')
+        return (
+            self._public_pem.decode()
+            .replace("-----BEGIN PUBLIC KEY-----", "")
+            .replace("-----END PUBLIC KEY-----", "")
+            .replace("\n", "")
+        )
 
     @property
     def response_address(self) -> str:
@@ -143,8 +147,8 @@ class ResponseManager(SingletonConfigurable):
         # (which is the default).
         # Multiple IP bindings should be configured for containerized configurations (k8s) that need to
         # launch kernels into external YARN clusters.
-        bind_ip = (local_ip if response_ip is None else response_ip)
-        bind_ip = (bind_ip if response_addr_any is False else '')
+        bind_ip = local_ip if response_ip is None else response_ip
+        bind_ip = bind_ip if response_addr_any is False else ""
 
         response_port = desired_response_port
         for port in ResponseManager._random_ports(response_port, response_port_retries + 1):
@@ -178,7 +182,7 @@ class ResponseManager(SingletonConfigurable):
         s.settimeout(socket_timeout)
         self._response_socket = s
         self._response_port = response_port
-        self._response_ip = (local_ip if response_ip is None else response_ip)
+        self._response_ip = local_ip if response_ip is None else response_ip
 
     def _start_response_manager(self) -> None:
         """If not already started, creates and starts the periodic callback to process connections."""
@@ -213,7 +217,9 @@ class ResponseManager(SingletonConfigurable):
                     self.log.debug(f"Decrypted payload '{payload}'")
                     self._post_connection(payload)
                     break
-                data = data + buffer.decode(encoding='utf-8')  # append what we received until we get no more...
+                data = data + buffer.decode(
+                    encoding="utf-8"
+                )  # append what we received until we get no more...
         except timeout:
             pass
         except Exception as ex:
@@ -247,21 +253,23 @@ class ResponseManager(SingletonConfigurable):
         try:
             payload = json.loads(payload_str)
             # Get the version
-            version = payload.get('version')
+            version = payload.get("version")
             if version is None:
-                raise ValueError("Payload received from kernel does not include a version indicator!")
+                raise ValueError(
+                    "Payload received from kernel does not include a version indicator!"
+                )
             self.log.debug(f"Version {version} payload received.")
 
             if version == 1:
                 # Decrypt the AES key using the RSA private key
-                encrypted_aes_key = base64.b64decode(payload['key'].encode())
+                encrypted_aes_key = base64.b64decode(payload["key"].encode())
                 cipher = PKCS1_v1_5.new(self._private_key)
-                aes_key = cipher.decrypt(encrypted_aes_key, b'\x42')
+                aes_key = cipher.decrypt(encrypted_aes_key, b"\x42")
                 # Per docs, don't convey that decryption returned sentinel.  So just let
                 # things fail "naturally".
                 # Decrypt and unpad the connection information using the just-decrypted AES key
                 cipher = AES.new(aes_key, AES.MODE_ECB)
-                encrypted_connection_info = base64.b64decode(payload['conn_info'].encode())
+                encrypted_connection_info = base64.b64decode(payload["conn_info"].encode())
                 connection_info_str = unpad(cipher.decrypt(encrypted_connection_info), 16).decode()
             else:
                 raise ValueError(f"Unexpected version indicator received: {version}!")
@@ -273,22 +281,28 @@ class ResponseManager(SingletonConfigurable):
             for kernel_id in self._response_registry.keys():
                 aes_key = kernel_id[0:16]
                 try:
-                    cipher = AES.new(aes_key.encode('utf-8'), AES.MODE_ECB)
+                    cipher = AES.new(aes_key.encode("utf-8"), AES.MODE_ECB)
                     decrypted_payload = cipher.decrypt(payload_str)
                     # Version "0" responses use custom padding, so remove that here.
-                    connection_info_str = "".join([decrypted_payload.decode("utf-8").rsplit("}", 1)[0], "}"])
+                    connection_info_str = "".join(
+                        [decrypted_payload.decode("utf-8").rsplit("}", 1)[0], "}"]
+                    )
                     # Try to load as JSON
                     new_connection_info = json.loads(connection_info_str)
                     # Add kernel_id into dict, then dump back to string so this can be processed as valid response
-                    new_connection_info['kernel_id'] = kernel_id
+                    new_connection_info["kernel_id"] = kernel_id
                     connection_info_str = json.dumps(new_connection_info)
-                    self.log.warning(f"WARNING!!!! Legacy kernel response received for kernel_id '{kernel_id}'! "
-                                     "Update kernel launchers to current version!")
+                    self.log.warning(
+                        f"WARNING!!!! Legacy kernel response received for kernel_id '{kernel_id}'! "
+                        "Update kernel launchers to current version!"
+                    )
                     break  # If we're here, we made it!
                 except Exception as ex2:
                     # Any exception fails this experiment and we continue
-                    self.log.debug(f"Received the following exception detecting legacy kernel "
-                                   f"response - {ex2.__class__.__name__}: {ex2}")
+                    self.log.debug(
+                        f"Received the following exception detecting legacy kernel "
+                        f"response - {ex2.__class__.__name__}: {ex2}"
+                    )
                     connection_info_str = None
 
             if connection_info_str is None:
@@ -300,12 +314,14 @@ class ResponseManager(SingletonConfigurable):
 
     def _post_connection(self, connection_info: dict) -> None:
         """Posts connection information into "wait map" based on kernel_id value."""
-        kernel_id = connection_info.get('kernel_id')
+        kernel_id = connection_info.get("kernel_id")
         if kernel_id is None:
             self.log.error("No kernel id found in response!  Kernel launch will fail.")
             return
         if kernel_id not in self._response_registry:
-            self.log.error(f"Kernel id '{kernel_id}' has not been registered and will not be processed!")
+            self.log.error(
+                f"Kernel id '{kernel_id}' has not been registered and will not be processed!"
+            )
             return
 
         self.log.debug(f"Connection info received for kernel '{kernel_id}': {connection_info}")

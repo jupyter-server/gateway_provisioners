@@ -10,30 +10,34 @@ import os
 import signal
 import socket
 import time
+from typing import Any
 
-from traitlets import default, Unicode, Bool
-from typing import Any, Dict, List, Optional, Tuple
+from traitlets import Bool, Unicode, default
 
 try:
     from yarn_api_client.resource_manager import ResourceManager
 except ImportError:
-    logging.warning("The extra package 'yarn_api_client'is not installed in this environment and is "
-                    "required.  Ensure that remote_provisioners is installed by specifying the "
-                    "extra 'yarn' (e.g., pip install 'remote_provisioners[yarn]').")
+    logging.warning(
+        "The extra package 'yarn_api_client'is not installed in this environment and is "
+        "required.  Ensure that remote_provisioners is installed by specifying the "
+        "extra 'yarn' (e.g., pip install 'remote_provisioners[yarn]')."
+    )
     raise
 
-from .config_mixin import poll_interval, max_poll_attempts
+from .config_mixin import max_poll_attempts, poll_interval
 from .remote_provisioner import RemoteProvisionerBase
 
 # Default logging level of yarn-api and underlying connection pool produce too much noise - raise to warning only.
-logging.getLogger('yarn_api_client').setLevel(os.getenv('RP_YARN_LOG_LEVEL', logging.WARNING))
-logging.getLogger('urllib3.connectionpool').setLevel(os.environ.get('RP_YARN_LOG_LEVEL', logging.WARNING))
+logging.getLogger("yarn_api_client").setLevel(os.getenv("RP_YARN_LOG_LEVEL", logging.WARNING))
+logging.getLogger("urllib3.connectionpool").setLevel(
+    os.environ.get("RP_YARN_LOG_LEVEL", logging.WARNING)
+)
 
-yarn_shutdown_wait_time = float(os.getenv('RP_YARN_SHUTDOWN_WAIT_TIME', '15.0'))
+yarn_shutdown_wait_time = float(os.getenv("RP_YARN_SHUTDOWN_WAIT_TIME", "15.0"))
 # cert_path: Boolean, defaults to `True`, that controls
 #            whether we verify the server's TLS certificate in yarn-api-client.
 #            Or a string, in which case it must be a path to a CA bundle(.pem file) to use.
-cert_path = os.getenv('RP_YARN_CERT_BUNDLE', True)
+cert_path = os.getenv("RP_YARN_CERT_BUNDLE", True)
 
 
 class YarnProvisioner(RemoteProvisionerBase):
@@ -41,42 +45,57 @@ class YarnProvisioner(RemoteProvisionerBase):
     Kernel lifecycle management for YARN clusters.
     """
 
-    yarn_endpoint_env = 'RP_YARN_ENDPOINT'
-    yarn_endpoint = Unicode(None, config=True, allow_none=True,
-                            help="""The http url specifying the YARN Resource Manager. Note: If this value is NOT set,
+    yarn_endpoint_env = "RP_YARN_ENDPOINT"
+    yarn_endpoint = Unicode(
+        None,
+        config=True,
+        allow_none=True,
+        help="""The http url specifying the YARN Resource Manager. Note: If this value is NOT set,
                             the YARN library will use the files within the local HADOOP_CONFIG_DIR to determine the
-                            active resource manager. (RP_YARN_ENDPOINT env var)""")
+                            active resource manager. (RP_YARN_ENDPOINT env var)""",
+    )
 
-    @default('yarn_endpoint')
+    @default("yarn_endpoint")
     def yarn_endpoint_default(self):
         return os.getenv(self.yarn_endpoint_env)
 
     # Alt Yarn endpoint
-    alt_yarn_endpoint_env = 'RP_ALT_YARN_ENDPOINT'
-    alt_yarn_endpoint = Unicode(None, config=True, allow_none=True,
-                                help="""The http url specifying the alternate YARN Resource Manager.  This value should
+    alt_yarn_endpoint_env = "RP_ALT_YARN_ENDPOINT"
+    alt_yarn_endpoint = Unicode(
+        None,
+        config=True,
+        allow_none=True,
+        help="""The http url specifying the alternate YARN Resource Manager.  This value should
                                 be set when YARN Resource Managers are configured for high availability.  Note: If both
                                 YARN endpoints are NOT set, the YARN library will use the files within the local
                                 HADOOP_CONFIG_DIR to determine the active resource manager.
-                                (RP_ALT_YARN_ENDPOINT env var)""")
+                                (RP_ALT_YARN_ENDPOINT env var)""",
+    )
 
-    @default('alt_yarn_endpoint')
+    @default("alt_yarn_endpoint")
     def alt_yarn_endpoint_default(self):
         return os.getenv(self.alt_yarn_endpoint_env)
 
-    yarn_endpoint_security_enabled_env = 'RP_YARN_ENDPOINT_SECURITY_ENABLED'
+    yarn_endpoint_security_enabled_env = "RP_YARN_ENDPOINT_SECURITY_ENABLED"
     yarn_endpoint_security_enabled_default_value = False
-    yarn_endpoint_security_enabled = Bool(yarn_endpoint_security_enabled_default_value, config=True,
-                                          help="""Is YARN Kerberos/SPNEGO Security enabled (True/False).
-                                          (RP_YARN_ENDPOINT_SECURITY_ENABLED env var)""")
+    yarn_endpoint_security_enabled = Bool(
+        yarn_endpoint_security_enabled_default_value,
+        config=True,
+        help="""Is YARN Kerberos/SPNEGO Security enabled (True/False).
+                                          (RP_YARN_ENDPOINT_SECURITY_ENABLED env var)""",
+    )
 
-    @default('yarn_endpoint_security_enabled')
+    @default("yarn_endpoint_security_enabled")
     def yarn_endpoint_security_enabled_default(self):
-        return bool(os.getenv(self.yarn_endpoint_security_enabled_env,
-                              self.yarn_endpoint_security_enabled_default_value))
+        return bool(
+            os.getenv(
+                self.yarn_endpoint_security_enabled_env,
+                self.yarn_endpoint_security_enabled_default_value,
+            )
+        )
 
-    initial_states = {'NEW', 'SUBMITTED', 'ACCEPTED', 'RUNNING'}
-    final_states = {'FINISHED', 'KILLED', 'FAILED'}
+    initial_states = {"NEW", "SUBMITTED", "ACCEPTED", "RUNNING"}
+    final_states = {"FINISHED", "KILLED", "FAILED"}
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -126,7 +145,7 @@ class YarnProvisioner(RemoteProvisionerBase):
 
         self.rm_addr = self.resource_mgr.get_active_endpoint()
 
-    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
         """
         Launches the specified process within a YARN cluster environment.
         """
@@ -145,11 +164,13 @@ class YarnProvisioner(RemoteProvisionerBase):
 
         return kwargs
 
-    def log_kernel_launch(self, cmd: List[str]) -> None:
-        self.log.info(f"{self.__class__.__name__}: kernel launched. YARN RM: {self.rm_addr}, "
-                      f"pid: {self.local_proc.pid}, Kernel ID: {self.kernel_id}, cmd: '{cmd}'")
+    def log_kernel_launch(self, cmd: list[str]) -> None:
+        self.log.info(
+            f"{self.__class__.__name__}: kernel launched. YARN RM: {self.rm_addr}, "
+            f"pid: {self.local_proc.pid}, Kernel ID: {self.kernel_id}, cmd: '{cmd}'"
+        )
 
-    def get_shutdown_wait_time(self, recommended: Optional[float] = 5.0) -> float:
+    def get_shutdown_wait_time(self, recommended: float | None = 5.0) -> float:
         """Returns the time allowed for a complete shutdown.  This may vary by provisioner.
 
         The recommended value will typically be what is configured in the kernel manager.
@@ -161,11 +182,13 @@ class YarnProvisioner(RemoteProvisionerBase):
         # the desired value.
         if recommended < yarn_shutdown_wait_time:
             recommended = yarn_shutdown_wait_time
-            self.log.debug(f"{type(self).__name__} shutdown wait time adjusted to {recommended} seconds.")
+            self.log.debug(
+                f"{type(self).__name__} shutdown wait time adjusted to {recommended} seconds."
+            )
 
         return recommended
 
-    def confirm_yarn_queue_availability(self, **kwargs: Dict[str, Any]) -> None:
+    def confirm_yarn_queue_availability(self, **kwargs: dict[str, Any]) -> None:
         """
         Submitting jobs to yarn queue and then checking till the jobs are in running state
         will lead to orphan jobs being created in some scenarios.
@@ -198,19 +221,21 @@ class YarnProvisioner(RemoteProvisionerBase):
         :param kwargs:
         :return:
         """
-        env_dict = kwargs.get('env', {})
+        env_dict = kwargs.get("env", {})
 
-        executor_memory = int(env_dict.get('KERNEL_EXECUTOR_MEMORY', 0))
-        driver_memory = int(env_dict.get('KERNEL_DRIVER_MEMORY', 0))
+        executor_memory = int(env_dict.get("KERNEL_EXECUTOR_MEMORY", 0))
+        driver_memory = int(env_dict.get("KERNEL_DRIVER_MEMORY", 0))
 
         if executor_memory * driver_memory > 0:
             container_memory = self.resource_mgr.cluster_node_container_memory()
             if max(executor_memory, driver_memory) > container_memory:
-                self.log_and_raise(ValueError("Container Memory not sufficient for a executor/driver allocation"))
+                self.log_and_raise(
+                    ValueError("Container Memory not sufficient for a executor/driver allocation")
+                )
 
-        candidate_queue_name = (env_dict.get('KERNEL_QUEUE', None))
-        node_label = env_dict.get('KERNEL_NODE_LABEL', None)
-        partition_availability_threshold = float(env_dict.get('YARN_PARTITION_THRESHOLD', 95.0))
+        candidate_queue_name = env_dict.get("KERNEL_QUEUE", None)
+        node_label = env_dict.get("KERNEL_NODE_LABEL", None)
+        partition_availability_threshold = float(env_dict.get("YARN_PARTITION_THRESHOLD", 95.0))
 
         if candidate_queue_name is None or node_label is None:
             return
@@ -222,29 +247,40 @@ class YarnProvisioner(RemoteProvisionerBase):
         self.candidate_queue = self.resource_mgr.cluster_scheduler_queue(candidate_queue_name)
 
         if self.candidate_queue is None:
-            self.log.warning(f"Queue: {candidate_queue_name} not found in cluster.  "
-                             "Availability check will not be performed")
+            self.log.warning(
+                f"Queue: {candidate_queue_name} not found in cluster.  "
+                "Availability check will not be performed"
+            )
             return
 
-        self.candidate_partition = self.resource_mgr.cluster_queue_partition(self.candidate_queue, node_label)
+        self.candidate_partition = self.resource_mgr.cluster_queue_partition(
+            self.candidate_queue, node_label
+        )
 
         if self.candidate_partition is None:
-            self.log.debug(f"Partition: {node_label} not found in {candidate_queue_name} queue."
-                           "Availability check will not be performed")
+            self.log.debug(
+                f"Partition: {node_label} not found in {candidate_queue_name} queue."
+                "Availability check will not be performed"
+            )
             return
 
-        self.log.debug(f"Checking endpoint: {self.yarn_endpoint} if partition: {self.candidate_partition} "
-                       f"has used capacity <= {partition_availability_threshold}%")
+        self.log.debug(
+            f"Checking endpoint: {self.yarn_endpoint} if partition: {self.candidate_partition} "
+            f"has used capacity <= {partition_availability_threshold}%"
+        )
 
-        yarn_available = self.resource_mgr.cluster_scheduler_queue_availability(self.candidate_partition,
-                                                                                partition_availability_threshold)
+        yarn_available = self.resource_mgr.cluster_scheduler_queue_availability(
+            self.candidate_partition, partition_availability_threshold
+        )
         if not yarn_available:
             self.log.debug(
-                f"Retrying for {self.yarn_resource_check_wait_time} ms since resources are not available")
+                f"Retrying for {self.yarn_resource_check_wait_time} ms since resources are not available"
+            )
             while not yarn_available:
                 self.handle_yarn_queue_timeout()
                 yarn_available = self.resource_mgr.cluster_scheduler_queue_availability(
-                    self.candidate_partition, partition_availability_threshold)
+                    self.candidate_partition, partition_availability_threshold
+                )
 
         # subtracting the total amount of time spent for polling for queue availability
         self.launch_timeout -= RemoteProvisionerBase.get_time_diff(self.start_time)
@@ -261,7 +297,7 @@ class YarnProvisioner(RemoteProvisionerBase):
     def has_process(self) -> bool:
         return self.local_proc is not None or self.application_id is not None
 
-    async def poll(self) -> Optional[int]:
+    async def poll(self) -> int | None:
         """Submitting a new kernel/app to YARN will take a while to be ACCEPTED.
         Thus application ID will probably not be available immediately for poll.
         So will regard the application as RUNNING when application ID still in ACCEPTED or SUBMITTED state.
@@ -308,8 +344,10 @@ class YarnProvisioner(RemoteProvisionerBase):
         if result is False:  # We couldn't terminate via Yarn, try remote signal
             result = await super().send_signal(signal.SIGKILL)  # Must use super here, else infinite
 
-        self.log.debug(f"YarnProvisioner.kill, application ID: {self.application_id}, "
-                       f"kernel ID: {self.kernel_id}, state: {state}, result: {result}")
+        self.log.debug(
+            f"YarnProvisioner.kill, application ID: {self.application_id}, "
+            f"kernel ID: {self.kernel_id}, state: {state}, result: {result}"
+        )
         return result
 
     async def terminate(self, restart: bool = False) -> None:
@@ -322,11 +360,13 @@ class YarnProvisioner(RemoteProvisionerBase):
         if self._get_application_id():
             result, state = await self.shutdown_application()
 
-        self.log.debug(f"YarnProvisioner.terminate, application ID: {self.application_id}, "
-                       f"kernel ID: {self.kernel_id}, state: {state}, result: {result}")
+        self.log.debug(
+            f"YarnProvisioner.terminate, application ID: {self.application_id}, "
+            f"kernel ID: {self.kernel_id}, state: {state}, result: {result}"
+        )
         return result
 
-    async def shutdown_application(self) -> Tuple[Optional[bool], str]:
+    async def shutdown_application(self) -> tuple[bool | None, str]:
         """Shuts down the YARN application, returning None if final state is confirmed, False otherwise."""
         result = False
         self._kill_app_by_id(self.application_id)
@@ -348,8 +388,10 @@ class YarnProvisioner(RemoteProvisionerBase):
         # we might have a defunct process (if using waitAppCompletion = false) - so poll, kill, wait when we have
         # a local_proc.
         if self.local_proc:
-            self.log.debug(f"YarnProvisioner.cleanup: Clearing possible defunct "
-                           f"process, pid={self.local_proc.pid}...")
+            self.log.debug(
+                f"YarnProvisioner.cleanup: Clearing possible defunct "
+                f"process, pid={self.local_proc.pid}..."
+            )
 
             if self.local_proc.poll():
                 self.local_proc.kill()
@@ -384,14 +426,18 @@ class YarnProvisioner(RemoteProvisionerBase):
                 app_state = self._get_application_state()
 
                 if app_state in YarnProvisioner.final_states:
-                    error_message = f"KernelID: '{self.kernel_id}', ApplicationID: '{self.application_id}' " \
-                                    f"unexpectedly found in state '{app_state}' during kernel startup!"
+                    error_message = (
+                        f"KernelID: '{self.kernel_id}', ApplicationID: '{self.application_id}' "
+                        f"unexpectedly found in state '{app_state}' during kernel startup!"
+                    )
                     self.log_and_raise(RuntimeError(error_message))
 
-                self.log.debug(f"{i}: State: '{app_state}', Host: '{self.assigned_host}', "
-                               f"KernelID: '{self.kernel_id}', ApplicationID: '{self.application_id}'")
+                self.log.debug(
+                    f"{i}: State: '{app_state}', Host: '{self.assigned_host}', "
+                    f"KernelID: '{self.kernel_id}', ApplicationID: '{self.application_id}'"
+                )
 
-                if self.assigned_host != '':
+                if self.assigned_host != "":
                     ready_to_connect = await self.receive_connection_info()
             else:
                 self.detect_launch_failure()
@@ -406,29 +452,35 @@ class YarnProvisioner(RemoteProvisionerBase):
         time_interval = RemoteProvisionerBase.get_time_diff(self.start_time)
 
         if time_interval > self.launch_timeout:
-            reason = f"Application ID is None. Failed to submit a new application to YARN within " \
-                     f"{self.launch_timeout} seconds.  Check server log for more information."
+            reason = (
+                f"Application ID is None. Failed to submit a new application to YARN within "
+                f"{self.launch_timeout} seconds.  Check server log for more information."
+            )
 
             if self._get_application_id(True):
                 if self._query_app_state_by_id(self.application_id) != "RUNNING":
-                    reason = f"YARN resources unavailable after {time_interval} seconds for " \
-                             f"app {self.application_id}, launch timeout: {self.launch_timeout}!  " \
-                             "Check YARN configuration."
+                    reason = (
+                        f"YARN resources unavailable after {time_interval} seconds for "
+                        f"app {self.application_id}, launch timeout: {self.launch_timeout}!  "
+                        "Check YARN configuration."
+                    )
                 else:
-                    reason = f"App {self.application_id} is RUNNING, but waited too long " \
-                             f"({self.launch_timeout} secs) to get connection file.  " \
-                             f"Check YARN logs for more information."
+                    reason = (
+                        f"App {self.application_id} is RUNNING, but waited too long "
+                        f"({self.launch_timeout} secs) to get connection file.  "
+                        f"Check YARN logs for more information."
+                    )
             await self.kill()
             timeout_message = f"KernelID: '{self.kernel_id}' launch timeout due to: {reason}"
             self.log_and_raise(TimeoutError(timeout_message))
 
-    async def get_provisioner_info(self) -> Dict:
+    async def get_provisioner_info(self) -> dict:
         """Captures the base information necessary for kernel persistence relative to YARN clusters."""
         provisioner_info = await super().get_provisioner_info()
-        provisioner_info.update({'application_id': self.application_id})
+        provisioner_info.update({"application_id": self.application_id})
         return provisioner_info
 
-    async def load_provisioner_info(self, provisioner_info: Dict) -> None:
+    async def load_provisioner_info(self, provisioner_info: dict) -> None:
         """Loads the base information necessary for kernel persistence relative to YARN clusters."""
         await super().load_provisioner_info(provisioner_info)
         self.application_id = provisioner_info.get("application_id")
@@ -442,12 +494,12 @@ class YarnProvisioner(RemoteProvisionerBase):
         app_state = self.last_known_state
         app = self._query_app_by_id(self.application_id)
         if app:
-            if app.get('state'):
-                app_state = app.get('state')
+            if app.get("state"):
+                app_state = app.get("state")
                 self.last_known_state = app_state
 
-            if self.assigned_host == '' and app.get('amHostHttpAddress'):
-                self.assigned_host = app.get('amHostHttpAddress').split(':')[0]
+            if self.assigned_host == "" and app.get("amHostHttpAddress"):
+                self.assigned_host = app.get("amHostHttpAddress").split(":")[0]
                 # Set the assigned ip to the actual host where the application landed.
                 self.assigned_ip = socket.gethostbyname(self.assigned_host)
 
@@ -465,19 +517,23 @@ class YarnProvisioner(RemoteProvisionerBase):
             app = self._query_app_by_name(self.kernel_id)
             state_condition = True
             if type(app) is dict:
-                state = app.get('state')
+                state = app.get("state")
                 self.last_known_state = state
 
                 if ignore_final_states:
                     state_condition = state not in YarnProvisioner.final_states
 
-                if len(app.get('id', '')) > 0 and state_condition:
-                    self.application_id = app['id']
+                if len(app.get("id", "")) > 0 and state_condition:
+                    self.application_id = app["id"]
                     time_interval = RemoteProvisionerBase.get_time_diff(self.start_time)
-                    self.log.info(f"ApplicationID: '{app['id']}' assigned for KernelID: '{self.kernel_id}', "
-                                  f"state: {state}, {time_interval} seconds after starting.")
+                    self.log.info(
+                        f"ApplicationID: '{app['id']}' assigned for KernelID: '{self.kernel_id}', "
+                        f"state: {state}, {time_interval} seconds after starting."
+                    )
             if not self.application_id:
-                self.log.debug(f"ApplicationID not yet assigned for KernelID: '{self.kernel_id}' - retrying...")
+                self.log.debug(
+                    f"ApplicationID not yet assigned for KernelID: '{self.kernel_id}' - retrying..."
+                )
         return self.application_id
 
     def _query_app_by_name(self, kernel_id: str) -> dict | None:
@@ -493,27 +549,35 @@ class YarnProvisioner(RemoteProvisionerBase):
         :param kernel_id: as the unique app name for query
         :return: The JSON object of an application or None on failure
         """
-        top_most_app_id = ''
+        top_most_app_id = ""
         target_app = None
         try:
-            response = self.resource_mgr.cluster_applications(started_time_begin=str(self.start_time))
-        except socket.error as sock_err:
+            response = self.resource_mgr.cluster_applications(
+                started_time_begin=str(self.start_time)
+            )
+        except OSError as sock_err:
             if sock_err.errno == errno.ECONNREFUSED:
-                self.log.warning(f"YARN RM address: '{self.rm_addr}' refused the connection.  "
-                                 f"Is the resource manager running?")
+                self.log.warning(
+                    f"YARN RM address: '{self.rm_addr}' refused the connection.  "
+                    f"Is the resource manager running?"
+                )
             else:
-                self.log.warning(f"Query for kernel ID '{kernel_id}' failed with exception: "
-                                 f"{type(sock_err)} - '{sock_err}'.  Continuing...")
+                self.log.warning(
+                    f"Query for kernel ID '{kernel_id}' failed with exception: "
+                    f"{type(sock_err)} - '{sock_err}'.  Continuing..."
+                )
         except Exception as e:
-            self.log.warning(f"Query for kernel ID '{kernel_id}' failed with exception: "
-                             f"{type(e)} - '{e}'.  Continuing...")
+            self.log.warning(
+                f"Query for kernel ID '{kernel_id}' failed with exception: "
+                f"{type(e)} - '{e}'.  Continuing..."
+            )
         else:
             data = response.data
-            if type(data) is dict and type(data.get("apps")) is dict and 'app' in data.get("apps"):
-                for app in data['apps']['app']:
-                    if app.get('name', '').find(kernel_id) >= 0 and app.get('id') > top_most_app_id:
+            if type(data) is dict and type(data.get("apps")) is dict and "app" in data.get("apps"):
+                for app in data["apps"]["app"]:
+                    if app.get("name", "").find(kernel_id) >= 0 and app.get("id") > top_most_app_id:
                         target_app = app
-                        top_most_app_id = app.get('id')
+                        top_most_app_id = app.get("id")
         return target_app
 
     def _query_app_by_id(self, app_id: str) -> dict | None:
@@ -526,11 +590,13 @@ class YarnProvisioner(RemoteProvisionerBase):
         try:
             response = self.resource_mgr.cluster_application(application_id=app_id)
         except Exception as e:
-            self.log.warning(f"Query for application ID '{app_id}' failed with exception: '{e}'.  Continuing...")
+            self.log.warning(
+                f"Query for application ID '{app_id}' failed with exception: '{e}'.  Continuing..."
+            )
         else:
             data = response.data
-            if type(data) is dict and 'app' in data:
-                app = data['app']
+            if type(data) is dict and "app" in data:
+                app = data["app"]
 
         return app
 
@@ -544,10 +610,12 @@ class YarnProvisioner(RemoteProvisionerBase):
         try:
             response = self.resource_mgr.cluster_application_state(application_id=app_id)
         except Exception as e:
-            self.log.warning(f"Query for application '{app_id}' state failed with exception: '{e}'.  "
-                             f"Continuing with last known state = '{state}'...")
+            self.log.warning(
+                f"Query for application '{app_id}' state failed with exception: '{e}'.  "
+                f"Continuing with last known state = '{state}'..."
+            )
         else:
-            state = response.data['state']
+            state = response.data["state"]
             self.last_known_state = state
 
         return state
@@ -563,5 +631,7 @@ class YarnProvisioner(RemoteProvisionerBase):
         try:
             response = self.resource_mgr.cluster_application_kill(application_id=app_id)
         except Exception as e:
-            self.log.warning(f"Termination of application '{app_id}' failed with exception: '{e}'.  Continuing...")
+            self.log.warning(
+                f"Termination of application '{app_id}' failed with exception: '{e}'.  Continuing..."
+            )
         return response

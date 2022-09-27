@@ -34,7 +34,7 @@ clean-test: ## remove test and coverage artifacts
 	rm -fr .pytest_cache
 
 lint: ## check style with flake8
-	flake8 remote_provisioners 
+	flake8 remote_provisioners
 
 test: ## run tests quickly with the default Python
 	pytest -v --cov remote_provisioners remote_provisioners
@@ -63,4 +63,3 @@ remote_provisioners/kernel-launchers/scala/lib: $(TOREE_LAUNCHER_FILES)
 	mkdir -p remote_provisioners/kernel-launchers/scala/lib
 	@(cd remote_provisioners/kernel-launchers/scala/toree-launcher; sbt -Dversion=$(VERSION) package; cp target/scala-2.12/*.jar ../lib)
 	#curl -L https://repository.apache.org/content/repositories/releases/org/apache/toree/toree-assembly/0.3.0-incubating/toree-assembly-0.3.0-incubating.jar --output ./remote_provisioners/kernel-launchers/scala/lib/toree-assembly-0.3.0-incubating.jar
-

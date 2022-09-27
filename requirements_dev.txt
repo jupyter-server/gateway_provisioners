@@ -1,9 +1,7 @@
-pip
 bumpversion
-wheel
-flake8
 coverage
+flake8
+pip
 Sphinx
 twine
-
-
+wheel
