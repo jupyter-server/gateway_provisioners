@@ -1,7 +1,0 @@
-bumpversion
-coverage
-flake8
-pip
-Sphinx
-twine
-wheel
