@@ -1,15 +1,11 @@
-include LICENSE
-include README.md
-
-recursive-include remote_provisioners/tests *
-recursive-include remote_provisioners/kernel-launchers *
-recursive-include remote_provisioners/kernel-resources *
-recursive-include remote_provisioners/kernel-specs *
 
 recursive-exclude * __pycache__
 recursive-exclude * *.py[co]
 recursive-exclude * .DS_Store
-recursive-exclude remote_provisioners/kernel-launchers/scala/toree-launcher *
-recursive-exclude remote_provisioners/kernel-launchers/bootstrap *
+recursive-exclude remote_provisioners/kernel-launchers/scala/toree-launcher/target *
+recursive-exclude remote_provisioners/kernel-launchers/scala/toree-launcher/project/target *
+recursive-exclude remote_provisioners/kernel-launchers/scala/toree-launcher/project/project *
 
-#recursive-include docs *.rst conf.py Makefile make.bat *.jpg *.png *.gif
+# Although we want this included in our distributions, its presence breaks check-manifest
+# See https://github.com/mgedmin/check-manifest/issues/58
+exclude remote_provisioners/kernel-launchers/scala/lib/toree-launcher_*.jar
