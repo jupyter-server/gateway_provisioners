@@ -7,6 +7,7 @@ import logging
 import os
 from typing import Any
 
+from overrides import overrides
 from traitlets import validate
 
 try:
@@ -22,7 +23,7 @@ except ImportError:
     )
     raise
 
-from .container import ContainerProvisioner
+from .container import ContainerProvisionerBase
 
 # Debug logging level of docker produces too much noise - raise to info by default.
 logging.getLogger("urllib3.connectionpool").setLevel(
@@ -32,8 +33,8 @@ logging.getLogger("urllib3.connectionpool").setLevel(
 docker_network = os.environ.get("RP_DOCKER_NETWORK", "bridge")
 
 
-class DockerSwarmProvisioner(ContainerProvisioner):
-    """Kernel lifecycle management for kernels in Docker Swarm."""
+class DockerSwarmProvisioner(ContainerProvisionerBase):
+    """Kernel provisioner for kernels in Docker Swarm."""
 
     @validate("impersonation_enabled")
     def impersonation_enabled_validate(self, proposal):
@@ -49,8 +50,8 @@ class DockerSwarmProvisioner(ContainerProvisioner):
         super().__init__(**kwargs)
         self.client = DockerClient.from_env()
 
+    @overrides
     async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
-        """Prepares a kernel's launch within a Docker Swarm environment."""
         kwargs = await super().pre_launch(**kwargs)
 
         # Convey the network to the docker launch script
@@ -58,47 +59,12 @@ class DockerSwarmProvisioner(ContainerProvisioner):
         kwargs["env"]["RP_DOCKER_MODE"] = "swarm"
         return kwargs
 
+    @overrides
     def get_initial_states(self) -> set[str]:
-        """Return list of states indicating container is starting (includes running)."""
         return {"preparing", "starting", "running"}
 
-    def _get_service(self) -> Service:
-        # Fetches the service object corresponding to the kernel with a matching label.
-        service = None
-        services = self.client.services.list(filters={"label": "kernel_id=" + self.kernel_id})
-        num_services = len(services)
-        if num_services != 1:
-            if num_services > 1:
-                raise RuntimeError(
-                    f"{self.__class__.__name__}: Found more than one service "
-                    f"({num_services}) for kernel_id '{self.kernel_id}'!"
-                )
-        else:
-            service = services[0]
-            self.container_name = service.name
-        return service
-
-    def _get_task(self) -> dict:
-        # Fetches the task object corresponding to the service associated with the kernel.  We only ask for the
-        # current task with desired-state == running.  This eliminates failed states.
-
-        task = None
-        service = self._get_service()
-        if service:
-            tasks = service.tasks(filters={"desired-state": "running"})
-            num_tasks = len(tasks)
-            if num_tasks != 1:
-                if num_tasks > 1:
-                    raise RuntimeError(
-                        f"{self.__class__.__name__}: Found more than one task ({num_tasks}) "
-                        f"for service '{service.name}', kernel_id '{self.kernel_id}'!"
-                    )
-            else:
-                task = tasks[0]
-        return task
-
+    @overrides
     async def get_container_status(self, iteration: str | None) -> str:
-        """Return current container state."""
         # Locates the kernel container using the kernel_id filter.  If the status indicates an initial state we
         # should be able to get at the NetworksAttachments and determine the associated container's IP address.
         task_state = None
@@ -129,8 +95,8 @@ class DockerSwarmProvisioner(ContainerProvisioner):
             )
         return task_state
 
+    @overrides
     async def terminate_container_resources(self, restart: bool = False) -> bool | None:
-        """Terminate any artifacts created on behalf of the container's lifetime."""
         # Remove the docker service.
 
         result = True  # We'll be optimistic
@@ -164,9 +130,45 @@ class DockerSwarmProvisioner(ContainerProvisioner):
             )
         return result
 
+    def _get_service(self) -> Service:
+        """Fetches the service object corresponding to the kernel with a matching label."""
+        service = None
+        services = self.client.services.list(filters={"label": "kernel_id=" + self.kernel_id})
+        num_services = len(services)
+        if num_services != 1:
+            if num_services > 1:
+                raise RuntimeError(
+                    f"{self.__class__.__name__}: Found more than one service "
+                    f"({num_services}) for kernel_id '{self.kernel_id}'!"
+                )
+        else:
+            service = services[0]
+            self.container_name = service.name
+        return service
 
-class DockerProvisioner(ContainerProvisioner):
-    """Kernel lifecycle management for Docker kernels (non-Swarm)."""
+    def _get_task(self) -> dict:
+        """
+        Fetches the task object corresponding to the service associated with the kernel.  We only ask for the
+        current task with desired-state == running.  This eliminates failed states.
+        """
+        task = None
+        service = self._get_service()
+        if service:
+            tasks = service.tasks(filters={"desired-state": "running"})
+            num_tasks = len(tasks)
+            if num_tasks != 1:
+                if num_tasks > 1:
+                    raise RuntimeError(
+                        f"{self.__class__.__name__}: Found more than one task ({num_tasks}) "
+                        f"for service '{service.name}', kernel_id '{self.kernel_id}'!"
+                    )
+            else:
+                task = tasks[0]
+        return task
+
+
+class DockerProvisioner(ContainerProvisionerBase):
+    """Kernel provisioner for kernels in Docker (non-Swarm)."""
 
     @validate("impersonation_enabled")
     def impersonation_enabled_validate(self, proposal):
@@ -180,8 +182,8 @@ class DockerProvisioner(ContainerProvisioner):
         super().__init__(**kwargs)
         self.client = DockerClient.from_env()
 
+    @overrides
     async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
-        """Prepares a kernel's launch within a Docker environment."""
         kwargs = await super().pre_launch(**kwargs)
 
         # Convey the network to the docker launch script
@@ -189,29 +191,12 @@ class DockerProvisioner(ContainerProvisioner):
         kwargs["env"]["RP_DOCKER_MODE"] = "docker"
         return kwargs
 
+    @overrides
     def get_initial_states(self) -> set[str]:
-        """Return list of states indicating container is starting (includes running)."""
         return {"created", "running"}
 
-    def _get_container(self) -> Container:
-        # Fetches the container object corresponding the kernel_id label.
-        # Only used when docker mode == regular (not swarm)
-
-        container = None
-        containers = self.client.containers.list(filters={"label": "kernel_id=" + self.kernel_id})
-        num_containers = len(containers)
-        if num_containers != 1:
-            if num_containers > 1:
-                raise RuntimeError(
-                    f"{self.__class__.__name__}: Found more than one container "
-                    f"({num_containers}) for kernel_id '{self.kernel_id}'!"
-                )
-        else:
-            container = containers[0]
-        return container
-
+    @overrides
     async def get_container_status(self, iteration: str | None) -> str:
-        """Return current container state."""
         # Locates the kernel container using the kernel_id filter.  If the phase indicates Running, the pod's IP
         # is used for the assigned_ip.  Only used when docker mode == regular (non swarm)
         container_status = None
@@ -249,8 +234,8 @@ class DockerProvisioner(ContainerProvisioner):
 
         return container_status
 
+    @overrides
     async def terminate_container_resources(self, restart: bool = False) -> None:
-        """Terminate any artifacts created on behalf of the container's lifetime."""
         # Remove the container
 
         result = True  # Since we run containers with remove=True, we'll be optimistic
@@ -284,3 +269,20 @@ class DockerProvisioner(ContainerProvisioner):
                 f"kernel ID: {self.kernel_id} has not been terminated."
             )
         return result
+
+    def _get_container(self) -> Container:
+        # Fetches the container object corresponding the kernel_id label.
+        # Only used when docker mode == regular (not swarm)
+
+        container = None
+        containers = self.client.containers.list(filters={"label": "kernel_id=" + self.kernel_id})
+        num_containers = len(containers)
+        if num_containers != 1:
+            if num_containers > 1:
+                raise RuntimeError(
+                    f"{self.__class__.__name__}: Found more than one container "
+                    f"({num_containers}) for kernel_id '{self.kernel_id}'!"
+                )
+        else:
+            container = containers[0]
+        return container

@@ -1,6 +1,7 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Kernel managers that operate against a remote process."""
+from __future__ import annotations
 
 import asyncio
 import errno
@@ -14,7 +15,7 @@ import time
 from abc import abstractmethod
 from enum import Enum
 from socket import AF_INET, SHUT_WR, SOCK_STREAM, socket, timeout
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import pexpect
 from jupyter_client import (
@@ -23,6 +24,7 @@ from jupyter_client import (
     launch_kernel,
     localinterfaces,
 )
+from overrides import overrides
 from zmq.ssh import tunnel
 
 from .config_mixin import (
@@ -98,14 +100,14 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         self.public_key = self.response_manager.public_key
         self.lower_port, self.upper_port = self._validate_port_range()
 
-    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
-        """Perform any steps in preparation for kernel process launch.
+    @property
+    @abstractmethod
+    @overrides
+    def has_process(self) -> bool:
+        pass
 
-        This includes applying additional substitutions to the kernel launch command and env.
-        It also includes preparation of launch parameters.
-
-        Returns potentially updated kwargs.
-        """
+    @overrides
+    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
         self.response_manager.register_event(self.kernel_id)
 
         cmd = self.kernel_spec.argv  # Build launch command, provide substitutions
@@ -139,8 +141,8 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         self.log.debug(f"RemoteProvisionerBase.pre_launch() env: {env}")
         return kwargs
 
-    async def launch_kernel(self, cmd: List[str], **kwargs: Any) -> KernelConnectionInfo:
-        """Launch the kernel process returning the class instance and connection info."""
+    @overrides
+    async def launch_kernel(self, cmd: list[str], **kwargs: Any) -> KernelConnectionInfo:
 
         launch_kwargs = RemoteProvisionerBase._scrub_kwargs(kwargs)
         self.local_proc = launch_kernel(cmd, **launch_kwargs)
@@ -152,17 +154,17 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         await self.confirm_remote_startup()
         return self.connection_info
 
-    @property
-    @abstractmethod
-    def has_process(self) -> bool:
+    @overrides
+    async def post_launch(self, **kwargs: Any) -> None:
         pass
 
     @abstractmethod
-    async def poll(self) -> Optional[int]:
+    @overrides
+    async def poll(self) -> int | None:
         pass
 
-    async def wait(self) -> Optional[int]:
-        """Waits for kernel process to terminate."""
+    @overrides
+    async def wait(self) -> int | None:
         # If we have a local_proc, call its wait method.  This will cleanup any defunct processes when the kernel
         # is shutdown (when using waitAppCompletion = false).  Otherwise (if no local_proc) we'll use polling to
         # determine if a (remote or revived) process is still active.
@@ -184,69 +186,22 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             )
         return poll_val
 
+    @overrides
     async def send_signal(self, signum: int) -> None:
-        """
-        Sends `signum` via the communication port.
-        The kernel launcher listening on its communication port will receive the signum and perform
-        the necessary signal operation local to the process.
-        """
         await self._send_signal_via_listener(signum)
 
-    async def _send_signal_via_listener(self, signum: int) -> bool:
-        """Sends signal 'signum' to kernel process via listener.
-
-        :returns: True if request delivered, false otherwise.
-        """
-        # If the launcher returned a comm_port value, then use that to send the signal,
-        # else, defer to the superclass - which will use a remote shell to issue kill.
-        # Note that if the target process is running as a different user than the REMOTE_USER,
-        # using anything other than the socket-based signal (via signal_addr) will not work.
-        if self.comm_port > 0:
-            try:
-                await self._send_listener_request({"signum": signum})
-                if signum > 0:  # Polling (signum == 0) is too frequent
-                    self.log.debug(f"Signal ({signum}) sent via gateway communication port.")
-                return True
-            except Exception as e:
-                if (
-                    isinstance(e, OSError) and e.errno == errno.ECONNREFUSED
-                ):  # Return False since there's no process.
-                    if (
-                        signum > 0
-                    ):  # Since poll's purpose is to check status, consider this as terminated.
-                        self.log.debug(
-                            "ERROR: ECONNREFUSED, no process listening, cannot send signal."
-                        )
-                else:
-                    self.log.warning(
-                        f"An unexpected exception occurred sending signal ({signum}) "
-                        f"via listener for KernelID '{self.kernel_id}': {e}"
-                    )
-        return False
-
     @abstractmethod
+    @overrides
     async def kill(self, restart: bool = False) -> None:
-        """Kills the kernel process.  This is typically accomplished via a SIGKILL signal, which
-        cannot be caught.
-
-        restart is True if this operation precedes a start launch_kernel request.
-        """
         pass
 
     @abstractmethod
+    @overrides
     async def terminate(self, restart=False) -> None:
-        """Terminates the kernel process.  This is typically accomplished via a SIGTERM signal, which
-        can be caught, allowing the kernel provisioner to perform possible cleanup of resources.
-
-        restart is True if this operation precedes a start launch_kernel request.
-        """
         pass
 
+    @overrides
     async def cleanup(self, restart=False) -> None:
-        """Cleanup any resources allocated on behalf of the kernel provisioner.
-
-        restart is True if this operation precedes a start launch_kernel request.
-        """
         self.assigned_ip = None
 
         for kernel_channel, process in self.tunnel_processes.items():
@@ -255,18 +210,63 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
         self.tunnel_processes.clear()
 
+    @overrides
     async def shutdown_requested(self, restart=False) -> None:
-        """Called after KernelManager sends a `shutdown_request` message to kernel.
-
-        This method is optional and is primarily used in scenarios where the provisioner communicates
-        with a sibling (nanny) process to the kernel.
-        """
         await self.shutdown_listener()
 
+    @overrides
+    async def get_provisioner_info(self) -> dict[str, Any]:
+        provisioner_info = await super().get_provisioner_info()
+        provisioner_info.update(
+            {
+                "pid": self.pid,
+                "pgid": self.pgid,
+                "ip": self.ip,
+                "assigned_ip": self.assigned_ip,
+                "assigned_host": self.assigned_host,
+                "comm_ip": self.comm_ip,
+                "comm_port": self.comm_port,
+                "tunneled_connect_info": self.tunneled_connect_info,
+            }
+        )
+        return provisioner_info
+
+    @overrides
+    async def load_provisioner_info(self, provisioner_info: dict) -> None:
+        await super().load_provisioner_info(provisioner_info)
+        self.pid = provisioner_info.get("pid")
+        self.pgid = provisioner_info.get("pgid")
+        self.ip = provisioner_info.get("ip")
+        self.assigned_ip = provisioner_info.get("assigned_ip")
+        self.assigned_host = provisioner_info.get("assigned_host")
+        self.comm_ip = provisioner_info.get("comm_ip")
+        self.comm_port = provisioner_info.get("comm_port")
+        self.tunneled_connect_info = provisioner_info.get("tunneled_connect_info")
+
+    @overrides
+    def get_shutdown_wait_time(self, recommended: float | None = 5.0) -> float:
+        return recommended
+
+    @overrides
+    def _finalize_env(self, env: dict[str, str]) -> None:
+
+        # add the applicable kernel_id and language to the env dict
+        env["KERNEL_ID"] = self.kernel_id
+
+        kernel_language = "unknown-kernel-language"
+        if len(self.kernel_spec.language) > 0:
+            kernel_language = self.kernel_spec.language.lower()
+        # if already set in env: stanza, let that override.
+        env["KERNEL_LANGUAGE"] = env.get("KERNEL_LANGUAGE", kernel_language)
+
+        # Remove any potential sensitive (e.g., passwords) or annoying values (e.g., LG_COLORS)
+        for k in env_pop_list:
+            env.pop(k, None)
+
     @staticmethod
-    def _scrub_kwargs(kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    def _scrub_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
         """Remove any keyword arguments that Popen does not tolerate."""
-        keywords_to_scrub: List[str] = ["extra_arguments", "kernel_id"]
+        keywords_to_scrub: list[str] = ["extra_arguments", "kernel_id"]
         scrubbed_kwargs = kwargs.copy()
         for kw in keywords_to_scrub:
             scrubbed_kwargs.pop(kw, None)
@@ -274,15 +274,10 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         return scrubbed_kwargs
 
     @abstractmethod
-    def log_kernel_launch(self, cmd: List[str]) -> None:
+    def log_kernel_launch(self, cmd: list[str]) -> None:
         """Logs the kernel launch from the respective remote provisioner"""
         pass
 
-    async def post_launch(self, **kwargs: Any) -> None:
-        """Perform any steps following the kernel process launch."""
-        pass
-
-    # Done
     async def handle_launch_timeout(self):
         """
         Checks to see if the kernel launch timeout has been exceeded while awaiting connection info.
@@ -300,66 +295,6 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
     async def confirm_remote_startup(self):
         """Confirms the remote process has started and returned necessary connection information."""
         pass
-
-    async def get_provisioner_info(self) -> Dict:
-        """Captures the base information necessary for kernel persistence relative to the provisioner.
-
-        The superclass method must always be called first to ensure proper ordering.  Since this is the
-        most base class, no call to `super()` is necessary.
-        """
-        provisioner_info = await super().get_provisioner_info()
-        provisioner_info.update(
-            {
-                "pid": self.pid,
-                "pgid": self.pgid,
-                "ip": self.ip,
-                "assigned_ip": self.assigned_ip,
-                "assigned_host": self.assigned_host,
-                "comm_ip": self.comm_ip,
-                "comm_port": self.comm_port,
-                "tunneled_connect_info": self.tunneled_connect_info,
-            }
-        )
-        return provisioner_info
-
-    async def load_provisioner_info(self, provisioner_info: Dict) -> None:
-        """Loads the base information necessary for kernel persistence relative to the provisioner.
-
-        The superclass method must always be called first to ensure proper ordering.  Since this is the
-        most base class, no call to `super()` is necessary.
-        """
-        await super().load_provisioner_info(provisioner_info)
-        self.pid = provisioner_info.get("pid")
-        self.pgid = provisioner_info.get("pgid")
-        self.ip = provisioner_info.get("ip")
-        self.assigned_ip = provisioner_info.get("assigned_ip")
-        self.assigned_host = provisioner_info.get("assigned_host")
-        self.comm_ip = provisioner_info.get("comm_ip")
-        self.comm_port = provisioner_info.get("comm_port")
-        self.tunneled_connect_info = provisioner_info.get("tunneled_connect_info")
-
-    def get_shutdown_wait_time(self, recommended: Optional[float] = 5.0) -> float:
-        """Returns the time allowed for a complete shutdown.  This may vary by provisioner.
-
-        The recommended value will typically be what is configured in the kernel manager.
-        """
-        return recommended
-
-    def _finalize_env(self, env: Dict[str, str]) -> None:
-        """Ensures env is appropriate prior to launch."""
-
-        # add the applicable kernel_id and language to the env dict
-        env["KERNEL_ID"] = self.kernel_id
-
-        kernel_language = "unknown-kernel-language"
-        if len(self.kernel_spec.language) > 0:
-            kernel_language = self.kernel_spec.language.lower()
-        # if already set in env: stanza, let that override.
-        env["KERNEL_LANGUAGE"] = env.get("KERNEL_LANGUAGE", kernel_language)
-
-        # Remove any potential sensitive (e.g., passwords) or annoying values (e.g., LG_COLORS)
-        for k in env_pop_list:
-            env.pop(k, None)
 
     def detect_launch_failure(self):
         """
@@ -388,110 +323,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 self.local_proc = None
                 self.log_and_raise(RuntimeError(error_message))
 
-    def _enforce_authorization(self, **kwargs):
-        """Applies any authorization configuration using the kernel user.
-
-        Regardless of impersonation enablement, this method first adds the appropriate value for
-        RP_IMPERSONATION_ENABLED into environment (for use by kernelspecs), then ensures that KERNEL_USERNAME
-        has a value and is present in the environment (again, for use by kernelspecs).  If unset, KERNEL_USERNAME
-        will be defaulted to the current user.
-
-        Authorization is performed by comparing the value of KERNEL_USERNAME with each value in the set of
-        unauthorized users.  If any (case-sensitive) matches are found, HTTP error 403 (Forbidden) will be raised
-        - preventing the launch of the kernel.  If the authorized_users set is non-empty, it is then checked to
-        ensure the value of KERNEL_USERNAME is present in that list.  If not found, HTTP error 403 will be raised.
-
-        It is assumed that the kernelspec logic will take the appropriate steps to impersonate the user identified
-        by KERNEL_USERNAME when impersonation_enabled is True.
-        """
-        # Get the env
-        env_dict = kwargs.get("env")
-
-        # Although it may already be set in the env, just override in case it was only set via command line or config
-        # Convert to string since execve() (called by Popen in base classes) wants string values.
-        env_dict["RP_IMPERSONATION_ENABLED"] = str(self.impersonation_enabled)
-
-        # Now perform authorization checks
-        if self.kernel_username in self.unauthorized_users:
-            self._raise_authorization_error("not authorized")
-
-        # If authorized users are non-empty, ensure user is in that set.
-        if self.authorized_users.__len__() > 0:
-            if self.kernel_username not in self.authorized_users:
-                self._raise_authorization_error("not in the set of users authorized")
-
-    def _raise_authorization_error(self, differentiator_clause):
-        """Raises a 403 status code after building the appropriate message."""
-        kernel_name = self.kernel_spec.display_name
-        kernel_clause = f" '{kernel_name}'." if kernel_name is not None else "s."
-        error_message = (
-            f"User '{self.kernel_username}' is {differentiator_clause} to start kernel{kernel_clause} "
-            "Ensure KERNEL_USERNAME is set to an appropriate value and retry the request."
-        )
-        self.log_and_raise(PermissionError(error_message))
-
-    def _validate_port_range(self) -> Tuple[int, int]:
-        """Validates the port range configuration option to ensure appropriate values."""
-
-        lower_port = upper_port = 0
-        port_range = self.port_range
-        try:
-            port_ranges = port_range.split("..")
-
-            lower_port = int(port_ranges[0])
-            upper_port = int(port_ranges[1])
-
-            port_range_size = upper_port - lower_port
-            if port_range_size != 0:
-                if port_range_size < min_port_range_size:
-                    self.log_and_raise(
-                        ValueError(
-                            f"Port range validation failed for range: '{port_range}'.  "
-                            f"Range size must be at least {min_port_range_size} as "
-                            f"specified by env RP_MIN_PORT_RANGE_SIZE"
-                        )
-                    )
-
-                # According to RFC 793, port is a 16-bit unsigned int. Which means the port
-                # numbers must be in the range (0, 65535). However, within that range,
-                # ports 0 - 1023 are called "well-known ports" and are typically reserved for
-                # specific purposes. For example, 0 is reserved for random port assignment,
-                # 80 is used for HTTP, 443 for TLS/SSL, 25 for SMTP, etc. But, there is
-                # flexibility as one can choose any port with the aforementioned protocols.
-                # Ports 1024 - 49151 are called "user or registered ports" that are bound to
-                # services running on the server listening to client connections. And, ports
-                # 49152 - 65535 are called "dynamic or ephemeral ports". A TCP connection
-                # has two endpoints. Each endpoint consists of an IP address and a port number.
-                # And, each connection is made up of a 4-tuple consisting of -- client-IP,
-                # client-port, server-IP, and server-port. A service runs on a server with a
-                # specific IP and is bound to a specific "user or registered port" that is
-                # advertised for clients to connect. So, when a client connects to a service
-                # running on a server, three out of 4-tuple - client-IP, client-port, server-IP -
-                # are already known. To be able to serve multiple clients concurrently, the
-                # server's IP stack assigns an ephemeral port for the connection to complete
-                # the 4-tuple.
-                #
-                # In case of JEG, we will accept ports in the range 1024 - 65535 as these days
-                # admins use dedicated hosts for individual services.
-                def validate_port(port: int) -> None:
-                    if port < 1024 or port > 65535:
-                        self.log_and_raise(
-                            ValueError(
-                                f"Invalid port range '{port_range}' specified. "
-                                "Range for valid port numbers is (1024, 65535)."
-                            )
-                        )
-
-                validate_port(lower_port)
-                validate_port(upper_port)
-        except IndexError as ie:
-            self.log_and_raise(
-                RuntimeError(f"Port range validation failed for range: '{port_range}'."), chained=ie
-            )
-
-        return lower_port, upper_port
-
-    def log_and_raise(self, ex: Exception, chained: Optional[Exception] = None) -> None:
+    def log_and_raise(self, ex: Exception, chained: Exception | None = None) -> None:
         """Helper method that logs the stringized exception 'ex' and raises that exception.
 
         If a chained exception is provided that exception will be in the raised exceptions's from clause.
@@ -571,6 +403,162 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 self.log_and_raise(RuntimeError(error_message), chained=e)
 
         return ready_to_connect
+
+    @staticmethod
+    def get_current_time() -> int:
+        """Return the current time (in milliseconds) from epoch.
+
+        This method is intended for use in determining timeout values.
+        """
+        float_time = time.time()
+        return int(float_time * 1000)  # Convert to ms and int
+
+    @staticmethod
+    def get_time_diff(start_time_ms: int) -> float:
+        """Return the difference (in seconds) between the given start_time and the current time"""
+        end_time_ms = RemoteProvisionerBase.get_current_time()
+        time_diff = float((end_time_ms - start_time_ms) / 1000)
+        return time_diff
+
+    @staticmethod
+    def ip_is_local(ip):
+        """Returns True if `ip` is considered local to this server, False otherwise."""
+        return localinterfaces.is_public_ip(ip) or localinterfaces.is_local_ip(ip)
+
+    async def _send_signal_via_listener(self, signum: int) -> bool:
+        """Sends signal 'signum' to kernel process via listener.
+
+        :returns: True if request delivered, false otherwise.
+        """
+        # If the launcher returned a comm_port value, then use that to send the signal,
+        # else, defer to the superclass - which will use a remote shell to issue kill.
+        # Note that if the target process is running as a different user than the REMOTE_USER,
+        # using anything other than the socket-based signal (via signal_addr) will not work.
+        if self.comm_port > 0:
+            try:
+                await self._send_listener_request({"signum": signum})
+                if signum > 0:  # Polling (signum == 0) is too frequent
+                    self.log.debug(f"Signal ({signum}) sent via gateway communication port.")
+                return True
+            except Exception as e:
+                if (
+                    isinstance(e, OSError) and e.errno == errno.ECONNREFUSED
+                ):  # Return False since there's no process.
+                    if (
+                        signum > 0
+                    ):  # Since poll's purpose is to check status, consider this as terminated.
+                        self.log.debug(
+                            "ERROR: ECONNREFUSED, no process listening, cannot send signal."
+                        )
+                else:
+                    self.log.warning(
+                        f"An unexpected exception occurred sending signal ({signum}) "
+                        f"via listener for KernelID '{self.kernel_id}': {e}"
+                    )
+        return False
+
+    def _enforce_authorization(self, **kwargs):
+        """Applies any authorization configuration using the kernel user.
+
+        Regardless of impersonation enablement, this method first adds the appropriate value for
+        RP_IMPERSONATION_ENABLED into environment (for use by kernelspecs), then ensures that KERNEL_USERNAME
+        has a value and is present in the environment (again, for use by kernelspecs).  If unset, KERNEL_USERNAME
+        will be defaulted to the current user.
+
+        Authorization is performed by comparing the value of KERNEL_USERNAME with each value in the set of
+        unauthorized users.  If any (case-sensitive) matches are found, HTTP error 403 (Forbidden) will be raised
+        - preventing the launch of the kernel.  If the authorized_users set is non-empty, it is then checked to
+        ensure the value of KERNEL_USERNAME is present in that list.  If not found, HTTP error 403 will be raised.
+
+        It is assumed that the kernelspec logic will take the appropriate steps to impersonate the user identified
+        by KERNEL_USERNAME when impersonation_enabled is True.
+        """
+        # Get the env
+        env_dict = kwargs.get("env")
+
+        # Although it may already be set in the env, just override in case it was only set via command line or config
+        # Convert to string since execve() (called by Popen in base classes) wants string values.
+        env_dict["RP_IMPERSONATION_ENABLED"] = str(self.impersonation_enabled)
+
+        # Now perform authorization checks
+        if self.kernel_username in self.unauthorized_users:
+            self._raise_authorization_error("not authorized")
+
+        # If authorized users are non-empty, ensure user is in that set.
+        if self.authorized_users.__len__() > 0:
+            if self.kernel_username not in self.authorized_users:
+                self._raise_authorization_error("not in the set of users authorized")
+
+    def _raise_authorization_error(self, differentiator_clause):
+        """Raises a 403 status code after building the appropriate message."""
+        kernel_name = self.kernel_spec.display_name
+        kernel_clause = f" '{kernel_name}'." if kernel_name is not None else "s."
+        error_message = (
+            f"User '{self.kernel_username}' is {differentiator_clause} to start kernel{kernel_clause} "
+            "Ensure KERNEL_USERNAME is set to an appropriate value and retry the request."
+        )
+        self.log_and_raise(PermissionError(error_message))
+
+    def _validate_port_range(self) -> tuple[int, int]:
+        """Validates the port range configuration option to ensure appropriate values."""
+
+        lower_port = upper_port = 0
+        port_range = self.port_range
+        try:
+            port_ranges = port_range.split("..")
+
+            lower_port = int(port_ranges[0])
+            upper_port = int(port_ranges[1])
+
+            port_range_size = upper_port - lower_port
+            if port_range_size != 0:
+                if port_range_size < min_port_range_size:
+                    self.log_and_raise(
+                        ValueError(
+                            f"Port range validation failed for range: '{port_range}'.  "
+                            f"Range size must be at least {min_port_range_size} as "
+                            f"specified by env RP_MIN_PORT_RANGE_SIZE"
+                        )
+                    )
+
+                # According to RFC 793, port is a 16-bit unsigned int. Which means the port
+                # numbers must be in the range (0, 65535). However, within that range,
+                # ports 0 - 1023 are called "well-known ports" and are typically reserved for
+                # specific purposes. For example, 0 is reserved for random port assignment,
+                # 80 is used for HTTP, 443 for TLS/SSL, 25 for SMTP, etc. But, there is
+                # flexibility as one can choose any port with the aforementioned protocols.
+                # Ports 1024 - 49151 are called "user or registered ports" that are bound to
+                # services running on the server listening to client connections. And, ports
+                # 49152 - 65535 are called "dynamic or ephemeral ports". A TCP connection
+                # has two endpoints. Each endpoint consists of an IP address and a port number.
+                # And, each connection is made up of a 4-tuple consisting of -- client-IP,
+                # client-port, server-IP, and server-port. A service runs on a server with a
+                # specific IP and is bound to a specific "user or registered port" that is
+                # advertised for clients to connect. So, when a client connects to a service
+                # running on a server, three out of 4-tuple - client-IP, client-port, server-IP -
+                # are already known. To be able to serve multiple clients concurrently, the
+                # server's IP stack assigns an ephemeral port for the connection to complete
+                # the 4-tuple.
+                #
+                # In case of JEG, we will accept ports in the range 1024 - 65535 as these days
+                # admins use dedicated hosts for individual services.
+                def validate_port(port: int) -> None:
+                    if port < 1024 or port > 65535:
+                        self.log_and_raise(
+                            ValueError(
+                                f"Invalid port range '{port_range}' specified. "
+                                "Range for valid port numbers is (1024, 65535)."
+                            )
+                        )
+
+                validate_port(lower_port)
+                validate_port(upper_port)
+        except IndexError as ie:
+            self.log_and_raise(
+                RuntimeError(f"Port range validation failed for range: '{port_range}'."), chained=ie
+            )
+
+        return lower_port, upper_port
 
     def _setup_connection_info(self, connect_info: dict) -> None:
         """
@@ -694,7 +682,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 self.local_proc = None
 
     async def _send_listener_request(
-        self, request: dict, shutdown_socket: Optional[bool] = False
+        self, request: dict, shutdown_socket: bool | None = False
     ) -> None:
         """
         Sends the request dictionary to the kernel listener via the comm port.  Caller is responsible for
@@ -736,29 +724,8 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 self.comm_port,
             )
 
-    @staticmethod
-    def get_current_time() -> int:
-        """Return the current time (in milliseconds) from epoch.
-
-        This method is intended for use in determining timeout values.
-        """
-        float_time = time.time()
-        return int(float_time * 1000)  # Convert to ms and int
-
-    @staticmethod
-    def get_time_diff(start_time_ms: int) -> float:
-        """Return the difference (in seconds) between the given start_time and the current time"""
-        end_time_ms = RemoteProvisionerBase.get_current_time()
-        time_diff = float((end_time_ms - start_time_ms) / 1000)
-        return time_diff
-
-    @staticmethod
-    def ip_is_local(ip):
-        """Returns True if `ip` is considered local to this server, False otherwise."""
-        return localinterfaces.is_public_ip(ip) or localinterfaces.is_local_ip(ip)
-
     def _tunnel_to_kernel(
-        self, connection_info: dict, server: str, port: int = ssh_port, key: Optional[str] = None
+        self, connection_info: dict, server: str, port: int = ssh_port, key: str | None = None
     ):
         """
         Tunnel connections to a kernel over SSH
@@ -769,7 +736,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         """
         cf = connection_info
 
-        lports = self.select_ports(5)
+        lports = self._select_ports(5)
 
         rports = (
             cf["shell_port"],
@@ -809,14 +776,14 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         remote_port: int,
         server: str,
         port: int = ssh_port,
-        key: Optional[str] = None,
+        key: str | None = None,
     ):
         """
         Analogous to _tunnel_to_kernel, but deals with a single port.  This will typically be called for
         any one-off ports that require tunnelling. Note - this method assumes that passwordless ssh is
         in use and has been previously validated.
         """
-        local_port = self.select_ports(1)[0]
+        local_port = self._select_ports(1)[0]
         self._create_ssh_tunnel(
             kernel_channel, local_port, remote_port, remote_ip, server, port, key
         )
@@ -830,7 +797,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         remote_ip: str,
         server: str,
         port: int,
-        key: Optional[str] = None,
+        key: str | None = None,
     ):
         """
         Creates an SSH tunnel between the local and remote port/server for the given kernel channel.
@@ -860,7 +827,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         remote_ip: str,
         server: str,
         port: int,
-        key: Optional[str] = None,
+        key: str | None = None,
     ):
         """
         This method spawns a child process to create an SSH tunnel and returns the spawned process.
@@ -892,7 +859,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             )
             return pexpect.spawn(cmd, env=os.environ.copy().pop("SSH_ASKPASS", None))
 
-    def select_ports(self, count: int) -> List[int]:
+    def _select_ports(self, count: int) -> list[int]:
         """
         Selects and returns n random ports that adhere to the configured port range, if applicable.
 
@@ -905,17 +872,17 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         -------
         List - ports available and adhering to the configured port range
         """
-        ports: List[int] = []
-        sockets: List[socket] = []
+        ports: list[int] = []
+        sockets: list[socket] = []
         for _i in range(count):
-            sock = self.select_socket()
+            sock = self._select_socket()
             ports.append(sock.getsockname()[1])
             sockets.append(sock)
         for sock in sockets:
             sock.close()
         return ports
 
-    def select_socket(self, ip: str = "") -> socket:
+    def _select_socket(self, ip: str = "") -> socket:
         """
         Creates and returns a socket whose port adheres to the configured port range, if applicable.
 

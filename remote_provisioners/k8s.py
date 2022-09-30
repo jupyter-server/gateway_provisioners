@@ -5,9 +5,10 @@
 import logging
 import os
 import re
-from typing import Any, Dict, Optional, Set
+from typing import Any
 
 import urllib3
+from overrides import overrides
 
 try:
     from jinja2 import Environment  # noqa - used by launcher so check presence here
@@ -22,7 +23,7 @@ except ImportError:
     raise
 
 
-from .container import ContainerProvisioner
+from .container import ContainerProvisionerBase
 
 urllib3.disable_warnings()
 
@@ -47,7 +48,7 @@ else:
     config.load_kube_config()
 
 
-class KubernetesProvisioner(ContainerProvisioner):
+class KubernetesProvisioner(ContainerProvisionerBase):
     """Kernel lifecycle management for Kubernetes kernels."""
 
     def __init__(self, **kwargs):
@@ -57,8 +58,8 @@ class KubernetesProvisioner(ContainerProvisioner):
         self.kernel_namespace = None
         self.delete_kernel_namespace = False
 
-    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
-        """Prepares a kernel's launch within a Kubernetes environment."""
+    @overrides
+    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
         # Set env before superclass call so we see these in the debug output
 
         # Kubernetes relies on many internal env variables.  Since we're running in a k8s pod, we will
@@ -72,12 +73,26 @@ class KubernetesProvisioner(ContainerProvisioner):
         )  # will create namespace if not provided
         return kwargs
 
-    def get_initial_states(self) -> Set[str]:
-        """Return list of states indicating container is starting (includes running)."""
+    @overrides
+    async def get_provisioner_info(self) -> dict[str, Any]:
+        provisioner_info = await super().get_provisioner_info()
+        provisioner_info.update(
+            {"kernel_ns": self.kernel_namespace, "delete_ns": self.delete_kernel_namespace}
+        )
+        return provisioner_info
+
+    @overrides
+    async def load_provisioner_info(self, provisioner_info: dict) -> None:
+        await super().load_provisioner_info(provisioner_info)
+        self.kernel_namespace = provisioner_info["kernel_ns"]
+        self.delete_kernel_namespace = provisioner_info["delete_ns"]
+
+    @overrides
+    def get_initial_states(self) -> set[str]:
         return {"Pending", "Running"}
 
-    async def get_container_status(self, iteration: Optional[str]) -> str:
-        """Return current container state."""
+    @overrides
+    async def get_container_status(self, iteration: str | None) -> str:
         # Locates the kernel pod using the kernel_id selector.  Note that we also include 'component=kernel'
         # in the selector so that executor pods (when Spark is in use) are not considered.
         # If the phase indicates Running, the pod's IP is used for the assigned_ip.
@@ -107,8 +122,8 @@ class KubernetesProvisioner(ContainerProvisioner):
 
         return pod_status
 
+    @overrides
     async def terminate_container_resources(self, restart: bool = False) -> None:
-        """Terminate any artifacts created on behalf of the container's lifetime."""
         # Kubernetes objects don't go away on their own - so we need to tear down the namespace
         # or pod associated with the kernel.  If we created the namespace and we're not in the
         # the process of restarting the kernel, then that's our target, else just delete the pod.
@@ -330,17 +345,3 @@ class KubernetesProvisioner(ContainerProvisioner):
             f"Created kernel role-binding '{role_binding_name}' in namespace: {namespace} "
             f"for service account: {service_account_name}"
         )
-
-    async def get_provisioner_info(self) -> Dict:
-        """Captures the base information necessary for kernel persistence relative to kubernetes."""
-        provisioner_info = await super().get_provisioner_info()
-        provisioner_info.update(
-            {"kernel_ns": self.kernel_namespace, "delete_ns": self.delete_kernel_namespace}
-        )
-        return provisioner_info
-
-    async def load_provisioner_info(self, provisioner_info: Dict) -> None:
-        """Loads the base information necessary for kernel persistence relative to kubernetes."""
-        await super().load_provisioner_info(provisioner_info)
-        self.kernel_namespace = provisioner_info["kernel_ns"]
-        self.delete_kernel_namespace = provisioner_info["delete_ns"]

@@ -1,14 +1,16 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in containers."""
+from __future__ import annotations
 
-import abc
 import os
 import signal
-from typing import Any, Dict, List, Optional, Set
+from abc import abstractmethod
+from typing import Any
 
 import urllib3  # docker ends up using this and it causes lots of noise, so turn off warnings
 from jupyter_client import localinterfaces
+from overrides import overrides
 from traitlets import Unicode, default
 
 from .remote_provisioner import RemoteProvisionerBase
@@ -29,7 +31,7 @@ prohibited_gids = os.getenv("RP_PROHIBITED_GIDS", "0").split(",")
 mirror_working_dirs = bool(os.getenv("RP_MIRROR_WORKING_DIRS", "false").lower() == "true")
 
 
-class ContainerProvisioner(RemoteProvisionerBase):
+class ContainerProvisionerBase(RemoteProvisionerBase):
     """Kernel provisioner for container-based kernels."""
 
     image_name_env = "RP_IMAGE_NAME"
@@ -65,11 +67,12 @@ class ContainerProvisioner(RemoteProvisionerBase):
         self.assigned_node_ip = None
 
     @property
+    @overrides
     def has_process(self) -> bool:
         return self.container_name is not None
 
-    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
-        """Prepares a kernel's launch within the container environment."""
+    @overrides
+    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
 
         kwargs = await super().pre_launch(**kwargs)
 
@@ -85,7 +88,8 @@ class ContainerProvisioner(RemoteProvisionerBase):
         self._enforce_prohibited_ids(**kwargs)
         return kwargs
 
-    def log_kernel_launch(self, cmd: List[str]) -> None:
+    @overrides
+    def log_kernel_launch(self, cmd: list[str]) -> None:
         self.log.info(
             f"{self.__class__.__name__}: kernel launched. Kernel image: {self.image_name}, "
             f"KernelID: {self.kernel_id}, cmd: '{cmd}'"
@@ -111,7 +115,8 @@ class ContainerProvisioner(RemoteProvisionerBase):
         kwargs["env"]["KERNEL_UID"] = kernel_uid
         kwargs["env"]["KERNEL_GID"] = kernel_gid
 
-    async def poll(self) -> Optional[int]:
+    @overrides
+    async def poll(self) -> int | None:
         """Determines if container is still active.
 
         Submitting a new kernel to the container manager will take a while to be Running.
@@ -134,6 +139,7 @@ class ContainerProvisioner(RemoteProvisionerBase):
 
         return result
 
+    @overrides
     async def send_signal(self, signum: int) -> None:
         """Send signal `signum` to container.
 
@@ -151,6 +157,7 @@ class ContainerProvisioner(RemoteProvisionerBase):
             # which should use the communication port.
             return await super().send_signal(signum)
 
+    @overrides
     async def kill(self, restart: bool = False) -> None:
         """Kills a containerized kernel.
 
@@ -165,6 +172,7 @@ class ContainerProvisioner(RemoteProvisionerBase):
 
         return result
 
+    @overrides
     async def terminate(self, restart: bool = False) -> None:
         """Terminates a containerized kernel.
 
@@ -173,11 +181,13 @@ class ContainerProvisioner(RemoteProvisionerBase):
         """
         return await self.kill(restart=restart)
 
+    @overrides
     async def shutdown_listener(self):
         await super().shutdown_listener()
         if self.container_name:  # We only have something to terminate if we have a name
             await self.terminate_container_resources()
 
+    @overrides
     async def confirm_remote_startup(self):
         """Confirms the container has started and returned necessary connection information."""
         self.start_time = RemoteProvisionerBase.get_current_time()
@@ -198,7 +208,8 @@ class ContainerProvisioner(RemoteProvisionerBase):
             else:
                 self.detect_launch_failure()
 
-    async def get_provisioner_info(self) -> Dict:
+    @overrides
+    async def get_provisioner_info(self) -> dict[str, Any]:
         """Captures the base information necessary for kernel persistence relative to containers."""
         provisioner_info = await super().get_provisioner_info()
         provisioner_info.update(
@@ -208,22 +219,23 @@ class ContainerProvisioner(RemoteProvisionerBase):
         )
         return provisioner_info
 
-    async def load_provisioner_info(self, provisioner_info: Dict) -> None:
+    @overrides
+    async def load_provisioner_info(self, provisioner_info: dict) -> None:
         """Loads the base information necessary for kernel persistence relative to containers."""
         await super().load_provisioner_info(provisioner_info)
         self.assigned_node_ip = provisioner_info.get("assigned_node_ip")
 
-    @abc.abstractmethod
-    def get_initial_states(self) -> Set[str]:
+    @abstractmethod
+    def get_initial_states(self) -> set[str]:
         """Return list of states indicating container is starting (includes running)."""
         raise NotImplementedError
 
-    @abc.abstractmethod
-    async def get_container_status(self, iteration: Optional[str]) -> str:
+    @abstractmethod
+    async def get_container_status(self, iteration: str | None) -> str:
         """Return current container state."""
         raise NotImplementedError
 
-    @abc.abstractmethod
+    @abstractmethod
     async def terminate_container_resources(self, restart: bool = False) -> None:
         """Terminate any artifacts created on behalf of the container's lifetime."""
         raise NotImplementedError

@@ -76,8 +76,9 @@ $(WHEEL_FILE): $(WHEEL_FILES)
 	python -m build --wheel
 
 
-install: clean ## install the package to the active Python's site-packages
-	python setup.py install
+install: clean wheel ## install the package to the active Python's site-packages
+	pip uninstall -y remote-provisioners
+	pip install dist/remote_provisioners-*.whl
 
 
 remote_provisioners/kernel-launchers/scala/lib: $(TOREE_LAUNCHER_FILES)
