@@ -40,9 +40,7 @@ def launch_custom_resource_kernel(
     keywords["eg_public_key"] = public_key
     keywords["eg_response_address"] = response_addr
     keywords["kernel_id"] = kernel_id
-    keywords["kernel_name"] = os.path.basename(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    )
+    keywords["kernel_name"] = os.path.basename(os.path.dirname(os.path.dirname(__file__)))
     keywords["spark_context_initialization_mode"] = spark_context_init_mode
 
     for name, value in os.environ.items():

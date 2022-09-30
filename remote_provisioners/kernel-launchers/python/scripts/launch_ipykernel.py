@@ -1,10 +1,15 @@
+# Copyright (c) Jupyter Development Team.
+# Distributed under the terms of the Modified BSD License.
+from __future__ import annotations
+
 import argparse
 import logging
 import os
 import signal
 import tempfile
+from collections.abc import Callable
 from threading import Thread
-from typing import Any, Callable, Dict, Optional, Tuple
+from typing import Any
 
 from server_listener import setup_server_listener
 
@@ -40,7 +45,7 @@ class ExceptionThread(Thread):
             self.exc = exc
 
 
-def initialize_namespace(namespace: Dict, cluster_type: str = "spark") -> None:
+def initialize_namespace(namespace: dict, cluster_type: str = "spark") -> None:
     """Initialize the kernel namespace.
 
     Parameters
@@ -121,7 +126,7 @@ class WaitingForSparkSessionToBeInitialized:
     WAITING_FOR_SPARK_SESSION_TO_BE_INITIALIZED = "Spark Session not yet initialized ..."
 
     # the same wrapper class is used for all Spark session variables, so we need to record the name of the variable
-    def __init__(self, global_variable_name: str, init_thread: Thread, namespace: Dict):
+    def __init__(self, global_variable_name: str, init_thread: Thread, namespace: dict):
         self._spark_session_variable = global_variable_name
         self._init_thread = init_thread
         self._namespace = namespace
@@ -146,7 +151,7 @@ class WaitingForSparkSessionToBeInitialized:
             return getattr(self._namespace[self._spark_session_variable], name)
 
 
-def _validate_port_range(port_range: Optional[str]) -> Tuple[int, int]:
+def _validate_port_range(port_range: str | None) -> tuple[int, int]:
     # if no argument was provided, return a range of 0
     if not port_range:
         return 0, 0
@@ -233,7 +238,7 @@ def import_item(name: str) -> Any:
 
 
 def start_ipython(
-    namespace: Dict,
+    namespace: dict,
     cluster_type: str = "spark",
     kernel_class_name: str = DEFAULT_KERNEL_CLASS_NAME,
     **kwargs: Any,

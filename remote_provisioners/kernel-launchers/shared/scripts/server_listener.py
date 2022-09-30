@@ -1,3 +1,7 @@
+# Copyright (c) Jupyter Development Team.
+# Distributed under the terms of the Modified BSD License.
+from __future__ import annotations
+
 import base64
 import json
 import logging
@@ -7,7 +11,7 @@ import signal
 import socket
 import uuid
 from multiprocessing import Process, set_start_method
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from Cryptodome.Cipher import AES, PKCS1_v1_5
 from Cryptodome.PublicKey import RSA
@@ -42,7 +46,7 @@ class ServerListener:
         response_addr: str,
         kernel_id: str,
         public_key: str,
-        cluster_type: Optional[str] = None,
+        cluster_type: str | None = None,
     ):
         # Note, in the R integration, parameters come into Python as strings, so
         # we need to explicitly cast non-strings.
@@ -56,11 +60,11 @@ class ServerListener:
         self.cluster_type: str = cluster_type
 
         # Initialized later...
-        self.comm_socket: Optional[socket] = None
+        self.comm_socket: socket | None = None
 
     def build_connection_file(self) -> None:
 
-        ports: List = self._select_ports(5)
+        ports: list = self._select_ports(5)
         write_connection_file(
             fname=self.conn_filename,
             ip="0.0.0.0",
@@ -146,7 +150,7 @@ class ServerListener:
         self.comm_socket.listen(1)
         self.comm_socket.settimeout(5)
 
-    def _select_ports(self, count: int) -> List:
+    def _select_ports(self, count: int) -> list:
         """Select and return n random ports that are available and adhere to the given port range, if applicable."""
         ports = []
         sockets = []
@@ -183,11 +187,11 @@ class ServerListener:
             return 0
         return random.randint(self.lower_port, self.upper_port)
 
-    def get_server_request(self) -> Dict:
+    def get_server_request(self) -> dict:
         """Gets a request from the server and returns the corresponding dictionary."""
         conn: socket = None
         data: str = ""
-        request_info: Optional[Dict] = None
+        request_info: dict | None = None
         try:
             conn, addr = self.comm_socket.accept()
             while True:
@@ -258,7 +262,7 @@ def setup_server_listener(
     response_addr: str,
     kernel_id: str,
     public_key: str,
-    cluster_type: Optional[str] = None,
+    cluster_type: str | None = None,
 ) -> None:
     """Initializes the server listener sub-process to handle requests from the server."""
 

@@ -1,8 +1,10 @@
 #!/opt/conda/bin/python
+# Copyright (c) Jupyter Development Team.
+# Distributed under the terms of the Modified BSD License.
+
 import argparse
 import os
 import sys
-from typing import Dict
 
 import urllib3
 import yaml
@@ -67,9 +69,7 @@ def launch_kubernetes_kernel(
     keywords["public_key"] = public_key
     keywords["response_address"] = response_addr
     keywords["kernel_id"] = kernel_id
-    keywords["kernel_name"] = os.path.basename(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    )
+    keywords["kernel_name"] = os.path.basename(os.path.dirname(os.path.dirname(__file__)))
     keywords["kernel_spark_context_init_mode"] = spark_context_init_mode
 
     # Walk env variables looking for names prefixed with KERNEL_.  When found, set corresponding keyword value
@@ -144,7 +144,7 @@ def launch_kubernetes_kernel(
             print(additional_spark_opts)
 
 
-def _get_spark_resources(pod_template: Dict) -> str:
+def _get_spark_resources(pod_template: dict) -> str:
     # Gather up resources for cpu/memory requests/limits.  Since gpus require a "discovery script"
     # we'll leave that alone for now:
     # https://spark.apache.org/docs/latest/running-on-kubernetes.html#resource-allocation-and-configuration-overview
