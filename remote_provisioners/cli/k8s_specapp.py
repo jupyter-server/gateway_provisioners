@@ -2,6 +2,7 @@
 # Distributed under the terms of the Modified BSD License.
 import os
 
+from overrides import overrides
 from traitlets import Bool, Unicode, default
 from traitlets.config.application import Application
 
@@ -93,8 +94,9 @@ Spark-enabled kernel specifications.  (RP_EXECUTOR_IMAGE_NAME env var)""",
     flags = {}
     flags.update(BaseSpecApp.super_flags)
 
+    @overrides
     def detect_missing_extras(self):
-        """Issues a warning message whenever an "extra" library is detected as missing."""
+        super().detect_missing_extras()
         try:
             import jinja2  # noqa: F401
             import kubernetes  # noqa: F401
@@ -105,8 +107,8 @@ Spark-enabled kernel specifications.  (RP_EXECUTOR_IMAGE_NAME env var)""",
                 "by specifying the extra 'k8s' (e.g., pip install 'remote_provisioners[k8s]')."
             )
 
+    @overrides
     def validate_parameters(self):
-        """Validate input parameters and prepare for their injection into templated files."""
         super().validate_parameters()
 
         self.language = self.language.lower()
@@ -148,8 +150,8 @@ Spark-enabled kernel specifications.  (RP_EXECUTOR_IMAGE_NAME env var)""",
         # sanitize kernel_name
         self.kernel_name = self.kernel_name.replace(" ", "_")
 
+    @overrides
     def get_substitutions(self, install_dir) -> dict:
-        """Gather substitution strings to inject into the templated files."""
         substitutions = super().get_substitutions(install_dir)
         substitutions["image_name"] = self.image_name
         substitutions["executor_image_name"] = self.executor_image_name

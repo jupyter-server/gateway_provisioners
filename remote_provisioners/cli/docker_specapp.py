@@ -2,6 +2,7 @@
 # Distributed under the terms of the Modified BSD License.
 import os
 
+from overrides import overrides
 from traitlets import Bool, Unicode, default
 from traitlets.config.application import Application
 
@@ -78,8 +79,9 @@ enabled for Spark usage, this image will be the driver image. (RP_IMAGE_NAME env
     }
     flags.update(BaseSpecApp.super_flags)
 
+    @overrides
     def detect_missing_extras(self):
-        """Issues a warning message whenever an "extra" library is detected as missing."""
+        super().detect_missing_extras()
         try:
             import docker  # noqa: F401
         except ImportError:
@@ -89,8 +91,8 @@ enabled for Spark usage, this image will be the driver image. (RP_IMAGE_NAME env
                 "(e.g., pip install 'remote_provisioners[docker]')."
             )
 
+    @overrides
     def validate_parameters(self):
-        """Validate input parameters and prepare for their injection into templated files."""
         super().validate_parameters()
 
         self.language = self.language.lower()
@@ -112,8 +114,8 @@ enabled for Spark usage, this image will be the driver image. (RP_IMAGE_NAME env
         # sanitize kernel_name
         self.kernel_name = self.kernel_name.replace(" ", "_")
 
+    @overrides
     def get_substitutions(self, install_dir) -> dict:
-        """Gather substitution strings to inject into the templated files."""
         substitutions = super().get_substitutions(install_dir)
         substitutions["image_name"] = self.image_name
         substitutions["provisioner_name"] = self.provisioner_name
