@@ -1,11 +1,13 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
+from __future__ import annotations
+
 import json
 import os
 import shutil
 import sys
 import tempfile
-from distutils import dir_util
+from glob import glob
 from string import Template
 from typing import Any
 
@@ -49,6 +51,7 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, JupyterApp):
     resource_dir_name = Unicode()  # kernel-resources directory name
     kernel_spec_dir_name = Unicode()  # kernel-specs directory name
     install_dir = Unicode()  # Final location for kernel spec
+    toree_jar_path: str | None = None  # Location from which to copy the toree jar
 
     kernel_name = Unicode(
         config=True, help="""Install the kernel spec into a directory with this name."""
@@ -151,14 +154,70 @@ Default = {DEFAULT_INIT_MODE}.""",
 
     def start(self):
         """Drive the kernel specification creation."""
-        self.detect_missing_extras()
         self.validate_parameters()
+        self.detect_missing_extras()
         self._assemble_kernel_specs()
         self._finalize_kernel_json()
 
     def detect_missing_extras(self):
-        """Issues a warning message whenever an "extra" library is detected as missing."""
-        pass
+        """
+        Issues a warning message whenever an "extra" library is detected as missing.
+
+        Note that "extra" can also mean things like Apache Toree is not installed when
+        the language is Scala, or Rscript is not available when the language is R.
+        """
+        if self.launcher_dir_name in [SCALA]:
+            self._detect_missing_toree_jar()
+
+        if self.launcher_dir_name in [R]:
+            self._detect_missing_rscript()
+
+    def _detect_missing_toree_jar(self):
+        """
+        Detects which aspects of Apache Toree are missing.
+
+        If installed, then it determines the path to the toree jar file.  If the jar cannot be
+        determined, appropriate warnings are issued.
+        """
+        self.toree_jar_path = None
+        try:
+            import toree  # noqa: F401
+        except ImportError:
+            self.log.warning(
+                "The Apache Torre kernel package is not installed in this environment and is required "
+                "for kernels of language 'Scala'.  Ensure that the 'apache-toree' package is installed "
+                "(e.g., pip install 'apache-toree') then repeat this command to ensure the Apache Toree"
+                "jar file is located in the kernel specification's lib directory prior to its use."
+            )
+        else:
+            toree_version = toree.toreeapp.ToreeApp.version
+            toree_lib_dir = os.path.join(os.path.dirname(toree.__file__), "lib")
+            jars = glob(os.path.join(toree_lib_dir, f"toree-assembly-{toree_version}-*.jar"))
+            if len(jars) < 1:
+                self.log.warning(
+                    "The Apache Torre kernel package is installed, but there doesn't appear to be a toree "
+                    f"jar file located in the installation area: '{toree_lib_dir}' that matches the pattern "
+                    f"'toree-assembly-{toree_version}-*.jar'.  This jar file is required for the proper "
+                    "behavior of scala kernels."
+                )
+            elif len(jars) > 1:
+                self.log.warning(
+                    "The Apache Torre kernel package is installed, but there appears to be more than one "
+                    f"toree-assembly jar file located in the installation area: '{toree_lib_dir}' that matches "
+                    f"the pattern 'toree-assembly-{toree_version}-*.jar'.  You will need to ensure the appropriate "
+                    "jar file is copied to the kernel specification's lib directory prior to its use."
+                )
+            else:
+                self.toree_jar_path = jars[0]
+
+    def _detect_missing_rscript(self):
+        """Detects if Rscript is in current path and issues warning if not."""
+        rscript_location = shutil.which("Rscript")
+        if rscript_location is None:
+            self.log.warning(
+                "The executable 'Rscript' is not in the current PATH.  Please ensure that 'Rscript' "
+                "is available prior to using this kernel specification."
+            )
 
     def validate_parameters(self):
         """
@@ -206,6 +265,16 @@ Default = {DEFAULT_INIT_MODE}.""",
             staging_dir, kernel_name=self.kernel_name, user=self.user, prefix=self.prefix
         )
         self._delete_directory(staging_dir)
+        # If we're installing a scala kernel and don't have the toree jar file, issue
+        # a warning indicating that the scala kernel needs that file in its kernelspec
+        # directory hierarchy.
+        if self.launcher_dir_name in [SCALA] and not self.toree_jar_path:
+            kspec_toree_jar_location = os.path.join(self.install_dir, "lib")
+            self.log.warning(
+                "The Apache Toree kernel is either not installed or it's jar file cannot be determined. "
+                f"Please ensure that the Toree jar file is placed into '{kspec_toree_jar_location}' "
+                f"prior to using the kernel."
+            )
 
     def _copy_kernel_spec_files(self, staging_dir: str):
         """Copies the launcher, resource and kernel-spec files to the staging directory."""
@@ -237,13 +306,24 @@ Default = {DEFAULT_INIT_MODE}.""",
 
         # Copy the launcher files
         src_dir = os.path.join(kernel_launchers_dir, self.launcher_dir_name)
-        dir_util.copy_tree(src=src_dir, dst=staging_dir)
+        shutil.copytree(src=src_dir, dst=staging_dir, dirs_exist_ok=True)
 
         # When the launcher_dir_name is either 'r' or 'python', we need to also copy the files
         # from the 'shared' launcher directory.
         if self.launcher_dir_name in [PYTHON, R]:
             src_dir = os.path.join(kernel_launchers_dir, "shared")
-            dir_util.copy_tree(src=src_dir, dst=staging_dir)
+            shutil.copytree(src=src_dir, dst=staging_dir, dirs_exist_ok=True)
+        # When the launcher_dir_name is 'scala', we need to copy the toree jar (if determined), and
+        # remove the toree-launcher source code from the staging dir.
+        if self.launcher_dir_name in [SCALA]:
+            if self.toree_jar_path:
+                shutil.copyfile(
+                    self.toree_jar_path,
+                    os.path.join(staging_dir, "lib", os.path.basename(self.toree_jar_path)),
+                )
+            scala_src_dir = os.path.join(staging_dir, "toree-launcher")
+            if os.path.isdir(scala_src_dir):
+                self._delete_directory(scala_src_dir)
 
         # The source launcher 'scripts' directory may contain a __pycache__ directory.
         # Check for this condition in the staging area and delete the directory if present.
@@ -253,11 +333,11 @@ Default = {DEFAULT_INIT_MODE}.""",
 
         # Copy the resource files
         src_dir = os.path.join(kernel_resources_dir, self.resource_dir_name)
-        dir_util.copy_tree(src=src_dir, dst=staging_dir)
+        shutil.copytree(src=src_dir, dst=staging_dir, dirs_exist_ok=True)
 
         # Copy the kernel-spec files
         src_dir = os.path.join(kernel_specs_dir, self.kernel_spec_dir_name)
-        dir_util.copy_tree(src=src_dir, dst=staging_dir)
+        shutil.copytree(src=src_dir, dst=staging_dir, dirs_exist_ok=True)
 
     def _finalize_kernel_json(self):
         """Apply substitutions to the kernel.json string, update a kernel spec using these values,
@@ -287,6 +367,7 @@ Default = {DEFAULT_INIT_MODE}.""",
         self.log.debug(f"Finalizing kernel json file for kernel: '{self.display_name}'")
         with open(kernel_json_file, "w+") as f:
             json.dump(kernel_spec, f, indent=2)
+            f.write("\n")
 
     def add_optional_config_entries(self, config_stanza: dict) -> None:
         """

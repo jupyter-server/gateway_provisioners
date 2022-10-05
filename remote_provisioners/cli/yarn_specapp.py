@@ -3,6 +3,7 @@
 import os
 import sys
 
+from overrides import overrides
 from traitlets import Bool, Unicode, default
 from traitlets.config.application import Application
 
@@ -142,8 +143,9 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
     }
     flags.update(BaseSpecApp.super_flags)
 
+    @overrides
     def detect_missing_extras(self):
-        """Issues a warning message whenever an "extra" library is detected as missing."""
+        super().detect_missing_extras()
         try:
             import yarn_api_client  # noqa: F401
         except ImportError:
@@ -153,8 +155,8 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
                 "extra 'yarn' (e.g., pip install 'remote_provisioners[yarn]')."
             )
 
+    @overrides
     def validate_parameters(self):
-        """Validate input parameters and prepare for their injection into templated files."""
         super().validate_parameters()
 
         entered_language = self.language
@@ -196,8 +198,8 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         # sanitize kernel_name
         self.kernel_name = self.kernel_name.replace(" ", "_")
 
+    @overrides
     def add_optional_config_entries(self, config_stanza: dict) -> None:
-        """Adds optional configuration parameters to the 'config' stanza of 'kernel_provisioner'."""
         super().add_optional_config_entries(config_stanza)
         if self.yarn_endpoint and self.yarn_endpoint != self.yarn_endpoint_default():
             config_stanza["yarn_endpoint"] = self.yarn_endpoint
@@ -209,8 +211,8 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         ):
             config_stanza["yarn_endpoint_security_enabled"] = self.yarn_endpoint_security_enabled
 
+    @overrides
     def get_substitutions(self, install_dir) -> dict:
-        """Gather substitution strings to inject into the templated files."""
         substitutions = super().get_substitutions(install_dir)
         substitutions["extra_dask_opts"] = self.extra_dask_opts
         substitutions["python_root"] = self.python_root

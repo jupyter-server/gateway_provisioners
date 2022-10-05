@@ -2,6 +2,7 @@
 # Distributed under the terms of the Modified BSD License.
 import os
 
+from overrides import overrides
 from traitlets import List, Unicode, default
 from traitlets.config.application import Application
 
@@ -69,8 +70,8 @@ each be specified via separate options: --remote-hosts host1 --remote-hosts host
     flags = {}
     flags.update(BaseSpecApp.super_flags)
 
+    @overrides
     def validate_parameters(self):
-        """Validate input parameters and prepare for their injection into templated files."""
         super().validate_parameters()
 
         self.language = self.language.lower()
@@ -103,14 +104,14 @@ each be specified via separate options: --remote-hosts host1 --remote-hosts host
         # sanitize kernel_name
         self.kernel_name = self.kernel_name.replace(" ", "_")
 
+    @overrides
     def add_optional_config_entries(self, config_stanza: dict) -> None:
-        """Adds optional configuration parameters to the 'config' stanza of 'kernel_provisioner'."""
         super().add_optional_config_entries(config_stanza)
         if self.remote_hosts and list(self.remote_hosts) != self.remote_hosts_default():
             config_stanza["remote_hosts"] = list(self.remote_hosts)
 
+    @overrides
     def get_substitutions(self, install_dir) -> dict:
-        """Gather substitution strings to inject into the templated files."""
         substitutions = super().get_substitutions(install_dir)
         substitutions["spark_master"] = self.spark_master
         return substitutions
