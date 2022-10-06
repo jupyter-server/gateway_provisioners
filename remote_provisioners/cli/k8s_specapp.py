@@ -7,7 +7,7 @@ from traitlets import Bool, Unicode, default
 from traitlets.config.application import Application
 
 from .._version import __version__
-from .base_specapp import DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecApp, R
+from .base_app import DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecApp, R
 
 DEFAULT_KERNEL_NAMES = {PYTHON: "k8s_python", SCALA: "k8s_scala", R: "k8s_r"}
 KERNEL_SPEC_TEMPLATE_NAMES = {
@@ -30,7 +30,7 @@ PROVISIONER_NAME = "kubernetes-provisioner"
 LAUNCHER_NAME = "launch_kubernetes.py"
 
 
-class K8sSpecApp(BaseSpecApp):
+class K8sSpecInstaller(BaseSpecApp):
     """CLI for extension management."""
 
     name = "jupyter-k8s-spec"
@@ -86,8 +86,8 @@ Spark-enabled kernel specifications.  (RP_EXECUTOR_IMAGE_NAME env var)""",
     launcher_name = Unicode(LAUNCHER_NAME, config=False)
 
     aliases = {
-        "image-name": "K8sSpecApp.image_name",
-        "executor-image-name": "K8sSpecApp.executor_image_name",
+        "image-name": "K8sSpecInstaller.image_name",
+        "executor-image-name": "K8sSpecInstaller.executor_image_name",
     }
     aliases.update(BaseSpecApp.super_aliases)
 
@@ -169,7 +169,7 @@ class K8sProvisionerApp(Application):
     via the KubernetesProvisioner kernel provisioner."""
     subcommands = dict(
         {
-            "install": (K8sSpecApp, K8sSpecApp.description.splitlines()[0]),
+            "install": (K8sSpecInstaller, K8sSpecInstaller.description.splitlines()[0]),
         }
     )
     aliases = {}

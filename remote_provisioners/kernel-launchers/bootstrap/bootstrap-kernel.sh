@@ -3,7 +3,7 @@
 PORT_RANGE=${PORT_RANGE:-${EG_PORT_RANGE:-0..0}}
 RESPONSE_ADDRESS=${RESPONSE_ADDRESS:-${EG_RESPONSE_ADDRESS}}
 PUBLIC_KEY=${PUBLIC_KEY:-${EG_PUBLIC_KEY}}
-KERNEL_LAUNCHERS_DIR=${KERNEL_LAUNCHERS_DIR:-/usr/local/bin/kernel-launchers}
+KERNEL_LAUNCHERS_DIR=${KERNEL_LAUNCHERS_DIR:-${install_dir}/kernel-launchers}
 KERNEL_SPARK_CONTEXT_INIT_MODE=${KERNEL_SPARK_CONTEXT_INIT_MODE:-none}
 
 echo $0 env: `env`
@@ -12,7 +12,7 @@ launch_python_kernel() {
     # Launch the python kernel launcher - which embeds the IPython kernel and listens for interrupts
     # and shutdown requests from Enterprise Gateway.
 
-    export JPY_PARENT_PID=$$  # Force reset of parent pid since we're detached
+    export JPY_PARENT_PID=$$$$  # Force reset of parent pid since we're detached
 
 	set -x
 	python ${KERNEL_LAUNCHERS_DIR}/python/scripts/launch_ipykernel.py --kernel-id ${KERNEL_ID} --port-range ${PORT_RANGE} --response-address ${RESPONSE_ADDRESS} --public-key ${PUBLIC_KEY} --spark-context-initialization-mode ${KERNEL_SPARK_CONTEXT_INIT_MODE}

@@ -8,7 +8,7 @@ from traitlets import Bool, Unicode, default
 from traitlets.config.application import Application
 
 from .._version import __version__
-from .base_specapp import DASK, DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecApp, R
+from .base_app import DASK, DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecApp, R
 
 DEFAULT_KERNEL_NAMES = {
     PYTHON: "yarn_spark_python",
@@ -24,7 +24,7 @@ DEFAULT_DISPLAY_NAMES = {
 }
 
 
-class YarnSpecApp(BaseSpecApp):
+class YarnSpecInstaller(BaseSpecApp):
     """CLI for extension management."""
 
     name = "jupyter-yarn-spec"
@@ -123,21 +123,24 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
     dask = Bool(False, config=True, help="Kernelspec will be configured for Dask YARN.")
 
     aliases = {
-        "yarn-endpoint": "YarnSpecApp.yarn_endpoint",
-        "alt-yarn-endpoint": "YarnSpecApp.alt_yarn_endpoint",
-        "python-root": "YarnSpecApp.python_root",
-        "extra-dask-opts": "YarnSpecApp.extra_dask_opts",
+        "yarn-endpoint": "YarnSpecInstaller.yarn_endpoint",
+        "alt-yarn-endpoint": "YarnSpecInstaller.alt_yarn_endpoint",
+        "python-root": "YarnSpecInstaller.python_root",
+        "extra-dask-opts": "YarnSpecInstaller.extra_dask_opts",
     }
     aliases.update(BaseSpecApp.super_aliases)
 
     flags = {
-        "dask": ({"YarnSpecApp": {"dask": True}}, "Install kernelspec for Dask in Yarn cluster."),
+        "dask": (
+            {"YarnSpecInstaller": {"dask": True}},
+            "Install kernelspec for Dask in Yarn cluster.",
+        ),
         "yarn-endpoint-security-enabled": (
-            {"YarnSpecApp": {"yarn_endpoint_security_enabled": True}},
+            {"YarnSpecInstaller": {"yarn_endpoint_security_enabled": True}},
             "Install kernelspec where Yarn API endpoint has security enabled.",
         ),
         "impersonation-enabled": (
-            {"YarnSpecApp": {"impersonation_enabled": True}},
+            {"YarnSpecInstaller": {"impersonation_enabled": True}},
             "Install kernelspec to impersonate user (requires root privileges).",
         ),
     }
@@ -240,7 +243,7 @@ class YarnProvisionerApp(Application):
     via the YarnProvisioner kernel provisioner."""
     subcommands = dict(
         {
-            "install": (YarnSpecApp, YarnSpecApp.description.splitlines()[0]),
+            "install": (YarnSpecInstaller, YarnSpecInstaller.description.splitlines()[0]),
         }
     )
     aliases = {}
