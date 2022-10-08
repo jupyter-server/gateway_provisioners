@@ -7,7 +7,7 @@ from traitlets import List, Unicode, default
 from traitlets.config.application import Application
 
 from .._version import __version__
-from .base_specapp import DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecApp, R
+from .base_app import DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecApp, R
 
 DEFAULT_KERNEL_NAMES = {PYTHON: "ssh_python", SCALA: "ssh_scala", R: "ssh_r"}
 DEFAULT_DISPLAY_NAMES = {PYTHON: "Python SSH", SCALA: "Scala SSH", R: "R SSH"}
@@ -15,7 +15,7 @@ SPARK_SUFFIX = "_spark"
 SPARK_DISPLAY_NAME_SUFFIX = " (with Spark)"
 
 
-class SshSpecApp(BaseSpecApp):
+class SshSpecInstaller(BaseSpecApp):
     """CLI for extension management."""
 
     name = "jupyter-ssh-spec"
@@ -62,8 +62,8 @@ each be specified via separate options: --remote-hosts host1 --remote-hosts host
     # Flags
 
     aliases = {
-        "remote-hosts": "SshSpecApp.remote_hosts",
-        "spark-master": "SshSpecApp.spark_master",
+        "remote-hosts": "SshSpecInstaller.remote_hosts",
+        "spark-master": "SshSpecInstaller.spark_master",
     }
     aliases.update(BaseSpecApp.super_aliases)
 
@@ -126,7 +126,7 @@ class SshProvisionerApp(Application):
     and the DistributedProvisioner kernel provisioner."""
     subcommands = dict(
         {
-            "install": (SshSpecApp, SshSpecApp.description.splitlines()[0]),
+            "install": (SshSpecInstaller, SshSpecInstaller.description.splitlines()[0]),
         }
     )
     aliases = {}

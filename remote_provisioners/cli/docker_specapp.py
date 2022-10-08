@@ -7,7 +7,7 @@ from traitlets import Bool, Unicode, default
 from traitlets.config.application import Application
 
 from .._version import __version__
-from .base_specapp import DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecApp, R
+from .base_app import DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecApp, R
 
 DEFAULT_KERNEL_NAMES = {PYTHON: "docker_python", SCALA: "docker_scala", R: "docker_r"}
 KERNEL_SPEC_TEMPLATE_NAMES = {
@@ -23,7 +23,7 @@ SWARM_PROVISIONER_NAME = "docker-swarm-provisioner"
 LAUNCHER_NAME = "launch_docker.py"
 
 
-class DockerSpecApp(BaseSpecApp):
+class DockerSpecInstaller(BaseSpecApp):
     """CLI for extension management."""
 
     name = "jupyter-docker-spec"
@@ -67,13 +67,13 @@ enabled for Spark usage, this image will be the driver image. (RP_IMAGE_NAME env
     launcher_name = Unicode(LAUNCHER_NAME, config=False)
 
     aliases = {
-        "image-name": "DockerSpecApp.image_name",
+        "image-name": "DockerSpecInstaller.image_name",
     }
     aliases.update(BaseSpecApp.super_aliases)
 
     flags = {
         "swarm": (
-            {"DockerSpecApp": {"swarm": True}},
+            {"DockerSpecInstaller": {"swarm": True}},
             "Install kernel for use within a Docker Swarm cluster.",
         ),
     }
@@ -132,7 +132,10 @@ class DockerProvisionerApp(Application):
     via the KubernetesProvisioner kernel provisioner."""
     subcommands = dict(
         {
-            "install": (DockerSpecApp, DockerSpecApp.description.splitlines()[0]),
+            "install": (
+                DockerSpecInstaller,
+                DockerSpecInstaller.description.splitlines()[0],
+            ),
         }
     )
     aliases = {}

@@ -13,6 +13,7 @@ from typing import Any
 
 from jupyter_client.kernelspec import KernelSpec, KernelSpecManager
 from jupyter_core.application import JupyterApp, base_aliases, base_flags
+from overrides import overrides
 from traitlets import Bool, Instance, TraitError, Unicode, default, validate
 
 from .._version import __version__
@@ -38,7 +39,7 @@ LANGUAGE_SUBSTITUTIONS = {PYTHON: PYTHON, R: "R", SCALA: SCALA}
 DEFAULT_PYTHON_KERNEL_CLASS_NAME = "ipykernel.ipkernel.IPythonKernel"
 
 
-class BaseSpecApp(RemoteProvisionerConfigMixin, JupyterApp):
+class BaseApp(JupyterApp):
     """Base class containing parameters common to each provisioner."""
 
     kernel_spec_manager = Instance(KernelSpecManager)
@@ -53,6 +54,170 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, JupyterApp):
     install_dir = Unicode()  # Final location for kernel spec
     toree_jar_path: str | None = None  # Location from which to copy the toree jar
 
+    kernel_spec_install: bool = True  # Set to false when bootstrap installation occurs
+
+    def start(self):
+        """Drive the kernel specification creation."""
+        self.validate_parameters()
+        self.detect_missing_extras()
+        self.install_files()
+
+    def validate_parameters(self):
+        """
+        Validate input parameters and prepare for their injection into templated files.
+
+        This method is overridden by subclasses which should call super().validate_parameters().
+        """
+        pass
+
+    def detect_missing_extras(self):
+        """
+        Issues a warning message whenever an "extra" library is detected as missing.
+
+        Note that "extra" can also mean things like Apache Toree is not installed when
+        the language is Scala, or Rscript is not available when the language is R.
+        """
+        pass
+
+    def _detect_missing_toree_jar(self):
+        """
+        Detects which aspects of Apache Toree are missing.
+
+        If installed, then it determines the path to the toree jar file.  If the jar cannot be
+        determined, appropriate warnings are issued.
+        """
+        self.toree_jar_path = None
+        try:
+            import toree  # noqa: F401
+        except ImportError:
+            self.log.warning(
+                "The Apache Torre kernel package is not installed in this environment and is required "
+                "for kernels of language 'Scala'.  Ensure that the 'apache-toree' package is installed "
+                "(e.g., pip install 'apache-toree') then repeat this command to ensure the Apache Toree"
+                "jar file is located in the kernel specification's lib directory prior to its use."
+            )
+        else:
+            toree_version = toree.toreeapp.ToreeApp.version
+            toree_lib_dir = os.path.join(os.path.dirname(toree.__file__), "lib")
+            jars = glob(os.path.join(toree_lib_dir, f"toree-assembly-{toree_version}-*.jar"))
+            if len(jars) < 1:
+                self.log.warning(
+                    "The Apache Torre kernel package is installed, but there doesn't appear to be a toree "
+                    f"jar file located in the installation area: '{toree_lib_dir}' that matches the pattern "
+                    f"'toree-assembly-{toree_version}-*.jar'.  This jar file is required for the proper "
+                    "behavior of scala kernels."
+                )
+            elif len(jars) > 1:
+                self.log.warning(
+                    "The Apache Torre kernel package is installed, but there appears to be more than one "
+                    f"toree-assembly jar file located in the installation area: '{toree_lib_dir}' that matches "
+                    f"the pattern 'toree-assembly-{toree_version}-*.jar'.  You will need to ensure the appropriate "
+                    "jar file is copied to the kernel specification's lib directory prior to its use."
+                )
+            else:
+                self.toree_jar_path = jars[0]
+
+    def _detect_missing_rscript(self):
+        """Detects if Rscript is in current path and issues warning if not."""
+        rscript_location = shutil.which("Rscript")
+        if rscript_location is None:
+            self.log.warning(
+                "The executable 'Rscript' is not in the current PATH.  Please ensure that 'Rscript' "
+                "is available prior to using this kernel specification."
+            )
+
+    def install_files(self):
+        """Installs applicable files into the target location."""
+        pass
+
+    def _copy_launcher_files(self, launcher_dir_name: str, target_dir: str):
+        """Copy the launcher files from the launcher directory to the destination staging directory."""
+
+        src_dir = os.path.join(kernel_launchers_dir, launcher_dir_name)
+        shutil.copytree(src=src_dir, dst=target_dir, dirs_exist_ok=True)
+
+        # When the launcher_dir_name is either 'r' or 'python', we need to also copy the files
+        # from the 'shared' launcher directory.
+        if launcher_dir_name.lower() in [PYTHON, R]:
+            src_dir = os.path.join(kernel_launchers_dir, "shared")
+            shutil.copytree(src=src_dir, dst=target_dir, dirs_exist_ok=True)
+        # When the launcher_dir_name is 'scala', we need to copy the toree jar (if determined), and
+        # remove the toree-launcher source code from the staging dir.
+        if launcher_dir_name in [SCALA]:
+            if self.toree_jar_path:
+                shutil.copyfile(
+                    self.toree_jar_path,
+                    os.path.join(target_dir, "lib", os.path.basename(self.toree_jar_path)),
+                )
+            scala_src_dir = os.path.join(target_dir, "toree-launcher")
+            if os.path.isdir(scala_src_dir):
+                self._delete_directory(scala_src_dir)
+
+        # The source launcher 'scripts' directory may contain a __pycache__ directory.
+        # Check for this condition in the staging area and delete the directory if present.
+        pycache_dir = os.path.join(target_dir, "scripts", "__pycache__")
+        if os.path.isdir(pycache_dir):
+            self._delete_directory(pycache_dir)
+
+    def log_and_exit(self, msg, exit_status=1):
+        """Logs the msg as a error and exits with the given exit-status."""
+        self.log.error(msg)
+        self.exit(exit_status)
+
+    @staticmethod
+    def _create_staging_directory(parent_dir=None):
+        """Creates a temporary staging directory at the specified location.
+        If no `parent_dir` is specified, the platform-specific "temp" directory is used.
+        """
+        return tempfile.mkdtemp(prefix="staging_", dir=parent_dir)
+
+    @staticmethod
+    def _delete_directory(dir_name):
+        """Deletes the specified directory."""
+        shutil.rmtree(dir_name)
+
+    @staticmethod
+    def import_item(name: str) -> Any:
+        """Import and return ``bar`` given the string ``foo.bar``.
+        Calling ``bar = import_item("foo.bar")`` is the functional equivalent of
+        executing the code ``from foo import bar``.
+        Parameters
+        ----------
+        name : string
+          The fully qualified name of the module/package being imported.
+        Returns
+        -------
+        mod : module object
+           The module that was imported.
+        """
+
+        parts = name.rsplit(".", 1)
+        if len(parts) == 2:
+            # called with 'foo.bar....'
+            package, obj = parts
+            module = __import__(package, fromlist=[obj])
+            try:
+                pak = getattr(module, obj)
+            except AttributeError:
+                raise ImportError("No module named %s" % obj)
+            return pak
+        else:
+            # called with un-dotted string
+            return __import__(parts[0])
+
+    @staticmethod
+    def _get_tag() -> str:
+        """Determines the tag to use for images based on the version.
+
+        If the version indicates a development version, the tag will be "dev",
+        else the tag will represent the version, including pre-releases like 2.0.0rc1
+        """
+        if "dev" in __version__:
+            return "dev"
+        return __version__
+
+
+class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
     kernel_name = Unicode(
         config=True, help="""Install the kernel spec into a directory with this name."""
     )
@@ -64,8 +229,8 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, JupyterApp):
     language = Unicode(
         "Python",
         config=True,
-        help="""The language of the underlying kernel.  Must be one of 'Python', 'R', or "
-"'Scala'.  Default = 'Python'.""",
+        help="""The language of the kernel referenced in the kernel specification.  Must be one of
+    'Python', 'R', or 'Scala'.  Default = 'Python'.""",
     )
 
     @validate("language")
@@ -73,7 +238,7 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, JupyterApp):
         value = proposal["value"]
         try:
             assert value.lower() in SUPPORTED_LANGUAGES
-        except ValueError:
+        except AssertionError:
             raise TraitError(f"Invalid language value {value}, not in {SUPPORTED_LANGUAGES}")
         return value
 
@@ -93,7 +258,7 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, JupyterApp):
         DEFAULT_INIT_MODE,
         config=True,
         help=f"""Spark context initialization mode.  Must be one of {SPARK_INIT_MODES}.
-Default = {DEFAULT_INIT_MODE}.""",
+    Default = {DEFAULT_INIT_MODE}.""",
     )
 
     @validate("spark_init_mode")
@@ -152,79 +317,8 @@ Default = {DEFAULT_INIT_MODE}.""",
         "debug": base_flags["debug"],
     }
 
-    def start(self):
-        """Drive the kernel specification creation."""
-        self.validate_parameters()
-        self.detect_missing_extras()
-        self._assemble_kernel_specs()
-        self._finalize_kernel_json()
-
-    def detect_missing_extras(self):
-        """
-        Issues a warning message whenever an "extra" library is detected as missing.
-
-        Note that "extra" can also mean things like Apache Toree is not installed when
-        the language is Scala, or Rscript is not available when the language is R.
-        """
-        if self.launcher_dir_name in [SCALA]:
-            self._detect_missing_toree_jar()
-
-        if self.launcher_dir_name in [R]:
-            self._detect_missing_rscript()
-
-    def _detect_missing_toree_jar(self):
-        """
-        Detects which aspects of Apache Toree are missing.
-
-        If installed, then it determines the path to the toree jar file.  If the jar cannot be
-        determined, appropriate warnings are issued.
-        """
-        self.toree_jar_path = None
-        try:
-            import toree  # noqa: F401
-        except ImportError:
-            self.log.warning(
-                "The Apache Torre kernel package is not installed in this environment and is required "
-                "for kernels of language 'Scala'.  Ensure that the 'apache-toree' package is installed "
-                "(e.g., pip install 'apache-toree') then repeat this command to ensure the Apache Toree"
-                "jar file is located in the kernel specification's lib directory prior to its use."
-            )
-        else:
-            toree_version = toree.toreeapp.ToreeApp.version
-            toree_lib_dir = os.path.join(os.path.dirname(toree.__file__), "lib")
-            jars = glob(os.path.join(toree_lib_dir, f"toree-assembly-{toree_version}-*.jar"))
-            if len(jars) < 1:
-                self.log.warning(
-                    "The Apache Torre kernel package is installed, but there doesn't appear to be a toree "
-                    f"jar file located in the installation area: '{toree_lib_dir}' that matches the pattern "
-                    f"'toree-assembly-{toree_version}-*.jar'.  This jar file is required for the proper "
-                    "behavior of scala kernels."
-                )
-            elif len(jars) > 1:
-                self.log.warning(
-                    "The Apache Torre kernel package is installed, but there appears to be more than one "
-                    f"toree-assembly jar file located in the installation area: '{toree_lib_dir}' that matches "
-                    f"the pattern 'toree-assembly-{toree_version}-*.jar'.  You will need to ensure the appropriate "
-                    "jar file is copied to the kernel specification's lib directory prior to its use."
-                )
-            else:
-                self.toree_jar_path = jars[0]
-
-    def _detect_missing_rscript(self):
-        """Detects if Rscript is in current path and issues warning if not."""
-        rscript_location = shutil.which("Rscript")
-        if rscript_location is None:
-            self.log.warning(
-                "The executable 'Rscript' is not in the current PATH.  Please ensure that 'Rscript' "
-                "is available prior to using this kernel specification."
-            )
-
+    @overrides
     def validate_parameters(self):
-        """
-        Validate input parameters and prepare for their injection into templated files.
-
-        This method is overridden by subclasses which should call super().validate_parameters().
-        """
         if self.user and self.prefix:
             self.log_and_exit("Can't specify both user and prefix. Please choose one or the other.")
 
@@ -250,7 +344,16 @@ Default = {DEFAULT_INIT_MODE}.""",
                         f"'{DEFAULT_PYTHON_KERNEL_CLASS_NAME}'.  Continuing..."
                     )
 
-    def _assemble_kernel_specs(self):
+    @overrides
+    def detect_missing_extras(self):
+        if self.launcher_dir_name in [SCALA]:
+            self._detect_missing_toree_jar()
+
+        if self.launcher_dir_name in [R]:
+            self._detect_missing_rscript()
+
+    @overrides
+    def install_files(self):
         """Assembles kernel-specs, launchers and resources into staging directory, then installs as kernel-spec."""
 
         # create staging dir
@@ -275,6 +378,9 @@ Default = {DEFAULT_INIT_MODE}.""",
                 f"Please ensure that the Toree jar file is placed into '{kspec_toree_jar_location}' "
                 f"prior to using the kernel."
             )
+
+        # Apply substitutions to kernel.json file
+        self._finalize_kernel_json()
 
     def _copy_kernel_spec_files(self, staging_dir: str):
         """Copies the launcher, resource and kernel-spec files to the staging directory."""
@@ -305,31 +411,7 @@ Default = {DEFAULT_INIT_MODE}.""",
             )
 
         # Copy the launcher files
-        src_dir = os.path.join(kernel_launchers_dir, self.launcher_dir_name)
-        shutil.copytree(src=src_dir, dst=staging_dir, dirs_exist_ok=True)
-
-        # When the launcher_dir_name is either 'r' or 'python', we need to also copy the files
-        # from the 'shared' launcher directory.
-        if self.launcher_dir_name in [PYTHON, R]:
-            src_dir = os.path.join(kernel_launchers_dir, "shared")
-            shutil.copytree(src=src_dir, dst=staging_dir, dirs_exist_ok=True)
-        # When the launcher_dir_name is 'scala', we need to copy the toree jar (if determined), and
-        # remove the toree-launcher source code from the staging dir.
-        if self.launcher_dir_name in [SCALA]:
-            if self.toree_jar_path:
-                shutil.copyfile(
-                    self.toree_jar_path,
-                    os.path.join(staging_dir, "lib", os.path.basename(self.toree_jar_path)),
-                )
-            scala_src_dir = os.path.join(staging_dir, "toree-launcher")
-            if os.path.isdir(scala_src_dir):
-                self._delete_directory(scala_src_dir)
-
-        # The source launcher 'scripts' directory may contain a __pycache__ directory.
-        # Check for this condition in the staging area and delete the directory if present.
-        pycache_dir = os.path.join(staging_dir, "scripts", "__pycache__")
-        if os.path.isdir(pycache_dir):
-            self._delete_directory(pycache_dir)
+        self._copy_launcher_files(self.launcher_dir_name, staging_dir)
 
         # Copy the resource files
         src_dir = os.path.join(kernel_resources_dir, self.resource_dir_name)
@@ -402,60 +484,3 @@ Default = {DEFAULT_INIT_MODE}.""",
         substitutions["language"] = LANGUAGE_SUBSTITUTIONS[self.language.lower()]
         substitutions["ipykernel_subclass_name"] = self.ipykernel_subclass_name
         return substitutions
-
-    def log_and_exit(self, msg, exit_status=1):
-        """Logs the msg as a error and exits with the given exit-status."""
-        self.log.error(msg)
-        self.exit(exit_status)
-
-    @staticmethod
-    def _create_staging_directory(parent_dir=None):
-        """Creates a temporary staging directory at the specified location.
-        If no `parent_dir` is specified, the platform-specific "temp" directory is used.
-        """
-        return tempfile.mkdtemp(prefix="staging_", dir=parent_dir)
-
-    @staticmethod
-    def _delete_directory(dir_name):
-        """Deletes the specified directory."""
-        shutil.rmtree(dir_name)
-
-    @staticmethod
-    def import_item(name: str) -> Any:
-        """Import and return ``bar`` given the string ``foo.bar``.
-        Calling ``bar = import_item("foo.bar")`` is the functional equivalent of
-        executing the code ``from foo import bar``.
-        Parameters
-        ----------
-        name : string
-          The fully qualified name of the module/package being imported.
-        Returns
-        -------
-        mod : module object
-           The module that was imported.
-        """
-
-        parts = name.rsplit(".", 1)
-        if len(parts) == 2:
-            # called with 'foo.bar....'
-            package, obj = parts
-            module = __import__(package, fromlist=[obj])
-            try:
-                pak = getattr(module, obj)
-            except AttributeError:
-                raise ImportError("No module named %s" % obj)
-            return pak
-        else:
-            # called with un-dotted string
-            return __import__(parts[0])
-
-    @staticmethod
-    def _get_tag() -> str:
-        """Determines the tag to use for images based on the version.
-
-        If the version indicates a development version, the tag will be "dev",
-        else the tag will represent the version, including pre-releases like 2.0.0rc1
-        """
-        if "dev" in __version__:
-            return "dev"
-        return __version__
