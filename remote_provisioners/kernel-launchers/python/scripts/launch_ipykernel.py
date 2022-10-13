@@ -1,7 +1,5 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
-from __future__ import annotations
-
 import argparse
 import logging
 import os
@@ -9,7 +7,7 @@ import signal
 import tempfile
 from collections.abc import Callable
 from threading import Thread
-from typing import Any
+from typing import Any, Optional
 
 from server_listener import setup_server_listener
 
@@ -151,7 +149,7 @@ class WaitingForSparkSessionToBeInitialized:
             return getattr(self._namespace[self._spark_session_variable], name)
 
 
-def _validate_port_range(port_range: str | None) -> tuple[int, int]:
+def _validate_port_range(port_range: Optional[str]) -> tuple[int, int]:
     # if no argument was provided, return a range of 0
     if not port_range:
         return 0, 0

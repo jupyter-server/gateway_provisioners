@@ -1,8 +1,6 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Kernel managers that operate against a remote process."""
-from __future__ import annotations
-
 import asyncio
 import errno
 import getpass
@@ -15,7 +13,7 @@ import time
 from abc import abstractmethod
 from enum import Enum
 from socket import AF_INET, SHUT_WR, SOCK_STREAM, socket, timeout
-from typing import Any
+from typing import Any, Optional
 
 import pexpect
 from jupyter_client import (
@@ -160,11 +158,11 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
     @abstractmethod
     @overrides
-    async def poll(self) -> int | None:
+    async def poll(self) -> Optional[int]:
         pass
 
     @overrides
-    async def wait(self) -> int | None:
+    async def wait(self) -> Optional[int]:
         # If we have a local_proc, call its wait method.  This will cleanup any defunct processes when the kernel
         # is shutdown (when using waitAppCompletion = false).  Otherwise (if no local_proc) we'll use polling to
         # determine if a (remote or revived) process is still active.
@@ -244,7 +242,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         self.tunneled_connect_info = provisioner_info.get("tunneled_connect_info")
 
     @overrides
-    def get_shutdown_wait_time(self, recommended: float | None = 5.0) -> float:
+    def get_shutdown_wait_time(self, recommended: Optional[float] = 5.0) -> float:
         return recommended
 
     @overrides
@@ -323,7 +321,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 self.local_proc = None
                 self.log_and_raise(RuntimeError(error_message))
 
-    def log_and_raise(self, ex: Exception, chained: Exception | None = None) -> None:
+    def log_and_raise(self, ex: Exception, chained: Optional[Exception] = None) -> None:
         """Helper method that logs the stringized exception 'ex' and raises that exception.
 
         If a chained exception is provided that exception will be in the raised exceptions's from clause.
@@ -682,7 +680,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 self.local_proc = None
 
     async def _send_listener_request(
-        self, request: dict, shutdown_socket: bool | None = False
+        self, request: dict, shutdown_socket: Optional[bool] = False
     ) -> None:
         """
         Sends the request dictionary to the kernel listener via the comm port.  Caller is responsible for
@@ -725,7 +723,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             )
 
     def _tunnel_to_kernel(
-        self, connection_info: dict, server: str, port: int = ssh_port, key: str | None = None
+        self, connection_info: dict, server: str, port: int = ssh_port, key: Optional[str] = None
     ):
         """
         Tunnel connections to a kernel over SSH
@@ -776,7 +774,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         remote_port: int,
         server: str,
         port: int = ssh_port,
-        key: str | None = None,
+        key: Optional[str] = None,
     ):
         """
         Analogous to _tunnel_to_kernel, but deals with a single port.  This will typically be called for
@@ -797,7 +795,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         remote_ip: str,
         server: str,
         port: int,
-        key: str | None = None,
+        key: Optional[str] = None,
     ):
         """
         Creates an SSH tunnel between the local and remote port/server for the given kernel channel.
@@ -827,7 +825,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         remote_ip: str,
         server: str,
         port: int,
-        key: str | None = None,
+        key: Optional[str] = None,
     ):
         """
         This method spawns a child process to create an SSH tunnel and returns the spawned process.

@@ -1,12 +1,10 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in containers."""
-from __future__ import annotations
-
 import os
 import signal
 from abc import abstractmethod
-from typing import Any
+from typing import Any, Optional
 
 import urllib3  # docker ends up using this and it causes lots of noise, so turn off warnings
 from jupyter_client import localinterfaces
@@ -116,7 +114,7 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
         kwargs["env"]["KERNEL_GID"] = kernel_gid
 
     @overrides
-    async def poll(self) -> int | None:
+    async def poll(self) -> Optional[int]:
         """Determines if container is still active.
 
         Submitting a new kernel to the container manager will take a while to be Running.
@@ -231,7 +229,7 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
         raise NotImplementedError
 
     @abstractmethod
-    async def get_container_status(self, iteration: str | None) -> str:
+    async def get_container_status(self, iteration: Optional[str]) -> str:
         """Return current container state."""
         raise NotImplementedError
 

@@ -1,8 +1,6 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in YARN clusters."""
-from __future__ import annotations
-
 import asyncio
 import getpass
 import json
@@ -11,7 +9,7 @@ import signal
 import subprocess
 import warnings
 from socket import gethostbyname, gethostname
-from typing import Any
+from typing import Any, Optional
 
 import paramiko
 from jupyter_client import KernelConnectionInfo, launch_kernel
@@ -46,7 +44,7 @@ class TrackKernelOnHost:
             self.decrement(host)
             del self._kernel_host_mapping[kernel_id]
 
-    def min_or_remote_host(self, remote_host: str | None = None) -> str:
+    def min_or_remote_host(self, remote_host: Optional[str] = None) -> str:
         if remote_host:
             return remote_host
         return min(self._host_kernels, key=lambda k: self._host_kernels[k])
@@ -167,7 +165,7 @@ class DistributedProvisioner(RemoteProvisionerBase):
         return self.connection_info
 
     @overrides
-    async def poll(self) -> int | None:
+    async def poll(self) -> Optional[int]:
         signal_delivered = await self._send_signal_via_listener(0)
         if signal_delivered:  # kernel process still alive, return None
             return None

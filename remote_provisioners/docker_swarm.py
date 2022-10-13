@@ -1,11 +1,9 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in docker-based containers."""
-from __future__ import annotations
-
 import logging
 import os
-from typing import Any
+from typing import Any, Optional
 
 from overrides import overrides
 from traitlets import validate
@@ -64,7 +62,7 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         return {"preparing", "starting", "running"}
 
     @overrides
-    async def get_container_status(self, iteration: str | None) -> str:
+    async def get_container_status(self, iteration: Optional[str]) -> str:
         # Locates the kernel container using the kernel_id filter.  If the status indicates an initial state we
         # should be able to get at the NetworksAttachments and determine the associated container's IP address.
         task_state = None
@@ -96,7 +94,7 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         return task_state
 
     @overrides
-    async def terminate_container_resources(self, restart: bool = False) -> bool | None:
+    async def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
         # Remove the docker service.
 
         result = True  # We'll be optimistic
@@ -196,7 +194,7 @@ class DockerProvisioner(ContainerProvisionerBase):
         return {"created", "running"}
 
     @overrides
-    async def get_container_status(self, iteration: str | None) -> str:
+    async def get_container_status(self, iteration: Optional[str]) -> str:
         # Locates the kernel container using the kernel_id filter.  If the phase indicates Running, the pod's IP
         # is used for the assigned_ip.  Only used when docker mode == regular (non swarm)
         container_status = None
