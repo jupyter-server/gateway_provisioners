@@ -6,7 +6,7 @@
 # assembly.  The file is also used by the launch_IRkernel.R script, but it does not require a
 # placeholder to satisfy references due to the language differences.
 #
-from __future__ import annotations
+from typing import Optional
 
 
 def setup_server_listener(
@@ -17,7 +17,7 @@ def setup_server_listener(
     response_addr: str,
     kernel_id: str,
     public_key: str,
-    cluster_type: str | None = None,
-    as_thread: bool | None = True,
+    cluster_type: Optional[str] = None,
+    as_thread: Optional[bool] = True,
 ):
     raise NotImplementedError("kernel-launcher assembly is required!")

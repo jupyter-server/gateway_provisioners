@@ -1,8 +1,6 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in YARN clusters."""
-from __future__ import annotations
-
 import asyncio
 import errno
 import logging
@@ -10,7 +8,7 @@ import os
 import signal
 import socket
 import time
-from typing import Any
+from typing import Any, Optional
 
 from overrides import overrides
 from traitlets import Bool, Unicode, default
@@ -134,7 +132,7 @@ class YarnProvisioner(RemoteProvisionerBase):
         return kwargs
 
     @overrides
-    def get_shutdown_wait_time(self, recommended: float | None = 5.0) -> float:
+    def get_shutdown_wait_time(self, recommended: Optional[float] = 5.0) -> float:
         # YARN applications tend to take longer than the default 5 second wait time.  Rather than
         # require a command-line option for those using YARN, we'll adjust based on a local env that
         # defaults to 15 seconds.  Note: we'll only adjust if the current wait time is shorter than
@@ -148,7 +146,7 @@ class YarnProvisioner(RemoteProvisionerBase):
         return recommended
 
     @overrides
-    async def poll(self) -> int | None:
+    async def poll(self) -> Optional[int]:
         # Submitting a new kernel/app to YARN will take a while to be ACCEPTED.
         # Thus application ID will probably not be available immediately for poll.
         # So will regard the application as RUNNING when application ID still in ACCEPTED or SUBMITTED state.
@@ -308,7 +306,7 @@ class YarnProvisioner(RemoteProvisionerBase):
             timeout_message = f"KernelID: '{self.kernel_id}' launch timeout due to: {reason}"
             self.log_and_raise(TimeoutError(timeout_message))
 
-    async def _shutdown_application(self) -> tuple[bool | None, str]:
+    async def _shutdown_application(self) -> tuple[Optional[bool], str]:
         """Shuts down the YARN application, returning None if final state is confirmed, False otherwise."""
         result = False
         self._kill_app_by_id(self.application_id)
@@ -430,7 +428,7 @@ class YarnProvisioner(RemoteProvisionerBase):
             reason = f"Yarn Compute Resource is unavailable after {self.yarn_resource_check_wait_time} seconds"
             self.log_and_raise(TimeoutError(reason))
 
-    def _initialize_resource_manager(self, **kwargs: dict[str, Any] | None) -> None:
+    def _initialize_resource_manager(self, **kwargs: Optional[dict[str, Any]]) -> None:
         """Initialize the Hadoop YARN Resource Manager instance used for this kernel's lifecycle."""
 
         endpoints = None
@@ -485,7 +483,7 @@ class YarnProvisioner(RemoteProvisionerBase):
 
         return app_state
 
-    def _get_application_id(self, ignore_final_states: bool = False) -> str | None:
+    def _get_application_id(self, ignore_final_states: bool = False) -> Optional[str]:
         """
         Return the kernel's YARN application ID if available, otherwise None.
 
@@ -516,7 +514,7 @@ class YarnProvisioner(RemoteProvisionerBase):
                 )
         return self.application_id
 
-    def _query_app_by_name(self, kernel_id: str) -> dict | None:
+    def _query_app_by_name(self, kernel_id: str) -> Optional[dict]:
         """
         Retrieve application by using kernel_id as the unique app name.
 
@@ -560,7 +558,7 @@ class YarnProvisioner(RemoteProvisionerBase):
                         top_most_app_id = app.get("id")
         return target_app
 
-    def _query_app_by_id(self, app_id: str) -> dict | None:
+    def _query_app_by_id(self, app_id: str) -> Optional[dict]:
         """Retrieve an application by application ID.
 
         :param app_id

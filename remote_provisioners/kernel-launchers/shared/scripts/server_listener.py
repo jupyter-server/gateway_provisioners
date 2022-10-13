@@ -1,7 +1,5 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
-from __future__ import annotations
-
 import base64
 import json
 import logging
@@ -11,7 +9,7 @@ import signal
 import socket
 import uuid
 from multiprocessing import Process, set_start_method
-from typing import Any
+from typing import Any, Optional
 
 from Cryptodome.Cipher import AES, PKCS1_v1_5
 from Cryptodome.PublicKey import RSA
@@ -46,7 +44,7 @@ class ServerListener:
         response_addr: str,
         kernel_id: str,
         public_key: str,
-        cluster_type: str | None = None,
+        cluster_type: Optional[str] = None,
     ):
         # Note, in the R integration, parameters come into Python as strings, so
         # we need to explicitly cast non-strings.
@@ -191,7 +189,7 @@ class ServerListener:
         """Gets a request from the server and returns the corresponding dictionary."""
         conn: socket = None
         data: str = ""
-        request_info: dict | None = None
+        request_info: Optional[dict] = None
         try:
             conn, addr = self.comm_socket.accept()
             while True:
@@ -262,7 +260,7 @@ def setup_server_listener(
     response_addr: str,
     kernel_id: str,
     public_key: str,
-    cluster_type: str | None = None,
+    cluster_type: Optional[str] = None,
 ) -> None:
     """Initializes the server listener sub-process to handle requests from the server."""
 
