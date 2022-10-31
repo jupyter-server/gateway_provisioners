@@ -5,7 +5,7 @@
 import logging
 import os
 import re
-from typing import Any
+from typing import Any, Optional
 
 import urllib3
 from overrides import overrides
@@ -92,7 +92,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         return {"Pending", "Running"}
 
     @overrides
-    async def get_container_status(self, iteration: str | None) -> str:
+    async def get_container_status(self, iteration: Optional[str]) -> str:
         # Locates the kernel pod using the kernel_id selector.  Note that we also include 'component=kernel'
         # in the selector so that executor pods (when Spark is in use) are not considered.
         # If the phase indicates Running, the pod's IP is used for the assigned_ip.
@@ -153,7 +153,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
                 # If the status indicates the pod is not terminated, capture its current status.
                 # If None, update the result to True, else issue warning that it is not YET deleted
                 # since we still have the hard termination sequence to occur.
-                cur_status = self.get_container_status(None)
+                cur_status = await self.get_container_status(None)
                 if cur_status is None:
                     result = True
                 else:

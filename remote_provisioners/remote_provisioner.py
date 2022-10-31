@@ -195,11 +195,11 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
     @abstractmethod
     @overrides
-    async def terminate(self, restart=False) -> None:
+    async def terminate(self, restart: bool = False) -> None:
         pass
 
     @overrides
-    async def cleanup(self, restart=False) -> None:
+    async def cleanup(self, restart: bool = False) -> None:
         self.assigned_ip = None
 
         for kernel_channel, process in self.tunnel_processes.items():
@@ -209,7 +209,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         self.tunnel_processes.clear()
 
     @overrides
-    async def shutdown_requested(self, restart=False) -> None:
+    async def shutdown_requested(self, restart: bool = False) -> None:
         await self.shutdown_listener()
 
     @overrides
