@@ -19,8 +19,12 @@ from .base_app import (
     kernel_launchers_dir,
 )
 
-LANG_DIR_NAMES = {PYTHON: "python", SCALA: "scala", R: "R"}
+LANG_DIR_NAMES = {PYTHON: "python", SCALA: "scala", R: "r"}
 BOOTSTRAP_FILE_NAME = "bootstrap-kernel.sh"
+# Note that BOOTSTRAP_DIR is not configurable due to its reference buries in the
+# sparkoperator.k8s.io/v1beta2.yaml.j2 template used by the Spark Operator.  We can
+# revisit how to make this configurable later.
+BOOTSTRAP_DIR = "/usr/local/bin"
 
 
 class ImageBootstrapInstaller(BaseApp):
@@ -34,7 +38,7 @@ class ImageBootstrapInstaller(BaseApp):
     # Note that the left justification of the second example is necessary to ensure proper
     # alignment with the first example during --help output.
     examples = """
-    jupyter-image-bootstrap install --languages=Python --languages=R --bootstrap-dir=/usr/local/share
+    jupyter-image-bootstrap install --languages=Python --languages=R
 
 jupyter-image-bootstrap install --languages=Python --languages=Scala
     """
@@ -60,25 +64,8 @@ jupyter-image-bootstrap install --languages=Python --languages=Scala
             )
         return value
 
-    bootstrap_dir = Unicode(
-        "/usr/local/bin",
-        config=True,
-        help="Specifies the absolute directory within the kernel-image in which "
-        f"{BOOTSTRAP_FILE_NAME} should be installed.",
-    )
-
-    @validate("bootstrap_dir")
-    def bootstrap_dir_validate(self, proposal: dict[str, Any]) -> str:
-        value = proposal["value"]
-        try:
-            assert os.path.isabs(value)
-        except AssertionError:
-            raise TraitError(f"Invalid bootstrap_dir value!  '{value}' must be an absolute path.")
-        return value
-
     aliases = {
         "languages": "ImageBootstrapInstaller.languages",
-        "bootstrap-dir": "ImageBootstrapInstaller.bootstrap_dir",
     }
     aliases.update(BaseApp.aliases)
 
@@ -100,7 +87,7 @@ jupyter-image-bootstrap install --languages=Python --languages=Scala
     def install_files(self):
         """Sets up the bootstrap-kernel.sh and corresponding kernel-launchers for use in kernel images"""
 
-        parent_dir = os.path.join(self.bootstrap_dir, "kernel-launchers")
+        parent_dir = os.path.join(BOOTSTRAP_DIR, "kernel-launchers")
         for lang in self.languages:
             lang_dir_name = LANG_DIR_NAMES.get(lang.lower())
             target_dir = os.path.join(parent_dir, lang_dir_name)
@@ -117,19 +104,20 @@ jupyter-image-bootstrap install --languages=Python --languages=Scala
                 )
 
         bootstrap_file = os.path.join(kernel_launchers_dir, "bootstrap", BOOTSTRAP_FILE_NAME)
-        target_bootstrap_file = os.path.join(self.bootstrap_dir, BOOTSTRAP_FILE_NAME)
+        target_bootstrap_file = os.path.join(BOOTSTRAP_DIR, BOOTSTRAP_FILE_NAME)
         shutil.copyfile(bootstrap_file, target_bootstrap_file)
         self._finalize_bootstrap(target_bootstrap_file)
         self.log.info(
-            f"{BOOTSTRAP_FILE_NAME} and kernel-launcher files have been copied to {self.bootstrap_dir} "
+            f"{BOOTSTRAP_FILE_NAME} and kernel-launcher files have been copied to {BOOTSTRAP_DIR} "
             f"and {parent_dir} for the following languages: {self.languages}."
         )
         self.log.info(
             f"The CMD entry in the Dockerfile should be updated to: CMD {target_bootstrap_file}"
         )
 
-    def _finalize_bootstrap(self, bootstrap_file: str):
-        subs = {"install_dir": self.bootstrap_dir}
+    @staticmethod
+    def _finalize_bootstrap(bootstrap_file: str):
+        subs = {"install_dir": BOOTSTRAP_DIR}
         bootstrap_str = ""
         with open(bootstrap_file) as f:
             for line in f:

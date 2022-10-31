@@ -108,3 +108,6 @@ venv.bak/
 
 # macos desktop services
 .DS_Store
+
+# image build locks
+.image*
