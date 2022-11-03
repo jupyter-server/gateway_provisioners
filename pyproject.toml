@@ -14,15 +14,15 @@ classifiers = [
   "Programming Language :: Python",
   "Programming Language :: Python :: 3"
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.8"
 dependencies = [
-    "jupyter_client>=7.0",
+    "jupyter_client>=7.2",
     "overrides",
     "paramiko>=2.4.0",
     "pexpect>=4.2.0",
     "pycryptodomex>=3.9.7",
-    "tornado>=5.1",
-    "traitlets>=4.3.3"
+    "tornado>=6.1",
+    "traitlets>=5.1"
 ]
 dynamic = ["version"]
 
