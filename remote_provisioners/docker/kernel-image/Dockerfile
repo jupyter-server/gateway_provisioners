@@ -1,7 +1,8 @@
-# Ubuntu 18.04.1 LTS Bionic
+# Copyright (c) Jupyter Development Team.
+# Distributed under the terms of the Modified BSD License.
+ARG DOCKER_ORG=elyra
 ARG KERNEL_LANG=python
 ARG PACKAGE_SOURCE=release
-ARG DOCKER_ORG=elyra
 ARG BASE_CONTAINER=${DOCKER_ORG}/rp-base:${TAG:-dev}
 
 FROM ${BASE_CONTAINER} AS kernel-base

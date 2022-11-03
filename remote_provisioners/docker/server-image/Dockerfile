@@ -1,6 +1,8 @@
-# Ubuntu 18.04.1 LTS Bionic
+# Copyright (c) Jupyter Development Team.
+# Distributed under the terms of the Modified BSD License.
+ARG DOCKER_ORG=elyra
 ARG SERVER_APP=${SERVER_APP:-jkg}
-ARG BASE_CONTAINER=spark-base:${TAG:-dev}
+ARG BASE_CONTAINER=${DOCKER_ORG}spark-base:${TAG:-dev}
 
 FROM ${BASE_CONTAINER} AS server-base
 
