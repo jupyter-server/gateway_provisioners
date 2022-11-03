@@ -49,4 +49,4 @@ RUN chown jovyan:users /usr/local/bin/bootstrap-kernel.sh && \
 	chown -R jovyan:users /usr/local/bin/kernel-launchers
 
 
-USER jovyan
+USER ${NB_UID}
