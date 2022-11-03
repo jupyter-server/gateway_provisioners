@@ -26,7 +26,7 @@ endif
 # Set NO_CACHE=--no-cache to force docker build to not use cached layers
 NO_CACHE?=
 
-SPARK_VERSION?=3.2.1
+SPARK_VERSION?=3.3.1
 
 WHEEL_FILES:=$(shell find remote_provisioners -type f ! -path "*/__pycache__/*" )
 WHEEL_FILE:=dist/remote_provisioners-$(VERSION)-py3-none-any.whl
