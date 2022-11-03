@@ -16,7 +16,40 @@ USER root
 # Python Kernel (ipykernel)
 FROM kernel-base as kernel-python
 ENV KERNEL_LANGUAGE=Python
-RUN pip install ipykernel
+RUN mamba install --quiet --yes \
+    'altair' \
+    'beautifulsoup4' \
+    'bokeh' \
+    'bottleneck' \
+    'cloudpickle' \
+    'conda-forge::blas=*=openblas' \
+    'cython' \
+    'dask' \
+    'dill' \
+    'h5py' \
+    'ipykernel'\
+    'ipympl'\
+    'ipywidgets' \
+    'matplotlib-base' \
+    'numba' \
+    'numexpr' \
+    'openpyxl' \
+    'pandas' \
+    'patsy' \
+    'protobuf' \
+    'pytables' \
+    'scikit-image' \
+    'scikit-learn' \
+    'scipy' \
+    'seaborn' \
+    'sqlalchemy' \
+    'statsmodels' \
+    'sympy' \
+    'widgetsnbextension'\
+    'xlrd' && \
+    mamba clean --all -f -y && \
+    fix-permissions "${CONDA_DIR}" && \
+    fix-permissions "/home/${NB_USER}"
 
 # Scala Kernel (Apache Toree)
 FROM kernel-base as kernel-scala
@@ -110,5 +143,4 @@ RUN chown jovyan:users /usr/local/bin/bootstrap-kernel.sh && \
 	chmod 0755 /usr/local/bin/bootstrap-kernel.sh && \
 	chown -R jovyan:users /usr/local/bin/kernel-launchers
 
-
-USER jovyan
+USER ${NB_UID}
