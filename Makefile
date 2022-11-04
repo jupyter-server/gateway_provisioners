@@ -26,7 +26,7 @@ endif
 # Set NO_CACHE=--no-cache to force docker build to not use cached layers
 NO_CACHE?=
 
-SPARK_VERSION?=3.2.1
+SPARK_VERSION?=3.3.1
 
 WHEEL_FILES:=$(shell find remote_provisioners -type f ! -path "*/__pycache__/*" )
 WHEEL_FILE:=dist/remote_provisioners-$(VERSION)-py3-none-any.whl
@@ -130,17 +130,11 @@ DOCKER_rp-kernel-scala := remote_provisioners/docker/kernel-image
 #
 BUILD_ARGS_rp-base :=
 BUILD_ARGS_rp-spark-base := --build-arg SPARK_VERSION=${SPARK_VERSION}
-BUILD_ARGS_rp-kernel-py := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} \
-						   --build-arg KERNEL_LANG=python
-BUILD_ARGS_rp-kernel-spark-py := ${BUILD_ARGS_rp-kernel-py} \
-								 --build-arg BASE_CONTAINER=${DOCKER_ORG}/rp-spark-base:$(TAG)
-BUILD_ARGS_rp-kernel-r := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} \
-						  --build-arg KERNEL_LANG=r
-BUILD_ARGS_rp-kernel-spark-r := ${BUILD_ARGS_rp-kernel-r} \
-								--build-arg BASE_CONTAINER=${DOCKER_ORG}/rp-spark-base:$(TAG)
-BUILD_ARGS_rp-kernel-scala := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} \
-							  --build-arg KERNEL_LANG=scala \
-							  --build-arg BASE_CONTAINER=${DOCKER_ORG}/rp-spark-base:$(TAG)
+BUILD_ARGS_rp-kernel-py := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=python
+BUILD_ARGS_rp-kernel-spark-py := ${BUILD_ARGS_rp-kernel-py} --build-arg BASE_CONTAINER=${DOCKER_ORG}/rp-spark-base:$(TAG)
+BUILD_ARGS_rp-kernel-r := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=r
+BUILD_ARGS_rp-kernel-spark-r := ${BUILD_ARGS_rp-kernel-r} --build-arg BASE_CONTAINER=${DOCKER_ORG}/rp-spark-base:$(TAG)
+BUILD_ARGS_rp-kernel-scala := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=scala --build-arg BASE_CONTAINER=${DOCKER_ORG}/rp-spark-base:$(TAG)
 
 # Extra (besides docker files) dependencies for each docker image...
 DEPENDS_rp-base :=

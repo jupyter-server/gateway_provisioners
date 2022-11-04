@@ -1,6 +1,7 @@
-# Ubuntu 18.04.1 LTS Bionic
-ARG SPARK_VERSION=${SPARK_VERSION:-3.2.1}
-ARG BASE_CONTAINER=jovyan-base:${TAG:-dev}
+# Copyright (c) Jupyter Development Team.
+# Distributed under the terms of the Modified BSD License.
+ARG DOCKER_ORG=elyra
+ARG BASE_CONTAINER=$DOCKER_ORG/rp-base:${TAG:-dev}
 
 FROM ${BASE_CONTAINER} AS spark-base
 
@@ -8,38 +9,73 @@ ENV PATH=$PATH:$CONDA_DIR/bin
 
 USER root
 
-# Spark Distribution ++++++++++
-# This should come before Scala since it (for now) requires Spark.
-ARG SPARK_VERSION
-ENV SPARK_VER $SPARK_VERSION
-LABEL SPARK_VERSION=${SPARK_VERSION}
-ENV SPARK_HOME /opt/spark
+# The following installation and configuration of Spark was adopted from
+# https://github.com/jupyter/docker-stacks/blob/main/pyspark-notebook/Dockerfile
 
-RUN apt-get update && apt-get install -y \
-    openjdk-8-jdk \
-    curl
-#    libssl-dev
+# Spark dependencies
+# Default values can be overridden at build time
+# All ARGs following SPARK_VERSION have values that must correspond to
+# that version of Spark.  See https://spark.apache.org/downloads.html
+# (OPENJDK_VERSION can be any of 8, 11, 17)
+ARG SPARK_VERSION=${SPARK_VERSION:-3.3.1}
+ARG HADOOP_VERSION="2"
+ARG SCALA_VERSION="2.12"
+ARG SPARK_CHECKSUM="817f89d83ffacda1c2075d28d4a649bc007a0dd4b8edeac4b2c5e0365efc34fafceff0afedc809faa0e687c6aabf0ff6dbcda329e9045692d700c63018d93171"
+ARG OPENJDK_VERSION="17"
 
-ENV JAVA_HOME /usr/lib/jvm/java-1.8.0-openjdk-amd64
+# JDK installation
+RUN apt-get update --yes && \
+    apt-get install --yes --no-install-recommends \
+    "openjdk-${OPENJDK_VERSION}-jre-headless" \
+    ca-certificates-java && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
-RUN curl -s https://archive.apache.org/dist/spark/spark-${SPARK_VER}/spark-${SPARK_VER}-bin-hadoop2.7.tgz | \
-    tar -xz -C /opt && \
-    ln -s ${SPARK_HOME}-${SPARK_VER}-bin-hadoop2.7 $SPARK_HOME
+# Spark installation
+WORKDIR /tmp
 
-# Download entrypoint.sh from matching tag
-# Use tini from Anaconda installation
-RUN cd /opt/ && \
-    wget https://raw.githubusercontent.com/apache/spark/v${SPARK_VER}/resource-managers/kubernetes/docker/src/main/dockerfiles/spark/entrypoint.sh && \
-    chmod a+x /opt/entrypoint.sh && \
-    sed -i 's/tini -s/tini -g/g' /opt/entrypoint.sh
+ENV APACHE_SPARK_VERSION="${SPARK_VERSION}" \
+    HADOOP_VERSION="${HADOOP_VERSION}" \
+    OPENJDK_VERSION="${OPENJDK_VERSION}" \
+    SCALA_VERSION="${SCALA_VERSION}" \
+    SPARK_HOME="/opt/spark" \
+    SPARK_OPTS="--driver-java-options=-Xms1024M --driver-java-options=-Xmx4096M --driver-java-options=-Dlog4j.logLevel=info" \
+    PATH="${PATH}:/opt/spark/bin"
 
-#     && \
-#    ln -sfn /opt/conda/bin/tini /usr/bin/tini
+RUN if [ "${SCALA_VERSION}" == "2.12" ]; then \
+    wget -qO "spark.tgz" "https://archive.apache.org/dist/spark/spark-${APACHE_SPARK_VERSION}/spark-${APACHE_SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz"; \
+  else \
+    wget -qO "spark.tgz" "https://archive.apache.org/dist/spark/spark-${APACHE_SPARK_VERSION}/spark-${APACHE_SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}-scala${SCALA_VERSION}.tgz"; \
+  fi && \
+  echo "${SPARK_CHECKSUM} *spark.tgz" | sha512sum -c - && \
+  tar xzf "spark.tgz" -C /opt --owner root --group root --no-same-owner && \
+  rm "spark.tgz"
 
-WORKDIR $SPARK_HOME/work-dir
+# Configure Spark
+RUN if [ "${SCALA_VERSION}" == "2.12" ]; then \
+    ln -s "spark-${APACHE_SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}" "${SPARK_HOME}"; \
+  else \
+    ln -s "spark-${APACHE_SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}-scala${SCALA_VERSION}" "${SPARK_HOME}"; \
+  fi
+
+# Download entrypoint.sh from matching tag for use in Kubernetes
+RUN cd ${SPARK_HOME}/bin && \
+    wget https://raw.githubusercontent.com/apache/spark/v${SPARK_VERSION}/resource-managers/kubernetes/docker/src/main/dockerfiles/spark/entrypoint.sh && \
+    chmod a+x ${SPARK_HOME}/bin/entrypoint.sh && \
+    sed -i 's/tini -s/tini -g/g' ${SPARK_HOME}/bin/entrypoint.sh
+
+WORKDIR ${SPARK_HOME}/work-dir
 # Ensure that work-dir is writable by everyone
-RUN chmod 0777 $SPARK_HOME/work-dir
+RUN chmod 0777 ${SPARK_HOME}/work-dir
 
-ENTRYPOINT [ "/opt/entrypoint.sh" ]
+ENTRYPOINT [ "/opt/spark/bin/entrypoint.sh" ]
 
-USER jovyan
+USER ${NB_UID}
+
+# Install pyarrow
+RUN mamba install --quiet --yes \
+    'pyarrow' && \
+    mamba clean --all -f -y && \
+    fix-permissions "${CONDA_DIR}" && \
+    fix-permissions "/home/${NB_USER}"
+
+EXPOSE 4040

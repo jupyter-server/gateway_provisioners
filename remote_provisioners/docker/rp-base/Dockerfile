@@ -88,8 +88,7 @@ RUN mkdir "/home/${NB_USER}/work" && \
 #   Similar projects using Micromamba:
 #     - Micromamba-Docker: <https://github.com/mamba-org/micromamba-docker>
 #     - repo2docker: <https://github.com/jupyterhub/repo2docker>
-# Install Python, Mamba, Jupyter Notebook, Lab, and Hub
-# Generate a notebook server config
+# Install Python, Mamba and jupyter_core
 # Cleanup temporary files and remove Micromamba
 # Correct permissions
 # Do all this in a single RUN command to avoid duplicating all of the
@@ -114,7 +113,8 @@ RUN set -x && \
         --prefix="${CONDA_DIR}" \
         --yes \
         "${PYTHON_SPECIFIER}" \
-        'mamba' && \
+        'mamba' \
+        'jupyter_core' && \
     rm micromamba && \
     # Pin major.minor version of python
     mamba list python | grep '^python ' | tr -s ' ' | cut -d ' ' -f 1,2 >> "${CONDA_DIR}/conda-meta/pinned" && \
@@ -122,8 +122,13 @@ RUN set -x && \
     fix-permissions "${CONDA_DIR}" && \
     fix-permissions "/home/${NB_USER}"
 
+
 # Configure container startup
 ENTRYPOINT ["tini", "-g", "--"]
+CMD ["start.sh"]
+
+# Copy local files as late as possible to avoid cache busting
+COPY start.sh /usr/local/bin/
 
 # Switch back to jovyan to avoid accidental container runs as root
 USER ${NB_UID}
