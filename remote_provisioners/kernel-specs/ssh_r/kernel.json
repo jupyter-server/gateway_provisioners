@@ -11,13 +11,13 @@
   "argv": [
     "Rscript",
     "${install_dir}/scripts/launch_IRkernel.R",
-    "--RemoteProcessProxy.kernel-id",
+    "--kernel-id",
     "{kernel_id}",
-    "--RemoteProcessProxy.response-address",
+    "--response-address",
     "{response_address}",
-    "--RemoteProcessProxy.public-key",
+    "--public-key",
     "{public_key}",
-    "--RemoteProcessProxy.port-range",
+    "--port-range",
     "{port_range}"
   ]
 }

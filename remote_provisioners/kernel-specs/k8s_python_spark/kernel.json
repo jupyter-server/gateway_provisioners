@@ -22,6 +22,8 @@
     "{kernel_id}",
     "--response-address",
     "{response_address}",
+    "--public-key",
+    "{public_key}",
     "--spark-context-initialization-mode",
     "${spark_init_mode}",
     "--kernel-class-name",
