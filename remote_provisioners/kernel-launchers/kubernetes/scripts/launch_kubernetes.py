@@ -51,6 +51,7 @@ def launch_kubernetes_kernel(
     spark_context_init_mode,
     pod_template_file,
     spark_opts_out,
+    kernel_class_name,
 ):
     # Launches a containerized kernel as a kubernetes pod.
 
@@ -71,6 +72,7 @@ def launch_kubernetes_kernel(
     keywords["kernel_id"] = kernel_id
     keywords["kernel_name"] = os.path.basename(os.path.dirname(os.path.dirname(__file__)))
     keywords["kernel_spark_context_init_mode"] = spark_context_init_mode
+    keywords["kernel_class_name"] = kernel_class_name
 
     # Walk env variables looking for names prefixed with KERNEL_.  When found, set corresponding keyword value
     # with name in lower case.
@@ -239,6 +241,12 @@ if __name__ == "__main__":
         help="When present, additional spark options are written to file, "
         "no launch performed, requires --pod-template.",
     )
+    parser.add_argument(
+        "--kernel-class-name",
+        dest="kernel_class_name",
+        nargs="?",
+        help="Indicates the name of the kernel class to use.  Must be a subclass of 'ipykernel.kernelbase.Kernel'.",
+    )
 
     arguments = vars(parser.parse_args())
     kernel_id = arguments["kernel_id"]
@@ -248,6 +256,7 @@ if __name__ == "__main__":
     spark_context_init_mode = arguments["spark_context_init_mode"]
     pod_template_file = arguments["pod_template_file"]
     spark_opts_out = arguments["spark_opts_out"]
+    kernel_class_name = arguments["kernel_class_name"]
 
     launch_kubernetes_kernel(
         kernel_id,
@@ -257,4 +266,5 @@ if __name__ == "__main__":
         spark_context_init_mode,
         pod_template_file,
         spark_opts_out,
+        kernel_class_name,
     )
