@@ -15,15 +15,15 @@
   },
   "argv": [
     "${install_dir}/bin/run.sh",
-    "--RemoteProcessProxy.kernel-id",
+    "--kernel-id",
     "{kernel_id}",
-    "--RemoteProcessProxy.response-address",
+    "--response-address",
     "{response_address}",
-    "--RemoteProcessProxy.public-key",
+    "--public-key",
     "{public_key}",
-    "--RemoteProcessProxy.port-range",
+    "--port-range",
     "{port_range}",
-    "--RemoteProcessProxy.spark-context-initialization-mode",
+    "--spark-context-initialization-mode",
     "${spark_init_mode}"
   ]
 }

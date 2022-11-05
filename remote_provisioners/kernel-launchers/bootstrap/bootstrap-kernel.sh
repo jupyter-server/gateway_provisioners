@@ -5,23 +5,33 @@ RESPONSE_ADDRESS=${RESPONSE_ADDRESS:-${EG_RESPONSE_ADDRESS}}
 PUBLIC_KEY=${PUBLIC_KEY:-${EG_PUBLIC_KEY}}
 KERNEL_LAUNCHERS_DIR=${KERNEL_LAUNCHERS_DIR:-${install_dir}/kernel-launchers}
 KERNEL_SPARK_CONTEXT_INIT_MODE=${KERNEL_SPARK_CONTEXT_INIT_MODE:-none}
+KERNEL_CLASS_NAME=${KERNEL_CLASS_NAME}
 
 echo $0 env: `env`
 
 launch_python_kernel() {
-    # Launch the python kernel launcher - which embeds the IPython kernel and listens for interrupts
-    # and shutdown requests from Enterprise Gateway.
+  # Launch the python kernel launcher - which embeds the IPython kernel and listens for interrupts
+  # and shutdown requests from the server.
 
-    export JPY_PARENT_PID=$$$$  # Force reset of parent pid since we're detached
+  export JPY_PARENT_PID=$$$$  # Force reset of parent pid since we're detached
+
+  if [ -z "${KERNEL_CLASS_NAME}" ]
+  then
+    kernel_class_option = ""
+  else
+    kernel_class_option = "--kernel_class_name ${KERNEL_CLASS_NAME}"
+  fi
 
 	set -x
-	python ${KERNEL_LAUNCHERS_DIR}/python/scripts/launch_ipykernel.py --kernel-id ${KERNEL_ID} --port-range ${PORT_RANGE} --response-address ${RESPONSE_ADDRESS} --public-key ${PUBLIC_KEY} --spark-context-initialization-mode ${KERNEL_SPARK_CONTEXT_INIT_MODE}
+	python ${KERNEL_LAUNCHERS_DIR}/python/scripts/launch_ipykernel.py --kernel-id ${KERNEL_ID} \
+	      --port-range ${PORT_RANGE} --response-address ${RESPONSE_ADDRESS} --public-key ${PUBLIC_KEY} \
+	      --spark-context-initialization-mode ${KERNEL_SPARK_CONTEXT_INIT_MODE}  ${kernel_class_option}
 	{ set +x; } 2>/dev/null
 }
 
 launch_R_kernel() {
     # Launch the R kernel launcher - which embeds the IRkernel kernel and listens for interrupts
-    # and shutdown requests from Enterprise Gateway.
+    # and shutdown requests from the server.
 
 	set -x
 	Rscript ${KERNEL_LAUNCHERS_DIR}/R/scripts/launch_IRkernel.R --kernel-id ${KERNEL_ID} --port-range ${PORT_RANGE} --response-address ${RESPONSE_ADDRESS} --public-key ${PUBLIC_KEY} --spark-context-initialization-mode ${KERNEL_SPARK_CONTEXT_INIT_MODE}
@@ -30,7 +40,7 @@ launch_R_kernel() {
 
 launch_scala_kernel() {
     # Launch the scala kernel launcher - which embeds the Apache Toree kernel and listens for interrupts
-    # and shutdown requests from Enterprise Gateway.  This kernel is currenly always launched using
+    # and shutdown requests from the server.  This kernel is currenly always launched using
     # spark-submit, so additional setup is required.
 
     PROG_HOME=${KERNEL_LAUNCHERS_DIR}/scala
