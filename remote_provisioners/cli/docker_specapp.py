@@ -124,12 +124,12 @@ enabled for Spark usage, this image will be the driver image. (RP_IMAGE_NAME env
 
 
 class DockerProvisionerApp(Application):
-    """Application responsible for driving the creation of Kubernetes-based kernel specifications."""
+    """Application responsible for driving the creation of Docker-based kernel specifications."""
 
     version = __version__
     name = "jupyter docker-spec"
-    description = """Application used to create kernel specifications for use on Kubernetes clusters
-    via the KubernetesProvisioner kernel provisioner."""
+    description = """Application used to create kernel specifications for use on Docker or Docker Swarm clusters
+    via the DockerProvisioner or DockerSwarmProvisioner kernel provisioners."""
     subcommands = dict(
         {
             "install": (
