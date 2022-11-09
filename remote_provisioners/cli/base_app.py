@@ -271,7 +271,7 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
             raise TraitError(
                 f"Invalid Spark initialization mode value '{value}', not in {SPARK_INIT_MODES}"
             )
-        return value
+        return value.lower()  # always use lowercase form
 
     extra_spark_opts = Unicode("", config=True, help="Specify additional Spark options.")
 
