@@ -82,24 +82,19 @@ def initialize_namespace(namespace: dict, cluster_type: str = "spark") -> None:
                     "spark": spark,
                     "sc": spark.sparkContext,
                     "sql": spark.sql,
-                    "sqlContext": spark._wrapped,
-                    "sqlCtx": spark._wrapped,
                 }
             )
 
         init_thread = ExceptionThread(target=initialize_spark_session)
         spark = WaitingForSparkSessionToBeInitialized("spark", init_thread, namespace)
         sc = WaitingForSparkSessionToBeInitialized("sc", init_thread, namespace)
-        sqlContext = WaitingForSparkSessionToBeInitialized("sqlContext", init_thread, namespace)
 
         def sql(query):
             """Placeholder function. When called will wait for Spark session to be
             initialized and call ``spark.sql(query)``"""
             return spark.sql(query)
 
-        namespace.update(
-            {"spark": spark, "sc": sc, "sql": sql, "sqlContext": sqlContext, "sqlCtx": sqlContext}
-        )
+        namespace.update({"spark": spark, "sc": sc, "sql": sql})
 
         init_thread.start()
 
@@ -115,7 +110,7 @@ def initialize_namespace(namespace: dict, cluster_type: str = "spark") -> None:
 class WaitingForSparkSessionToBeInitialized:
     """Wrapper object for SparkContext and other Spark session variables while the real Spark session is being
     initialized in a background thread. The class name is intentionally worded verbosely explicit as it will show up
-    when executing a cell that contains only a Spark session variable like ``sc`` or ``sqlContext``.
+    when executing a cell that contains only a Spark session variable like ``sc``.
     """
 
     # private and public attributes that show up for tab completion,
