@@ -310,6 +310,8 @@ class ResponseManager(SingletonConfigurable):
 
         # and convert to usable dictionary
         connection_info = json.loads(connection_info_str)
+        if "key" in connection_info:  # Convert key to bytes
+            connection_info["key"] = connection_info["key"].encode()
         return connection_info
 
     def _post_connection(self, connection_info: dict) -> None:
