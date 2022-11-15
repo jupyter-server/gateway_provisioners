@@ -1,5 +1,5 @@
 .PHONY: build-dependencies clean-test clean-pyc clean-build docs help \
-	rp-base rp-spark-base rp-kernel-py rp-kernel-py rp-kernel-spark-py \
+	rp-spark-base rp-kernel-py rp-kernel-py rp-kernel-spark-py \
 	rp-kernel-r rp-kernel-spark-r rp-kernel-scala
 .DEFAULT_GOAL := help
 
@@ -104,22 +104,21 @@ remote_provisioners/kernel-launchers/scala/lib: $(TOREE_LAUNCHER_FILES)
 	mkdir -p remote_provisioners/kernel-launchers/scala/lib
 	@(cd remote_provisioners/kernel-launchers/scala/toree-launcher; sbt -Dversion=$(VERSION) package; cp target/scala-2.12/*.jar ../lib)
 
-BASE_IMAGES := rp-base rp-spark-base
+BASE_IMAGES := rp-spark-base
 KERNEL_IMAGES := rp-kernel-py rp-kernel-spark-py rp-kernel-r rp-kernel-spark-r rp-kernel-scala
 DOCKER_IMAGES := $(BASE_IMAGES) $(KERNEL_IMAGES)
 
 base-images: $(BASE_IMAGES)
 kernel-images: $(KERNEL_IMAGES)
 images: $(DOCKER_IMAGES)  ## Build all docker images.  Targets base-images and kernel-images can also be used.
-clean-base-images: clean-rp-base clean-rp-spark-base
+clean-base-images: clean-rp-spark-base
 clean-kernel-images: clean-rp-kernel-py clean-rp-kernel-spark-py clean-rp-kernel-r clean-rp-kernel-spark-r clean-rp-kernel-scala
 clean-images: clean-base-images clean-kernel-images  ## Remove all docker images.  Targets clean-base-images and clean-kernel-images can also be used.
-push-base-images: push-rp-base push-rp-spark-base
+push-base-images: push-rp-spark-base
 push-kernel-images: push-rp-kernel-py push-rp-kernel-spark-py push-rp-kernel-r push-rp-kernel-spark-r push-rp-kernel-scala
 push-images: push-base-images push-kernel-images  ## Push all docker images.  Targets push-base-images and push-kernel-images can also be used.
 
 # Location to find docker files used in build
-DOCKER_rp-base := remote_provisioners/docker/rp-base
 DOCKER_rp-spark-base := remote_provisioners/docker/rp-spark-base
 DOCKER_rp-kernel-py := remote_provisioners/docker/kernel-image
 DOCKER_rp-kernel-spark-py := remote_provisioners/docker/kernel-image
@@ -128,7 +127,6 @@ DOCKER_rp-kernel-spark-r := remote_provisioners/docker/kernel-image
 DOCKER_rp-kernel-scala := remote_provisioners/docker/kernel-image
 
 #
-BUILD_ARGS_rp-base :=
 BUILD_ARGS_rp-spark-base := --build-arg SPARK_VERSION=${SPARK_VERSION}
 BUILD_ARGS_rp-kernel-py := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=python
 BUILD_ARGS_rp-kernel-spark-py := ${BUILD_ARGS_rp-kernel-py} --build-arg BASE_CONTAINER=${DOCKER_ORG}/rp-spark-base:$(TAG)
@@ -137,7 +135,6 @@ BUILD_ARGS_rp-kernel-spark-r := ${BUILD_ARGS_rp-kernel-r} --build-arg BASE_CONTA
 BUILD_ARGS_rp-kernel-scala := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=scala --build-arg BASE_CONTAINER=${DOCKER_ORG}/rp-spark-base:$(TAG)
 
 # Extra (besides docker files) dependencies for each docker image...
-DEPENDS_rp-base :=
 DEPENDS_rp-spark-base :=
 DEPENDS_rp-kernel-py := $(WHEEL_FILE)
 DEPENDS_rp-kernel-spark-py := $(WHEEL_FILE)
@@ -146,7 +143,6 @@ DEPENDS_rp-kernel-spark-r := $(WHEEL_FILE)
 DEPENDS_rp-kernel-scala := $(WHEEL_FILE)
 
 # Extra targets for each image
-TARGETS_rp-base:
 TARGETS_rp-spark-base:
 TARGETS_rp-kernel-py TARGETS_rp-kernel-py TARGETS_rp-kernel-spark-py TARGETS_rp-kernel-r \
 	TARGETS_rp-kernel-spark-r TARGETS_rp-kernel-scala: wheel $(BASE_IMAGES)

@@ -1,7 +1,6 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
-ARG DOCKER_ORG=elyra
-ARG BASE_CONTAINER=$DOCKER_ORG/rp-base:${TAG:-dev}
+ARG BASE_CONTAINER=jupyter/docker-stacks-foundation:2022-11-15
 
 FROM ${BASE_CONTAINER} AS spark-base
 
