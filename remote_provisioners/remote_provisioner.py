@@ -210,7 +210,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
     @overrides
     async def shutdown_requested(self, restart: bool = False) -> None:
-        await self.shutdown_listener()
+        await self.shutdown_listener(restart)
 
     @overrides
     async def get_provisioner_info(self) -> dict[str, Any]:
@@ -340,7 +340,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         else:
             raise ex
 
-    async def shutdown_listener(self):
+    async def shutdown_listener(self, restart: bool) -> None:
         """
         Sends a shutdown request to the kernel launcher listener.
         """

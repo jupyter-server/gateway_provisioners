@@ -71,6 +71,10 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
 
     @overrides
     async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
+        # Unset assigned_host, ip, and node_ip in pre-launch, otherwise, these screw up restarts
+        self.assigned_host = ""
+        self.assigned_ip = None
+        self.assigned_node_ip = None
 
         kwargs = await super().pre_launch(**kwargs)
 
@@ -180,10 +184,10 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
         return await self.kill(restart=restart)
 
     @overrides
-    async def shutdown_listener(self):
-        await super().shutdown_listener()
+    async def shutdown_listener(self, restart: bool) -> None:
+        await super().shutdown_listener(restart)
         if self.container_name:  # We only have something to terminate if we have a name
-            await self.terminate_container_resources()
+            await self.terminate_container_resources(restart)
 
     @overrides
     async def confirm_remote_startup(self):

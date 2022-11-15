@@ -57,6 +57,10 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         self.kernel_pod_name = None
         self.kernel_namespace = None
         self.delete_kernel_namespace = False
+        # Track if we're restarting the pod from this instance.  This will be
+        # set to true when restarting kernels during the original pod's termination
+        # and if the kernel resides in its own namespace.
+        self.restarting = False
 
     @overrides
     async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
@@ -106,7 +110,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
             self.container_name = pod_info.metadata.name
             if pod_info.status:
                 pod_status = pod_info.status.phase
-                if pod_status == "Running" and self.assigned_host == "":
+                if pod_status == "Running" and not self.assigned_host:
                     # Pod is running, capture IP
                     self.assigned_ip = pod_info.status.pod_ip
                     self.assigned_host = self.container_name
@@ -125,11 +129,16 @@ class KubernetesProvisioner(ContainerProvisionerBase):
     @overrides
     async def terminate_container_resources(self, restart: bool = False) -> None:
         # Kubernetes objects don't go away on their own - so we need to tear down the namespace
-        # or pod associated with the kernel.  If we created the namespace and we're not in the
-        # the process of restarting the kernel, then that's our target, else just delete the pod.
+        # or pod associated with the kernel.  If we created the namespace, and we're not in the
+        # process of restarting the kernel, then that's our target, else just delete the pod.
 
         result = False
         body = client.V1DeleteOptions(grace_period_seconds=0, propagation_policy="Background")
+
+        # If this termination is due to a restart, record that fact, so we can tolerate
+        # things like the existence of pre-existing namespaces (when auto-creation is
+        # in play), etc.
+        self.restarting = restart
 
         # Delete the pod then, if applicable, the namespace
         try:
@@ -162,7 +171,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
                         f"Current status is '{cur_status}'."
                     )
 
-            if self.delete_kernel_namespace and not self.kernel_manager.restarting:
+            if self.delete_kernel_namespace and not self.restarting:
                 object_name = "namespace"
                 # Status is a return value for calls that don't return other objects.
                 # https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#status-v1-meta
@@ -181,7 +190,6 @@ class KubernetesProvisioner(ContainerProvisionerBase):
                         f"Namespace {self.kernel_namespace} is not yet deleted.  "
                         f"Current status is '{status}'."
                     )
-
         except Exception as err:
             if isinstance(err, client.rest.ApiException) and err.status == 404:
                 result = True  # okay if its not found
@@ -288,12 +296,10 @@ class KubernetesProvisioner(ContainerProvisionerBase):
             # creating a role each time.
             self._create_role_binding(namespace, service_account_name)
         except Exception as err:
-            # FIXME - self.parent is the kernel manager. We probably want a better means of determining
-            # if a launch is for the purpose of a restart.
-            if isinstance(err, ApiException) and err.status == 409 and self.parent.restarting:
-                self.delete_kernel_namespace = (
-                    True  # okay if ns already exists and restarting, still mark for delete
-                )
+            # Tolerate pre-existing namespace if we're in the process of restarting
+            if isinstance(err, ApiException) and err.status == 409 and self.restarting:
+                self.restarting = False
+                self.delete_kernel_namespace = True  # still mark for delete
                 self.log.info(f"Re-using kernel namespace: {namespace}")
             else:
                 if self.delete_kernel_namespace:

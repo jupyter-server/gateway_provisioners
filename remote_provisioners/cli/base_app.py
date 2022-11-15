@@ -160,13 +160,14 @@ class BaseApp(JupyterApp):
             self._delete_directory(pycache_dir)
 
     def log_and_exit(self, msg, exit_status=1):
-        """Logs the msg as a error and exits with the given exit-status."""
+        """Logs the msg as an error and exits with the given exit-status."""
         self.log.error(msg)
         self.exit(exit_status)
 
     @staticmethod
     def _create_staging_directory(parent_dir=None):
         """Creates a temporary staging directory at the specified location.
+
         If no `parent_dir` is specified, the platform-specific "temp" directory is used.
         """
         return tempfile.mkdtemp(prefix="staging_", dir=parent_dir)
@@ -270,7 +271,7 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
             raise TraitError(
                 f"Invalid Spark initialization mode value '{value}', not in {SPARK_INIT_MODES}"
             )
-        return value
+        return value.lower()  # always use lowercase form
 
     extra_spark_opts = Unicode("", config=True, help="Specify additional Spark options.")
 

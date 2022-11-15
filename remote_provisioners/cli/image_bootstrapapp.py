@@ -6,7 +6,7 @@ from string import Template
 from typing import Any
 
 from overrides import overrides
-from traitlets import List, TraitError, Unicode, validate
+from traitlets import Bool, List, TraitError, Unicode, validate
 from traitlets.config.application import Application
 
 from .._version import __version__
@@ -19,7 +19,7 @@ from .base_app import (
     kernel_launchers_dir,
 )
 
-LANG_DIR_NAMES = {PYTHON: "python", SCALA: "scala", R: "r"}
+LANG_DIR_NAMES = {PYTHON: "python", SCALA: "scala", R: "R"}
 BOOTSTRAP_FILE_NAME = "bootstrap-kernel.sh"
 # Note that BOOTSTRAP_DIR is not configurable due to its reference buries in the
 # sparkoperator.k8s.io/v1beta2.yaml.j2 template used by the Spark Operator.  We can
@@ -64,12 +64,21 @@ jupyter-image-bootstrap install --languages=Python --languages=Scala
             )
         return value
 
+    launchers_only = Bool(
+        False, config=True, help="Only install kernel launchers, no bootstrap script."
+    )
+
     aliases = {
         "languages": "ImageBootstrapInstaller.languages",
     }
     aliases.update(BaseApp.aliases)
 
-    flags = {}
+    flags = {
+        "launchers-only": (
+            {"ImageBootstrapInstaller": {"launchers_only": True}},
+            "Only install kernel launchers, no bootstrap script.",
+        ),
+    }
     flags.update(BaseApp.flags)
 
     kernel_spec_install = False  # Set to false when bootstrap installation occurs
@@ -102,18 +111,21 @@ jupyter-image-bootstrap install --languages=Python --languages=Scala
                     f"Please ensure that the Toree jar file is placed into '{kspec_toree_jar_location}' "
                     f"prior to using the kernel image for scala."
                 )
+        if self.languages:
+            self.log.info(
+                f"Kernel-launcher files have been copied to {parent_dir} "
+                f"for the following languages: {self.languages}."
+            )
 
-        bootstrap_file = os.path.join(kernel_launchers_dir, "bootstrap", BOOTSTRAP_FILE_NAME)
-        target_bootstrap_file = os.path.join(BOOTSTRAP_DIR, BOOTSTRAP_FILE_NAME)
-        shutil.copyfile(bootstrap_file, target_bootstrap_file)
-        self._finalize_bootstrap(target_bootstrap_file)
-        self.log.info(
-            f"{BOOTSTRAP_FILE_NAME} and kernel-launcher files have been copied to {BOOTSTRAP_DIR} "
-            f"and {parent_dir} for the following languages: {self.languages}."
-        )
-        self.log.info(
-            f"The CMD entry in the Dockerfile should be updated to: CMD {target_bootstrap_file}"
-        )
+        if not self.launchers_only:
+            bootstrap_file = os.path.join(kernel_launchers_dir, "bootstrap", BOOTSTRAP_FILE_NAME)
+            target_bootstrap_file = os.path.join(BOOTSTRAP_DIR, BOOTSTRAP_FILE_NAME)
+            shutil.copyfile(bootstrap_file, target_bootstrap_file)
+            self._finalize_bootstrap(target_bootstrap_file)
+            self.log.info(f"{BOOTSTRAP_FILE_NAME} has been copied to {BOOTSTRAP_DIR}.")
+            self.log.info(
+                f"The CMD entry in the Dockerfile should be updated to: CMD {target_bootstrap_file}"
+            )
 
     @staticmethod
     def _finalize_bootstrap(bootstrap_file: str):
