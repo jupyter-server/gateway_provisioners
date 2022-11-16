@@ -131,3 +131,22 @@ filterwarnings= [
   # Fail on warnings
   "error",
 ]
+
+[tool.flake8]
+ignore = [
+    # E402: module level import not at top of file
+    # E501: line too long
+    # W503: line break before binary operator
+    # W504: line break after binary operator
+    "E402", "E501", "W503", "W504"
+]
+exclude = [
+    ".cache",
+    ".github",
+    "docs"
+]
+extend-ignore = [
+    "G001", "G002", "G004", "G200", "G201", "G202",
+    # black adds spaces around ':'
+    "E203"
+]
