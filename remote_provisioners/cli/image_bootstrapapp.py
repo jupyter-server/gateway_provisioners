@@ -5,9 +5,9 @@ import shutil
 from string import Template
 from typing import Any
 
+from jupyter_core.application import JupyterApp
 from overrides import overrides
 from traitlets import Bool, List, TraitError, Unicode, validate
-from traitlets.config.application import Application
 
 from .._version import __version__
 from .base_app import (
@@ -140,7 +140,7 @@ jupyter-image-bootstrap install --languages=Python --languages=Scala
             f.write(post_subs)
 
 
-class ImageBootstrapApp(Application):
+class ImageBootstrapApp(JupyterApp):
     """Application responsible for driving the creation of Kubernetes-based kernel specifications."""
 
     version = __version__
@@ -159,14 +159,14 @@ kernel launchers for use by Remote Provisioners."""
     flags = {}
 
     def start(self):
+        super().start()
+
         if self.subapp is None:
             print(f"No subcommand specified. Must specify one of: {list(self.subcommands)}")
             print()
             self.print_description()
             self.print_subcommands()
             self.exit(1)
-        else:
-            return self.subapp.start()
 
 
 if __name__ == "__main__":

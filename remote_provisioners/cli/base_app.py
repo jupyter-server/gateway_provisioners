@@ -58,6 +58,8 @@ class BaseApp(JupyterApp):
 
     def start(self):
         """Drive the kernel specification creation."""
+        super().start()
+
         self.validate_parameters()
         self.detect_missing_extras()
         self.install_files()
