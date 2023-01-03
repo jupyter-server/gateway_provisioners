@@ -3,8 +3,8 @@ requires = ["hatchling>=1.4"]
 build-backend = "hatchling.build"
 
 [project]
-name = "remote_provisioners"
-description = "Remote Provisioners - a package containing provisioner implementations supporting remote kernels."
+name = "gateway_provisioners"
+description = "Gateway Provisioners - a package containing kernel provisioners supporting the deployment of remote and resource-managed kernels."
 classifiers = [
   "Framework :: Jupyter",
   "Intended Audience :: Developers",
@@ -40,9 +40,9 @@ file = "LICENSE"
 
 [project.urls]
 Homepage = "https://jupyter.org"
-Documentation = "https://remote-provisioners.readthedocs.io/"
-Source = "https://github.com/kevin-bates/remote_provisioners"
-Tracker = "https://github.com/kevin-bates/remote_provisioners/issues"
+Documentation = "https://gateway-provisioners.readthedocs.io/"
+Source = "https://github.com/gateway-experiments/gateway_provisioners"
+Tracker = "https://github.com/gateway-experiments/gateway_provisioners/issues"
 
 [project.optional-dependencies]
 test = [
@@ -78,24 +78,24 @@ docker = [
 ]
 
 [project.scripts]
-jupyter-k8s-spec = "remote_provisioners.cli.k8s_specapp:K8sProvisionerApp.launch_instance"
-jupyter-yarn-spec = "remote_provisioners.cli.yarn_specapp:YarnProvisionerApp.launch_instance"
-jupyter-ssh-spec = "remote_provisioners.cli.ssh_specapp:SshProvisionerApp.launch_instance"
-jupyter-docker-spec = "remote_provisioners.cli.docker_specapp:DockerProvisionerApp.launch_instance"
-jupyter-image-bootstrap = "remote_provisioners.cli.image_bootstrapapp:ImageBootstrapApp.launch_instance"
+jupyter-k8s-spec = "gateway_provisioners.cli.k8s_specapp:K8sProvisionerApp.launch_instance"
+jupyter-yarn-spec = "gateway_provisioners.cli.yarn_specapp:YarnProvisionerApp.launch_instance"
+jupyter-ssh-spec = "gateway_provisioners.cli.ssh_specapp:SshProvisionerApp.launch_instance"
+jupyter-docker-spec = "gateway_provisioners.cli.docker_specapp:DockerProvisionerApp.launch_instance"
+jupyter-image-bootstrap = "gateway_provisioners.cli.image_bootstrapapp:ImageBootstrapApp.launch_instance"
 
 [project.entry-points."jupyter_client.kernel_provisioners"]
-yarn-provisioner = "remote_provisioners.yarn:YarnProvisioner"
-distributed-provisioner = "remote_provisioners.distributed:DistributedProvisioner"
-kubernetes-provisioner = "remote_provisioners.k8s:KubernetesProvisioner"
-docker-provisioner = "remote_provisioners.docker_swarm:DockerProvisioner"
-docker-swarm-provisioner = "remote_provisioners.docker_swarm:DockerSwarmProvisioner"
+yarn-provisioner = "gateway_provisioners.yarn:YarnProvisioner"
+distributed-provisioner = "gateway_provisioners.distributed:DistributedProvisioner"
+kubernetes-provisioner = "gateway_provisioners.k8s:KubernetesProvisioner"
+docker-provisioner = "gateway_provisioners.docker_swarm:DockerProvisioner"
+docker-swarm-provisioner = "gateway_provisioners.docker_swarm:DockerSwarmProvisioner"
 
 [tool.hatch.version]
-path = "remote_provisioners/_version.py"
+path = "gateway_provisioners/_version.py"
 
 [tool.hatch.build]
-artifacts = ["remote_provisioners/kernel-launchers/scala/lib"]
+artifacts = ["gateway_provisioners/kernel-launchers/scala/lib"]
 
 [tool.mypy]
 check_untyped_defs = true
@@ -125,7 +125,7 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 addopts = "-raXs --durations 10 --color=yes --doctest-modules"
 testpaths = [
-    "remote_provisioners/tests/"
+    "gateway_provisioners/tests/"
 ]
 filterwarnings= [
   # Fail on warnings
