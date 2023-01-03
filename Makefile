@@ -1,14 +1,14 @@
 .PHONY: build-dependencies clean-test clean-pyc clean-build docs help \
-	rp-spark-base rp-kernel-py rp-kernel-py rp-kernel-spark-py \
-	rp-kernel-r rp-kernel-spark-r rp-kernel-scala
+	gp-spark-base gp-kernel-py gp-kernel-py gp-kernel-spark-py \
+	gp-kernel-r gp-kernel-spark-r gp-kernel-scala
 .DEFAULT_GOAL := help
 
 help:
 # http://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-# extract version from remote_provisioners/_version.py - override using `make VERSION=foo target`
-VERSION?=$(shell grep ^__version__ remote_provisioners/_version.py | awk '{print $$3}' | sed s'/"//g')
+# extract version from gateway_provisioners/_version.py - override using `make VERSION=foo target`
+VERSION?=$(shell grep ^__version__ gateway_provisioners/_version.py | awk '{print $$3}' | sed s'/"//g')
 
 # When building images, where to get the remote-provisioners package: "local" (wheel) or "release" (pip)
 PACKAGE_SOURCE?=local
@@ -28,12 +28,12 @@ NO_CACHE?=
 
 SPARK_VERSION?=3.3.1
 
-WHEEL_FILES:=$(shell find remote_provisioners -type f ! -path "*/__pycache__/*" )
-WHEEL_FILE:=dist/remote_provisioners-$(VERSION)-py3-none-any.whl
-SDIST_FILE:=dist/remote_provisioners-$(VERSION).tar.gz
+WHEEL_FILES:=$(shell find gateway_provisioners -type f ! -path "*/__pycache__/*" )
+WHEEL_FILE:=dist/gateway_provisioners-$(VERSION)-py3-none-any.whl
+SDIST_FILE:=dist/gateway_provisioners-$(VERSION).tar.gz
 DIST_FILES=$(WHEEL_FILE) $(SDIST_FILE)
 
-TOREE_LAUNCHER_FILES:=$(shell find remote_provisioners/kernel-launchers/scala/toree-launcher/src -type f -name '*')
+TOREE_LAUNCHER_FILES:=$(shell find gateway_provisioners/kernel-launchers/scala/toree-launcher/src -type f -name '*')
 
 echo-version:
 	@echo $(VERSION)
@@ -48,9 +48,9 @@ clean: clean-build clean-pyc clean-test ## remove all build, test, coverage and 
 clean-build: ## remove build artifacts
 	rm -rf build/
 	rm -rf dist/
-	rm -rf remote_provisioners/kernel-launchers/scala/lib
-	rm -rf remote_provisioners/kernel-launchers/scala/toree-launcher/target
-	rm -rf remote_provisioners/kernel-launchers/scala/toree-launcher/project/target
+	rm -rf gateway_provisioners/kernel-launchers/scala/lib
+	rm -rf gateway_provisioners/kernel-launchers/scala/toree-launcher/target
+	rm -rf gateway_provisioners/kernel-launchers/scala/toree-launcher/project/target
 	rm -rf .eggs/
 	find . -name '*.egg-info' -exec rm -rf {} +
 	find . -name '*.egg' -exec rm -f {} +
@@ -70,12 +70,12 @@ lint: build-dependencies ## check style with flake8
 	pre-commit run --all-files
 
 test: ## run tests quickly with the default Python
-	pytest -v --cov remote_provisioners remote_provisioners
+	pytest -v --cov gateway_provisioners gateway_provisioners
 
 docs: ## generate Sphinx HTML documentation, including API docs
-	rm -f docs/remote_provisioners.rst
+	rm -f docs/gateway_provisioners.rst
 	rm -f docs/modules.rst
-	sphinx-apidoc -o docs/ remote_provisioners
+	sphinx-apidoc -o docs/ gateway_provisioners
 	$(MAKE) -C docs clean
 	$(MAKE) -C docs requirements
 	$(MAKE) -C docs html
@@ -91,62 +91,62 @@ sdist: $(SDIST_FILE)
 $(SDIST_FILE): $(WHEEL_FILES)
 	python -m build --sdist
 
-wheel: remote_provisioners/kernel-launchers/scala/lib $(WHEEL_FILE)
+wheel: gateway_provisioners/kernel-launchers/scala/lib $(WHEEL_FILE)
 
 $(WHEEL_FILE): $(WHEEL_FILES)
 	python -m build --wheel
 
 install: clean wheel ## install the package to the active Python's site-packages
 	pip uninstall -y remote-provisioners
-	pip install dist/remote_provisioners-*.whl
+	pip install dist/gateway_provisioners-*.whl
 
-remote_provisioners/kernel-launchers/scala/lib: $(TOREE_LAUNCHER_FILES)
-	-rm -rf remote_provisioners/kernel-launchers/scala/lib
-	mkdir -p remote_provisioners/kernel-launchers/scala/lib
-	@(cd remote_provisioners/kernel-launchers/scala/toree-launcher; sbt -Dversion=$(VERSION) package; cp target/scala-2.12/*.jar ../lib)
+gateway_provisioners/kernel-launchers/scala/lib: $(TOREE_LAUNCHER_FILES)
+	-rm -rf gateway_provisioners/kernel-launchers/scala/lib
+	mkdir -p gateway_provisioners/kernel-launchers/scala/lib
+	@(cd gateway_provisioners/kernel-launchers/scala/toree-launcher; sbt -Dversion=$(VERSION) package; cp target/scala-2.12/*.jar ../lib)
 
-BASE_IMAGES := rp-spark-base
-KERNEL_IMAGES := rp-kernel-py rp-kernel-spark-py rp-kernel-r rp-kernel-spark-r rp-kernel-scala
+BASE_IMAGES := gp-spark-base
+KERNEL_IMAGES := gp-kernel-py gp-kernel-spark-py gp-kernel-r gp-kernel-spark-r gp-kernel-scala
 DOCKER_IMAGES := $(BASE_IMAGES) $(KERNEL_IMAGES)
 
 base-images: $(BASE_IMAGES)
 kernel-images: $(KERNEL_IMAGES)
 images: $(DOCKER_IMAGES)  ## Build all docker images.  Targets base-images and kernel-images can also be used.
-clean-base-images: clean-rp-spark-base
-clean-kernel-images: clean-rp-kernel-py clean-rp-kernel-spark-py clean-rp-kernel-r clean-rp-kernel-spark-r clean-rp-kernel-scala
+clean-base-images: clean-gp-spark-base
+clean-kernel-images: clean-gp-kernel-py clean-gp-kernel-spark-py clean-gp-kernel-r clean-gp-kernel-spark-r clean-gp-kernel-scala
 clean-images: clean-base-images clean-kernel-images  ## Remove all docker images.  Targets clean-base-images and clean-kernel-images can also be used.
-push-base-images: push-rp-spark-base
-push-kernel-images: push-rp-kernel-py push-rp-kernel-spark-py push-rp-kernel-r push-rp-kernel-spark-r push-rp-kernel-scala
+push-base-images: push-gp-spark-base
+push-kernel-images: push-gp-kernel-py push-gp-kernel-spark-py push-gp-kernel-r push-gp-kernel-spark-r push-gp-kernel-scala
 push-images: push-base-images push-kernel-images  ## Push all docker images.  Targets push-base-images and push-kernel-images can also be used.
 
 # Location to find docker files used in build
-DOCKER_rp-spark-base := remote_provisioners/docker/rp-spark-base
-DOCKER_rp-kernel-py := remote_provisioners/docker/kernel-image
-DOCKER_rp-kernel-spark-py := remote_provisioners/docker/kernel-image
-DOCKER_rp-kernel-r := remote_provisioners/docker/kernel-image
-DOCKER_rp-kernel-spark-r := remote_provisioners/docker/kernel-image
-DOCKER_rp-kernel-scala := remote_provisioners/docker/kernel-image
+DOCKER_gp-spark-base := gateway_provisioners/docker/gp-spark-base
+DOCKER_gp-kernel-py := gateway_provisioners/docker/kernel-image
+DOCKER_gp-kernel-spark-py := gateway_provisioners/docker/kernel-image
+DOCKER_gp-kernel-r := gateway_provisioners/docker/kernel-image
+DOCKER_gp-kernel-spark-r := gateway_provisioners/docker/kernel-image
+DOCKER_gp-kernel-scala := gateway_provisioners/docker/kernel-image
 
 #
-BUILD_ARGS_rp-spark-base := --build-arg SPARK_VERSION=${SPARK_VERSION}
-BUILD_ARGS_rp-kernel-py := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=python
-BUILD_ARGS_rp-kernel-spark-py := ${BUILD_ARGS_rp-kernel-py} --build-arg BASE_CONTAINER=${DOCKER_ORG}/rp-spark-base:$(TAG)
-BUILD_ARGS_rp-kernel-r := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=r
-BUILD_ARGS_rp-kernel-spark-r := ${BUILD_ARGS_rp-kernel-r} --build-arg BASE_CONTAINER=${DOCKER_ORG}/rp-spark-base:$(TAG)
-BUILD_ARGS_rp-kernel-scala := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=scala --build-arg BASE_CONTAINER=${DOCKER_ORG}/rp-spark-base:$(TAG)
+BUILD_ARGS_gp-spark-base := --build-arg SPARK_VERSION=${SPARK_VERSION}
+BUILD_ARGS_gp-kernel-py := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=python
+BUILD_ARGS_gp-kernel-spark-py := ${BUILD_ARGS_gp-kernel-py} --build-arg BASE_CONTAINER=${DOCKER_ORG}/gp-spark-base:$(TAG)
+BUILD_ARGS_gp-kernel-r := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=r
+BUILD_ARGS_gp-kernel-spark-r := ${BUILD_ARGS_gp-kernel-r} --build-arg BASE_CONTAINER=${DOCKER_ORG}/gp-spark-base:$(TAG)
+BUILD_ARGS_gp-kernel-scala := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=scala --build-arg BASE_CONTAINER=${DOCKER_ORG}/gp-spark-base:$(TAG)
 
 # Extra (besides docker files) dependencies for each docker image...
-DEPENDS_rp-spark-base :=
-DEPENDS_rp-kernel-py := $(WHEEL_FILE)
-DEPENDS_rp-kernel-spark-py := $(WHEEL_FILE)
-DEPENDS_rp-kernel-r := $(WHEEL_FILE)
-DEPENDS_rp-kernel-spark-r := $(WHEEL_FILE)
-DEPENDS_rp-kernel-scala := $(WHEEL_FILE)
+DEPENDS_gp-spark-base :=
+DEPENDS_gp-kernel-py := $(WHEEL_FILE)
+DEPENDS_gp-kernel-spark-py := $(WHEEL_FILE)
+DEPENDS_gp-kernel-r := $(WHEEL_FILE)
+DEPENDS_gp-kernel-spark-r := $(WHEEL_FILE)
+DEPENDS_gp-kernel-scala := $(WHEEL_FILE)
 
 # Extra targets for each image
-TARGETS_rp-spark-base:
-TARGETS_rp-kernel-py TARGETS_rp-kernel-py TARGETS_rp-kernel-spark-py TARGETS_rp-kernel-r \
-	TARGETS_rp-kernel-spark-r TARGETS_rp-kernel-scala: wheel $(BASE_IMAGES)
+TARGETS_gp-spark-base:
+TARGETS_gp-kernel-py TARGETS_gp-kernel-py TARGETS_gp-kernel-spark-py TARGETS_gp-kernel-r \
+	TARGETS_gp-kernel-spark-r TARGETS_gp-kernel-scala: wheel $(BASE_IMAGES)
 
 # Generate image creation targets for each entry in $(DOCKER_IMAGES).  Switch 'eval' to 'info' to see what is produced.
 define BUILD_IMAGE
