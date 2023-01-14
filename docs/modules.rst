@@ -1,7 +1,7 @@
-remote_provisioners
-===================
+gateway_provisioners
+====================
 
 .. toctree::
    :maxdepth: 4
 
-   remote_provisioners
+   gateway_provisioners

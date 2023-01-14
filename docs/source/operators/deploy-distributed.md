@@ -1,16 +1,16 @@
 # Distributed deployments
 
 This section describes how to deploy applications using the
-[`DistributedProvisioner`](../contributors/system-architecture.md#distributedProvisioner) to
+[`DistributedProvisioner`](../contributors/system-architecture.md#distributedprovisioner) to
 manage kernels across a distributed set of hosts. In this case, a resource manager is not used,
 but, rather, SSH is used to distribute the kernels.
 
 Steps required to complete deployment on a distributed cluster are:
 
-1. [Install the hosting application](installing-rp.md) on the "primary node" of the cluster.
+1. [Install the hosting application](installing-gp.md) on the "primary node" of the cluster.
 1. [Install the desired kernels](installing-kernels.md)
 1. Install and configure the server and desired kernel specifications (see below)
-1. [Launch the hosting application](launching-eg.md)
+1. Launch the hosting application
 
 The `DistributedProvisioner` supports two forms of load-balancing, round-robin and least-connection
 ([see below](#specifying-a-load-balancing-algorithm)). However, you can still experience bottlenecks
@@ -20,7 +20,7 @@ the default for Jupyter Notebook and JupyterLab when not configured with Remote 
 
 The following sample kernelspecs are configured to use the `DistributedProvisioner`:
 
-FIXME
+FIXME - Add Creating Kernel Specfications for DistributedProvisioners?
 
 - python_distributed
 - spark_python_yarn_client
@@ -29,14 +29,14 @@ FIXME
 
 ```{admonition} Important!
 :class: warning
-The `DistributedProvisioner` utilizes SSH between the Enterprise Gateway server and the remote host.
+The `DistributedProvisioner` utilizes SSH between the Gateway Provisioners server and the remote host.
 As a result, you must ensure passwordless SSH is configured between hosts.
 ```
 
 The set of remote hosts used by the `DistributedProvisioner` are derived from two places.
 
-- The configuration option `c.RemoteProvisionerConfigMixin.remote_hosts`, whose default value comes
-  from the env variable RP_REMOTE_HOSTS - which, itself, defaults to 'localhost'.
+- The configuration option `c.DistributedProvisioner.remote_hosts`, whose default value comes
+  from the env variable GP_REMOTE_HOSTS - which, itself, defaults to 'localhost'.
 - The config option can be [overridden on a per-kernel basis](config-kernel-override.md#per-kernel-configuration-overrides)
   if the `kernel_provisioner` stanza contains a config stanza where there's a `remote_hosts` entry. If
   present, this value will be used instead.
@@ -57,6 +57,7 @@ specification.
 ```
 
 FIXME - kernelspec not included - re-write to new way.
+
 The following installs the sample `python_distributed` kernel specification relative to the
 3.0.0 release on the given node. This step must be repeated for each node and each kernel
 specification.
@@ -86,13 +87,13 @@ specify the use of round-robin, use one of the following:
 _Configuration_:
 
 ```python
-c.RemoteProvisionerConfigMixin.load_balancing_algorithm="round-robin"
+c.DistributedProvisioner.load_balancing_algorithm="round-robin"
 ```
 
 _Environment_:
 
 ```bash
-export RP_LOAD_BALANCING_ALGORITHM=round-robin
+export GP_LOAD_BALANCING_ALGORITHM=round-robin
 ```
 
 Since _round-robin_ is the default load-balancing algorithm, this option is not necessary.
@@ -108,13 +109,13 @@ the following:
 _Configuration_:
 
 ```python
-c.RemoteProvisionerConfigMixin.load_balancing_algorithm="least-connection"
+c.DistributedProvisioner.load_balancing_algorithm="least-connection"
 ```
 
 _Environment_:
 
 ```bash
-export RP_LOAD_BALANCING_ALGORITHM=least-connection
+export GP_LOAD_BALANCING_ALGORITHM=least-connection
 ```
 
 ### Pinning a kernel to a host
@@ -186,7 +187,8 @@ still need to _install_ the kernels themselves on each node.
 ## Spark Standalone
 
 FIXME
-Although Remote Provisioners does not provide sample kernelspecs for Spark standalone,
+
+Although Gateway Provisioners does not provide sample kernelspecs for Spark standalone,
 here are the steps necessary to convert a `yarn_client` kernelspec to standalone.
 
 - Make a copy of the source `yarn_client` kernelspec into an applicable `standalone` directory.

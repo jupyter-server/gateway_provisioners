@@ -15,7 +15,7 @@ retrieval of kernel specifications (kernelspecs) prior to the kernel's initializ
         participant JupyterLab
         participant JupyterServer
         participant EnterpriseGateway
-        participant ProcessProxy
+        participant Provisioner
         participant Kernel
         participant ResourceManager
         Note left of JupyterLab: fetch kernelspecs
@@ -27,12 +27,12 @@ retrieval of kernel specifications (kernelspecs) prior to the kernel's initializ
         Note left of JupyterLab: kernel initialization
         JupyterLab->>JupyterServer: https POST api/sessions
         JupyterServer->>EnterpriseGateway: https POST api/kernels
-        EnterpriseGateway->>ProcessProxy: launch_process()
-        ProcessProxy->>Kernel: launch kernel
-        ProcessProxy->>ResourceManager: confirm startup
-        Kernel-->>ProcessProxy: connection info
-        ResourceManager-->>ProcessProxy: state & host info
-        ProcessProxy-->>EnterpriseGateway: complete connection info
+        EnterpriseGateway->>Provisioner: launch_process()
+        Provisioner->>Kernel: launch kernel
+        Provisioner->>ResourceManager: confirm startup
+        Kernel-->>Provisioner: connection info
+        ResourceManager-->>Provisioner: state & host info
+        Provisioner-->>EnterpriseGateway: complete connection info
         EnterpriseGateway->>Kernel: TCP socket requests
         Kernel-->>EnterpriseGateway: TCP socket handshakes
         EnterpriseGateway-->>JupyterServer: api/kernels response

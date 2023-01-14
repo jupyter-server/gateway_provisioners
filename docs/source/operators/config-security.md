@@ -1,6 +1,6 @@
 # Configuring security
 
-This section introduces some security features inherent in Remote Provisioners.
+This section introduces some security features inherent in Gateway Provisioners.
 
 ## KERNEL_USERNAME
 
@@ -19,7 +19,7 @@ situations arise where more control is required. Basic authorization can be expr
 
 ### Authorized Users
 
-The configuration file option: `c.RemoteProvisionerConfigMixin.authorized_users` or `RP_AUTHORIZED_USERS` env
+The configuration file option: `c.RemoteProvisionerConfigMixin.authorized_users` or `GP_AUTHORIZED_USERS` env
 can be specified to contain a list of usernames indicating which users are permitted to launch
 kernels within the current server.
 
@@ -34,7 +34,7 @@ and limited set of users are allowed access and empty otherwise.
 
 ### Unauthorized Users
 
-The configuration file option: `c.RemoteProvisionerConfigMixin.unauthorized_users` or `RP_UNAUTHORIZED_USERS` env
+The configuration file option: `c.RemoteProvisionerConfigMixin.unauthorized_users` or `GP_UNAUTHORIZED_USERS` env
 can be specified to contain a list of usernames indicating which users are **NOT** permitted to
 launch kernels within the current server. The `unauthorized_users` list is always checked prior
 to the `authorized_users` list. If the value of `KERNEL_USERNAME` appears in the `unauthorized_users`
@@ -67,11 +67,11 @@ KERNEL_USERNAME is set to an appropriate value and retry the request.
 
 ## User Impersonation
 
-Servers using `RemoteProvisioners` can leverage other technologies to implement user impersonation
+Servers using `GatewayProvisioners` can leverage other technologies to implement user impersonation
 when launching kernels. This option is configured via two pieces of information:
-`RP_IMPERSONATION_ENABLED` and `KERNEL_USERNAME`.
+`GP_IMPERSONATION_ENABLED` and `KERNEL_USERNAME`.
 
-`RP_IMPERSONATION_ENABLED` indicates the intention that user impersonation should be performed and
+`GP_IMPERSONATION_ENABLED` indicates the intention that user impersonation should be performed and
 can also be conveyed via the boolean configuration option
 `c.RemoteProvisionerConfigMixin.impersonation_enabled` (default = False).
 
@@ -100,7 +100,7 @@ require authentication/authorization via SPENEGO. When running kernels in an env
 this way, we need to convey an extra configuration to enable the proper authorization when
 communicating with YARN via the YARN APIs.
 
-`RP_YARN_ENDPOINT_SECURITY_ENABLED` indicates the requirement to use SPNEGO authentication/authorization
+`GP_YARN_ENDPOINT_SECURITY_ENABLED` indicates the requirement to use SPNEGO authentication/authorization
 when connecting with the YARN APIs and can also be conveyed via the boolean configuration option
 `c.RemoteProvisionerConfigMixin.yarn_endpoint_security_enabled` (default = False)
 
@@ -130,11 +130,11 @@ since those kernels will run as the gateway user **regardless of the value of KE
 
 ## SSH Tunneling
 
-Remote Provisioners can be configured to perform SSH tunneling on the five ZeroMQ kernel sockets
+Gateway Provisioners can be configured to perform SSH tunneling on the five ZeroMQ kernel sockets
 as well as the communication socket created within the launcher and used to perform remote and
 cross-user signalling functionality. SSH tunneling is NOT enabled by default. Tunneling can be
-enabled/disabled via the environment variable `RP_ENABLE_TUNNELING=False`. Note, there is no
-command-line or configuration file support for this variable.
+enabled/disabled via the environment variable `GP_ENABLE_TUNNELING=False`. Note, there is no
+configuration file support for this variable.
 
 Note that SSH by default validates host keys before connecting to remote hosts and the connection
 will fail for invalid or unknown hosts. Remote Provisioners honors this requirement, and invalid
@@ -146,7 +146,7 @@ hosts before enabling SSH tunneling, such as:
 
 ## Using Generic Security Service (Kerberos)
 
-Remote Provisioners has support for SSH connections using GSS (for example Kerberos), which
+Gateway Provisioners has support for SSH connections using GSS (for example Kerberos), which
 enables its deployment without the use of an ssh key. The `RP_REMOTE_GSS_SSH` environment
 variable can be used to control this behavior.
 

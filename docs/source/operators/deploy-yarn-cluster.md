@@ -1,16 +1,16 @@
 # Hadoop YARN deployments
 
-To leverage the full distributed capabilities of Jupyter Enterprise Gateway, there is a need to
+To leverage the full distributed capabilities of Gateway Provisioners, there is a need to
 provide additional configuration options in a cluster deployment.
 
 Steps required to complete deployment on a Hadoop YARN cluster are:
 
-1. [Install Remote Provisioners](installing-rp.md) on the primary node of the Hadoop YARN cluster
+1. [Install Gateway Provisioners](installing-gp.md) on the primary node of the Hadoop YARN cluster
    where the host server is located. Note, this location is not a hard-requirement, but recommended.
    If installed remotely, some extra configuration will be necessary relative to the Hadoop configuration.
 2. [Install the desired kernels](installing-kernels.md)
 3. Install and configure the server and desired kernel specifications (see below)
-4. [Launch the server](launching-eg.md)
+4. Launch the server
 
 The distributed capabilities are currently based on an Apache Spark cluster utilizing Hadoop
 YARN as the resource manager and thus require the following environment variables to be set
@@ -22,10 +22,10 @@ to facilitate the integration between Apache Spark and Hadoop YARN components:
 SPARK_HOME:/usr/hdp/current/spark2-client  # For HDP distribution
 ```
 
-- RP_YARN_ENDPOINT: Must point to the YARN resource manager endpoint if remote from YARN cluster
+- GP_YARN_ENDPOINT: Must point to the YARN resource manager endpoint if remote from YARN cluster
 
 ```
-RP_YARN_ENDPOINT=http://${YARN_RESOURCE_MANAGER_FQDN}:8088/ws/v1/cluster
+GP_YARN_ENDPOINT=http://${YARN_RESOURCE_MANAGER_FQDN}:8088/ws/v1/cluster
 ```
 
 ```{note}
@@ -39,7 +39,7 @@ If server is remote from the YARN cluster (i.e., no `HADOOP_CONF_DIR`) and the Y
 configured for high availability, then the alternate endpoint should also be specified...
 
 ```
-RP_ALT_YARN_ENDPOINT=http://${ALT_YARN_RESOURCE_MANAGER_FQDN}:8088/ws/v1/cluster #Common to YARN deployment
+GP_ALT_YARN_ENDPOINT=http://${ALT_YARN_RESOURCE_MANAGER_FQDN}:8088/ws/v1/cluster #Common to YARN deployment
 ```
 
 ## Configuring Kernels for YARN Cluster mode
@@ -83,6 +83,8 @@ For more information about the iR kernel, please visit the [IRkernel](https://ir
 
 After installing the kernel specifications, you should have a `kernel.json` that resembles the
 following (this one is relative to the Python kernel):
+
+FIXME - update spec content to be provisioner based
 
 ```json
 {

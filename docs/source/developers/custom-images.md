@@ -1,10 +1,17 @@
 # Custom Kernel Images
 
-This section presents information needed for how a custom kernel image could be built for your own uses with Remote Provsioners. This is typically necessary if one desires to extend the existing image with additional supporting libraries or an image that encapsulates a different set of functionality altogether.
+This section presents information needed for how a custom kernel image could be built for your own
+uses with Gateway Provisioners. This is typically necessary if one desires to extend the existing
+image with additional supporting libraries or an image that encapsulates a different set of functionality altogether.
 
 ## Extending Existing Kernel Images
 
-A common form of customization occurs when the existing kernel image is serving the fundamentals but the user wishes it be extended with additional libraries to prevent the need of their imports within the Notebook interactions. Since the image already meets the [basic requirements](#requirements-for-custom-kernel-images), this is really just a matter of referencing the existing image in the `FROM` statement and installing additional libraries. Because the EG kernel images do not run as the `root` user, you may need to switch users to perform the update.
+A common form of customization occurs when the existing kernel image is serving the fundamentals but
+the user wishes it be extended with additional libraries to prevent the need of their imports within
+the Notebook interactions. Since the image already meets the
+[basic requirements](#requirements-for-custom-kernel-images), this is really just a matter of referencing the
+existing image in the `FROM` statement and installing additional libraries. Because the EG kernel images
+do not run as the `root` user, you may need to switch users to perform the update.
 
 ```dockerfile
 FROM elyra/kernel-py:VERSION
@@ -25,7 +32,10 @@ Users that do not wish to extend an existing kernel image must be cognizant of a
 
 ### Requirements for Custom Kernel Images
 
-Custom kernel images require some support files from the Enterprise Gateway repository. These are packaged into a tar file for each release starting in `2.5.0`. This tar file (named `jupyter_enterprise_gateway_kernel_image_files-VERSION.tar.gz`) is composed of a few files - one bootstrap script and a kernel launcher (one per kernel type).
+Custom kernel images require some support files from the Enterprise Gateway repository. These are packaged into a
+tar file for each release starting in `2.5.0`. This tar file
+(named `jupyter_enterprise_gateway_kernel_image_files-VERSION.tar.gz`) is composed of a few files - one
+bootstrap script and a kernel launcher (one per kernel type).
 
 #### Bootstrap-kernel.sh
 

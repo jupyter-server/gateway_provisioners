@@ -4,7 +4,7 @@ A remote provisioner implementation is necessary if you want to interact with a 
 
 ## General approach
 
-Please refer to the [Remote Provisioners section](../contributors/system-architecture.md#remote-provisioners) in the System Architecture pages for descriptions and structure of existing remote provisioners. Here is the general guideline for the process of implementing a remote provisioner.
+Please refer to the [Remote Provisioners section](../contributors/system-architecture.md#gateway-provisioners) in the System Architecture pages for descriptions and structure of existing remote provisioners. Here is the general guideline for the process of implementing a remote provisioner.
 
 1. Identify and understand how to _decorate_ your "job" within the resource manager. In Hadoop YARN, this is done by using the kernel's ID as the _application name_ by setting the [`--name` parameter to `${KERNEL_ID}`](https://github.com/jupyter-server/enterprise_gateway/blob/54c8e31d9b17418f35454b49db691d2ce5643c22/etc/kernelspecs/spark_python_yarn_cluster/kernel.json#L14). In Kubernetes, we apply the kernel's ID to the [`kernel-id` label on the POD](https://github.com/jupyter-server/enterprise_gateway/blob/54c8e31d9b17418f35454b49db691d2ce5643c22/etc/kernel-launchers/kubernetes/scripts/kernel-pod.yaml.j2#L16).
 1. Today, all invocations of kernels into resource managers use a shell or python script mechanism configured into the `argv` stanza of the kernelspec. If you take this approach, you need to apply the necessary changes to integrate with your resource manager.
@@ -24,4 +24,4 @@ Likewise, if your process proxy is based on containers, you should consider deri
 
 Once the remote provisioner has been implemented, construct an appropriate kernel specification that references your remote provisioner and iterate until you are satisfied with how your remote kernels behave.
 
-If you intend to contribute your remote provisioner into this package, you can extend the CLI tooling to create applicable kernel specfications and launch scripts.
+If you intend to contribute your remote provisioner into this package, you can extend the CLI tooling to create applicable kernel specifications and launch scripts.

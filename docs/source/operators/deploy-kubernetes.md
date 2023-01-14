@@ -2,9 +2,15 @@
 
 ## Overview
 
-This section describes how to deploy Enterprise Gateway into an existing Kubernetes cluster.
+This section describes how to deploy Gateway Provisioners into an existing Kubernetes cluster.
 
-Enterprise Gateway is provisioned as a Kubernetes _deployment_ and exposed as a Kubernetes _service_. Enterprise Gateway can leverage load balancing and high availability functionality provided by Kubernetes (although HA cannot be fully realized until Enterprise Gateway supports persistent sessions).
+It is important that the hosting application (e.g., Jupyter Server or Kernel Gateway)
+is provisioned as a Kubernetes _deployment_ and exposed as a Kubernetes _service_.
+
+FIXME -
+(Load balancing only in EG at the moment)
+Enterprise Gateway can leverage load balancing and high availability functionality provided by
+Kubernetes (although HA cannot be fully realized until Enterprise Gateway supports persistent sessions).
 
 The following sample kernel specifications apply to Kubernetes deployments:
 
@@ -18,15 +24,23 @@ The following sample kernel specifications apply to Kubernetes deployments:
 - spark_scala_kubernetes
 - spark_python_operator
 
-Enterprise Gateway deployments use the [elyra/enterprise-gateway](https://hub.docker.com/r/elyra/enterprise-gateway/) image from the Enterprise Gateway dockerhub organization [elyra](https://hub.docker.com/r/elyra/) along with other kubernetes-based images. See [Docker Images](../contributors/docker.md) for image details.
+Enterprise Gateway deployments use the [elyra/enterprise-gateway](https://hub.docker.com/r/elyra/enterprise-gateway/)
+image from the Enterprise Gateway dockerhub organization [elyra](https://hub.docker.com/r/elyra/) along with other
+kubernetes-based images. See [Docker Images](../contributors/docker.md) for image details.
 
-When deployed within a [spark-on-kubernetes](https://spark.apache.org/docs/latest/running-on-kubernetes.html) cluster, Enterprise Gateway can easily support cluster-managed kernels distributed across the cluster. Enterprise Gateway will also provide standalone (i.e., _vanilla_) kernel invocation (where spark contexts are not automatically created) which also benefits from their distribution across the cluster.
+When deployed within a [spark-on-kubernetes](https://spark.apache.org/docs/latest/running-on-kubernetes.html) cluster,
+Enterprise Gateway can easily support cluster-managed kernels distributed across the cluster. Enterprise Gateway
+will also provide standalone (i.e., _vanilla_) kernel invocation (where spark contexts are not automatically created)
+which also benefits from their distribution across the cluster.
 
 ```{note}
-If you plan to use kernel specifications derived from the `spark_python_operator` sample, ensure that the [Kubernetes Operator for Apache Spark is installed](https://github.com/GoogleCloudPlatform/spark-on-k8s-operator#installation) in your Kubernetes cluster.
+If you plan to use kernel specifications derived from the `spark_python_operator` sample, ensure that the
+[Kubernetes Operator for Apache Spark is installed](https://github.com/GoogleCloudPlatform/spark-on-k8s-operator#installation)
+in your Kubernetes cluster.
 ```
 
-We are using helm templates to manage Kubernetes resource configurations, which allows an end-user to easily customize their Enterprise Gateway deployment.
+We are using helm templates to manage Kubernetes resource configurations, which allows an end-user to easily
+customize their Enterprise Gateway deployment.
 
 There are two main deployment scenarios if RBAC is enabled in your Kubernetes cluster:
 

@@ -1,14 +1,22 @@
 # Kernel Environment Variables
 
-The Enterprise Gateway client software will also include _any_ environment variables prefixed with `KERNEL_` in the start kernel request sent to the Enterprise Gateway Server. This enables the ability to _statically parameterize_ aspects of kernel start requests relative to other clients using the same Enterprise Gateway instance.
+When the gateway provisioners are local to the Jupyter (notebook) Server, all environment variables
+from the server process are made available to the launched kernel. In addition, when Jupyter Server
+is configured to use a Gateway Server, the built-in gateway client software will also include _any_
+environment variables prefixed with `KERNEL_` in the start kernel request sent to the Gateway Server.
+This enables the ability to _statically parameterize_ aspects of kernel start requests relative to other
+clients using the same Gateway Server instance.
 
-There are several supported `KERNEL_` variables that the Enterprise Gateway server looks for and uses, but others can be sent to customize behaviors. The following kernel-specific environment variables are used by Enterprise Gateway. As mentioned above, all `KERNEL_` variables submitted in the kernel startup request's JSON body will be available to the kernel for its launch.
+There are several supported `KERNEL_` variables that the gateway provisioners look for and use, although
+others can be sent to customize behaviors. The following kernel-specific environment variables are recognized
+and used by the appropriate gateway provisioners. As mentioned above, all `KERNEL_` variables submitted
+in the kernel startup request's JSON body will be available to the kernel for its launch.
 
 ```text
   KERNEL_GID=<from user> or 100
-    Containers only. This value represents the group id in which the container will run.
-    The default value is 100 representing the users group - which is how all kernel images
-    produced by Enterprise Gateway are built.  See also KERNEL_UID.
+    Container-based provisioners only. This value represents the group id in which the container
+    will run. The default value is 100 representing the users group - which is how all kernel
+    images produced by Enterprise Gateway are built.  See also KERNEL_UID.
     Kubernetes: Warning - If KERNEL_GID is set it is strongly recommened that feature-gate
     RunAsGroup be enabled, otherwise, this value will be ignored and the pod will run as
     the root group id.  As a result, the setting of this value into the Security Context
@@ -19,21 +27,20 @@ There are several supported `KERNEL_` variables that the Enterprise Gateway serv
     value listed in its supplemental groups.
 
   KERNEL_EXECUTOR_IMAGE=<from kernel.json process-proxy stanza> or KERNEL_IMAGE
-    Kubernetees Spark only. This indicates the image that Spark on Kubernetes will use
-    for the its executors.  Although this value could come from the user, its strongly
+    Kubernetees w/ Spark provisioners only. This indicates the image that Spark on Kubernetes
+    will use for the its executors.  Although this value could come from the user, its strongly
     recommended that the process-proxy stanza of the corresponding kernel's kernelspec
     (kernel.json) file be updated to include the image name.  If no image name is
     provided, the value of KERNEL_IMAGE will be used.
 
   KERNEL_EXTRA_SPARK_OPTS=<from user>
-    Spark only. This variable allows users to add additional spark options to the
-    current set of options specified in the corresponding kernel.json file.  This
-    variable is purely optional with no default value.  In addition, it is the
-    responsibility of the user setting this value to ensure the options passed
-    are appropriate relative to the target environment.  Because this variable contains
-    space-separate values, it requires appropriate quotation.  For example, to use with
-    the notebook docker image jupyterhub/k8s-singleuser-sample , the environment variable would look something like
-    this:
+    Spark-based provisioners only. This variable allows users to add additional spark options
+    to the current set of options specified in the corresponding kernel.json file.  This
+    variable is purely optional with no default value.  In addition, it is the responsibility
+    of the user setting this value to ensure the options passed are appropriate relative to
+    the target environment.  Because this variable contains space-separate values, it requires
+    appropriate quotation.  For example, to use with the notebook docker image
+    jupyterhub/k8s-singleuser-sample , the environment variable would look something like this:
 
     docker run ... -e KERNEL_EXTRA_SPARK_OPTS=\"--conf spark.driver.memory=2g
     --conf spark.executor.memory=2g\" ... jupyterhub/k8s-singleuser-sample
@@ -44,10 +51,10 @@ There are several supported `KERNEL_` variables that the Enterprise Gateway serv
     that it be generated by the system.
 
   KERNEL_IMAGE=<from user> or <from kernel.json process-proxy stanza>
-    Containers only. This indicates the image to use for the kernel in containerized
-    environments - Kubernetes or Docker.  Although it can be provided by the user, it
-    is strongly recommended that the process-proxy stanza of the corresponding kernel's
-    kernelspec (kernel.json) file be updated to include the image name.
+    Container-based provisioners only. This indicates the image to use for the kernel in
+    containerized environments - Kubernetes or Docker.  Although it can be provided by the
+    user, it is strongly recommended that the process-proxy stanza of the corresponding
+    kernel's kernelspec (kernel.json) file be updated to include the image name.
 
   KERNEL_LAUNCH_TIMEOUT=<from user> or EG_KERNEL_LAUNCH_TIMEOUT
     Indicates the time (in seconds) to allow for a kernel's launch.  This value should
@@ -56,9 +63,9 @@ There are several supported `KERNEL_` variables that the Enterprise Gateway serv
     Gateway starts.
 
   KERNEL_NAMESPACE=<from user> or KERNEL_POD_NAME or EG_NAMESPACE
-    Kubernetes only.  This indicates the name of the namespace to use or create on
-    Kubernetes in which the kernel pod will be located.  For users wishing to use a
-    pre-created namespace, this value should be submitted in the kernel startup
+    Kubernetes provisioners only.  This indicates the name of the namespace to use or
+    create on Kubernetes in which the kernel pod will be located.  For users wishing to
+    use a pre-created namespace, this value should be submitted in the kernel startup
     request.  In such cases, the user must also provide KERNEL_SERVICE_ACCOUNT_NAME.
     If not provided, Enterprise Gateway will create a new namespace for the kernel
     whose value is derived from KERNEL_POD_NAME.  In rare cases where
@@ -69,35 +76,35 @@ There are several supported `KERNEL_` variables that the Enterprise Gateway serv
     remove the namespace.
 
   KERNEL_POD_NAME=<from user> or KERNEL_USERNAME-KERNEL_ID
-    Kubernetes only. By default, Enterprise Gateway will use a kernel pod name whose
-    value is derived from KERNEL_USERNAME and KERNEL_ID separated by a hyphen
-    ('-').  This variable is typically NOT provided by the user, but, in such
-    cases, Enterprise Gateway will honor that value.  However, when provided,
+    Kubernetes provisioners only. By default, Enterprise Gateway will use a kernel
+    pod name whose value is derived from KERNEL_USERNAME and KERNEL_ID separated by
+    a hyphen ('-').  This variable is typically NOT provided by the user, but, in
+    such cases, Enterprise Gateway will honor that value.  However, when provided,
     it is the user's responsibility that KERNEL_POD_NAME is unique relative to
     any pods in the target namespace.  In addition, the pod must NOT exist -
     unlike the case if KERNEL_NAMESPACE is provided.
 
   KERNEL_REMOTE_HOST=<remote host name>
-    DistributedProcessProxy only.  When specified, this value will override the
+    Distributed provisioner only.  When specified, this value will override the
     configured load-balancing algorithm.
 
   KERNEL_SERVICE_ACCOUNT_NAME=<from user> or EG_DEFAULT_KERNEL_SERVICE_ACCOUNT_NAME
-    Kubernetes only.  This value represents the name of the service account that
-    Enterprise Gateway should equate with the kernel pod.  If Enterprise Gateway
+    Kubernetes provisioners only.  This value represents the name of the service account
+    that Enterprise Gateway should equate with the kernel pod.  If Enterprise Gateway
     creates the kernel's namespace, it will be associated with the cluster role
     identified by EG_KERNEL_CLUSTER_ROLE.  If not provided, it will be derived
     from EG_DEFAULT_KERNEL_SERVICE_ACCOUNT_NAME.
 
   KERNEL_SPARKAPP_CONFIG_MAP=<from user> or None
-    Spark k8s-operator only. The name of a Kubernetes ConfigMap which will be used to configure
-    the SparkApplication. See the SparkApplicationSpec
+    SparkOperator provisioner only. The name of a Kubernetes ConfigMap which will be used to
+    configure the SparkApplication. See the SparkApplicationSpec
     (https://googlecloudplatform.github.io/spark-on-k8s-operator/docs/api-docs.html#sparkoperator.k8s.io/v1beta2.SparkApplicationSpec)
     sparkConfigMap for more information.
 
   KERNEL_UID=<from user> or 1000
-    Containers only. This value represents the user id in which the container will run.
-    The default value is 1000 representing the jovyan user - which is how all kernel images
-    produced by Enterprise Gateway are built.  See also KERNEL_GID.
+    Container-based provisioners only. This value represents the user id in which the container
+    will run. The default value is 1000 representing the jovyan user - which is how all kernel
+    images produced by Enterprise Gateway are built.  See also KERNEL_GID.
     Kubernetes: Warning - If KERNEL_UID is set it is strongly recommened that feature-gate
     RunAsGroup be enabled and KERNEL_GID also be set, otherwise, the pod will run as
     the root group id. As a result, the setting of this value into the Security Context
@@ -111,12 +118,12 @@ There are several supported `KERNEL_` variables that the Enterprise Gateway serv
     used it represents the target of the impersonation.
 
   KERNEL_WORKING_DIR=<from user> or None
-    Containers only.  This value should model the directory in which the active
-    notebook file is running.   It is intended to be used in conjunction with appropriate volume
-    mounts in the kernel container such that the user's notebook filesystem exists
-    in the container and enables the sharing of resources used within the notebook.
-    As a result, the primary use case for this is for Jupyter Hub users running in
-    Kubernetes.  When a value is provided and EG_MIRROR_WORKING_DIRS=True, Enterprise
+    Container-based provisioners only.  This value should model the directory in which the
+    active notebook file is running.   It is intended to be used in conjunction with
+    appropriate volume mounts in the kernel container such that the user's notebook
+    filesystem exists in the container and enables the sharing of resources used within
+    the notebook. As a result, the primary use case for this is for Jupyter Hub users running
+    in Kubernetes.  When a value is provided and EG_MIRROR_WORKING_DIRS=True, Enterprise
     Gateway will set the container's working directory to the value specified in
     KERNEL_WORKING_DIR.  If EG_MIRROR_WORKING_DIRS is False, KERNEL_WORKING_DIR will
     not be available for use during the kernel's launch.  See also EG_MIRROR_WORKING_DIRS.

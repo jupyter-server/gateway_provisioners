@@ -23,8 +23,7 @@ be validated independently. The following items can be used as a checklist to co
 1. **Always** consult your Enterprise Gateway log file. If you have not redirected `stdout` and `stderr` to a
    file you are highly encouraged to do so. In addition, you should enable `DEBUG` logging at least until your
    configuration is stable. Please note, however, that you may be asked to produce an Enterprise Gateway log with
-   `DEBUG` enabled when reporting issues. An example of output redirection and `DEBUG` logging is also provided in our
-   [Operators Guide](../operators/launching-eg.md#launching-enterprise-gateway-common).
+   `DEBUG` enabled when reporting issues.
 
 ## Hadoop YARN Cluster Mode
 
@@ -77,8 +76,6 @@ kernels. The default location is /tmp with a filename of `kernel-<kernel_id>.log
 can be configured using the environment variable `EG_KERNEL_LOG_DIR` during Enterprise Gateway start up.
 
 ```{seealso}
-[Launching Enterprise Gateway](../operators/launching-eg.md#launching-enterprise-gateway-common) for an
-example of starting the Enterprise Gateway from a script and the
 [Operators Guide](../operators/config-add-env.md#additional-environment-variables)
 for a list of configurable environment variables.
 ```
@@ -259,8 +256,7 @@ issues are important to us). If not found, please provide the following informat
 1. Describe the issue in as much detail as possible. This should include configuration information about your environment.
 1. Gather and _attach_ the following files to the issue. If possible, please archive the files first.
    1. The **complete** Enterprise Gateway log file. If possible, please enable `DEBUG` logging that encompasses
-      the issue. You can refer to this section of our [Operators Guide](../operators/launching-eg.md#launching-enterprise-gateway-common)
-      for redirection and `DEBUG` enablement.
+      the issue.
    1. The log file(s) produced from the corresponding kernel. This is primarily a function of the underlying resource
       manager.
       - For containerized installations like Kubernetes or Docker Swarm, kernel log output can be captured by

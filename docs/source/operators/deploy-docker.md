@@ -1,5 +1,12 @@
 # Docker and Docker Swarm deployments
 
+FIXME - "deployments" into containerized envs is mostly
+
+1. Installing the package
+2. Configuring the kernelspecs into the image
+   Steps for Docker and DockerSwarm are the same (? is that true)
+   Does Docker instructions differ from k8s? what portion of the helm charts are provisioner-specific? RBAC!
+
 This section describes how to deploy Enterprise Gateway into an existing Docker or Docker Swarm cluster. The two deployments are nearly identical and any differences will be noted.
 
 The base Enterprise Gateway image is [elyra/enterprise-gateway](https://hub.docker.com/r/elyra/enterprise-gateway/) and can be found in the Enterprise Gateway dockerhub organization [elyra](https://hub.docker.com/r/elyra/), along with other images. See [Docker Images](../contributors/docker.md) for image details.

@@ -65,7 +65,7 @@ author = "Jupyter Server Team"
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
-_version_py = os.path.join("..", "..", "remote_provisioners", "_version.py")
+_version_py = os.path.join("..", "..", "gateway_provisioners", "_version.py")
 version_ns = {}
 
 with open(_version_py) as version_file:
@@ -273,7 +273,9 @@ latex_documents = [
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [(master_doc, "remote_provisioners", "Remote Provisioners Documentation", [author], 1)]
+man_pages = [
+    (master_doc, "gateway_provisioners", "Gateway Provisioners Documentation", [author], 1)
+]
 
 # If true, show URL addresses after external links.
 # man_show_urls = False
