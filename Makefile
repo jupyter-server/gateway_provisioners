@@ -77,6 +77,7 @@ docs: ## generate Sphinx HTML documentation, including API docs
 	rm -f docs/modules.rst
 	sphinx-apidoc -o docs/ gateway_provisioners
 	$(MAKE) -C docs clean
+	$(MAKE) -C docs requirements
 	$(MAKE) -C docs html
 
 release: dist ## package and upload a release

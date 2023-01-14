@@ -52,10 +52,19 @@ test = [
   "pytest-cov",
   "pytest-timeout",
 ]
-doc = [
+docs = [
+  "mistune<1",
   "myst-parser",
-  "sphinx>=1.3.6",
-  "sphinx_rtd_theme",
+  "pydata_sphinx_theme",
+  "sphinx",
+  "sphinx-copybutton",
+  "sphinx-markdown-tables",
+  "sphinx_book_theme",
+  "sphinxcontrib-mermaid",
+  "sphinxcontrib-openapi",
+  "sphinxcontrib_github_alt",
+  "sphinxemoji",
+  "tornado"
 ]
 dev = [
   "coverage",
@@ -96,6 +105,11 @@ path = "gateway_provisioners/_version.py"
 
 [tool.hatch.build]
 artifacts = ["gateway_provisioners/kernel-launchers/scala/lib"]
+
+[tool.hatch.envs.docs]
+features = ["docs"]
+[tool.hatch.envs.docs.scripts]
+build = "make -C docs html SPHINXOPTS='-W'"
 
 [tool.mypy]
 check_untyped_defs = true

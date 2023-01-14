@@ -2,9 +2,9 @@
 # Distributed under the terms of the Modified BSD License.
 import os
 
+from jupyter_core.application import JupyterApp
 from overrides import overrides
 from traitlets import Bool, Unicode, default
-from traitlets.config.application import Application
 
 from .._version import __version__
 from .base_app import DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecApp, R
@@ -160,7 +160,7 @@ Spark-enabled kernel specifications.  (GP_EXECUTOR_IMAGE_NAME env var)""",
         return substitutions
 
 
-class K8sProvisionerApp(Application):
+class K8sProvisionerApp(JupyterApp):
     """Application responsible for driving the creation of Kubernetes-based kernel specifications."""
 
     version = __version__
@@ -176,14 +176,14 @@ class K8sProvisionerApp(Application):
     flags = {}
 
     def start(self):
+        super().start()
+
         if self.subapp is None:
             print(f"No subcommand specified. Must specify one of: {list(self.subcommands)}")
             print()
             self.print_description()
             self.print_subcommands()
             self.exit(1)
-        else:
-            return self.subapp.start()
 
 
 if __name__ == "__main__":
