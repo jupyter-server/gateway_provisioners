@@ -69,7 +69,7 @@ _version_py = os.path.join("..", "..", "gateway_provisioners", "_version.py")
 version_ns = {}
 
 with open(_version_py) as version_file:
-    exec(version_file.read(), version_ns)
+    exec(version_file.read(), version_ns)  # noqa: S102
 
 # The short X.Y version.
 version = version_ns["__version__"][:3]
@@ -274,7 +274,13 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, "gateway_provisioners", "Gateway Provisioners Documentation", [author], 1)
+    (
+        master_doc,
+        "gateway_provisioners",
+        "Gateway Provisioners Documentation",
+        [author],
+        1,
+    )
 ]
 
 # If true, show URL addresses after external links.

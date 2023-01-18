@@ -243,7 +243,10 @@ class YarnProvisionerApp(JupyterApp):
     via the YarnProvisioner kernel provisioner."""
     subcommands = dict(
         {
-            "install": (YarnSpecInstaller, YarnSpecInstaller.description.splitlines()[0]),
+            "install": (
+                YarnSpecInstaller,
+                YarnSpecInstaller.description.splitlines()[0],
+            ),
         }
     )
     aliases = {}

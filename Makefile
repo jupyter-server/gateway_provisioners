@@ -70,7 +70,8 @@ lint: build-dependencies ## check style with flake8
 	pre-commit run --all-files
 
 test: ## run tests quickly with the default Python
-	pytest -v --cov gateway_provisioners gateway_provisioners
+	@echo "No tests exist!"
+# 	pytest -v --cov gateway_provisioners gateway_provisioners
 
 docs: ## generate Sphinx HTML documentation, including API docs
 	rm -f docs/gateway_provisioners.rst

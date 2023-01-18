@@ -16,7 +16,11 @@ KERNEL_SPEC_TEMPLATE_NAMES = {
     R: "container_r",
 }
 DEFAULT_DISPLAY_NAMES = {PYTHON: "Docker Python", SCALA: "Docker Scala", R: "Docker R"}
-DEFAULT_IMAGE_NAMES = {PYTHON: "elyra/kernel-py", SCALA: "elyra/kernel-scala", R: "elyra/kernel-r"}
+DEFAULT_IMAGE_NAMES = {
+    PYTHON: "elyra/kernel-py",
+    SCALA: "elyra/kernel-scala",
+    R: "elyra/kernel-r",
+}
 
 DOCKER_PROVISIONER_NAME = "docker-provisioner"
 SWARM_PROVISIONER_NAME = "docker-swarm-provisioner"

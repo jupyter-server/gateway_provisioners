@@ -15,8 +15,16 @@ KERNEL_SPEC_TEMPLATE_NAMES = {
     SCALA: "container_scala",
     R: "container_r",
 }
-DEFAULT_DISPLAY_NAMES = {PYTHON: "Kubernetes Python", SCALA: "Kubernetes Scala", R: "Kubernetes R"}
-DEFAULT_IMAGE_NAMES = {PYTHON: "elyra/kernel-py", SCALA: "elyra/kernel-scala", R: "elyra/kernel-r"}
+DEFAULT_DISPLAY_NAMES = {
+    PYTHON: "Kubernetes Python",
+    SCALA: "Kubernetes Scala",
+    R: "Kubernetes R",
+}
+DEFAULT_IMAGE_NAMES = {
+    PYTHON: "elyra/kernel-py",
+    SCALA: "elyra/kernel-scala",
+    R: "elyra/kernel-r",
+}
 DEFAULT_SPARK_IMAGE_NAMES = {
     PYTHON: "elyra/kernel-spark-py",
     SCALA: "elyra/kernel-scala",

@@ -1,6 +1,6 @@
 # Development Workflow
 
-Here are instructions for setting up a development environment for the [Gateway Provisioners]https://github.com/gateway-experiments/gateway_provisioners)
+Here are instructions for setting up a development environment for the \[Gateway Provisioners\]https://github.com/gateway-experiments/gateway_provisioners)
 project. It also includes common steps in the developer workflow such as building Gateway Provisioners,
 running tests, building docs, packaging kernel specifications, etc.
 

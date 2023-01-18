@@ -65,7 +65,7 @@ class ServerListener:
         ports: list = self._select_ports(5)
         write_connection_file(
             fname=self.conn_filename,
-            ip="0.0.0.0",
+            ip="0.0.0.0",  # noqa: S104
             key=str(uuid.uuid4()).encode("utf-8"),  # convert to bytes,
             shell_port=ports[0],
             iopub_port=ports[1],
@@ -167,15 +167,16 @@ class ServerListener:
         retries = 0
         while not found_port:
             try:
-                sock.bind(("0.0.0.0", self._get_candidate_port()))
+                sock.bind(("0.0.0.0", self._get_candidate_port()))  # noqa: S104
                 found_port = True
-            except OSError:
+            except OSError as ose:
                 retries = retries + 1
                 if retries > max_port_range_retries:
-                    raise RuntimeError(
+                    err_msg = (
                         f"Failed to locate port within range {self.lower_port}..{self.upper_port} "
                         f"after {max_port_range_retries} retries!"
                     )
+                    raise RuntimeError(err_msg) from ose
         return sock
 
     def _get_candidate_port(self) -> int:

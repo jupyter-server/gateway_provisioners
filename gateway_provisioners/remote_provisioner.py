@@ -553,7 +553,8 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 validate_port(upper_port)
         except IndexError as ie:
             self.log_and_raise(
-                RuntimeError(f"Port range validation failed for range: '{port_range}'."), chained=ie
+                RuntimeError(f"Port range validation failed for range: '{port_range}'."),
+                chained=ie,
             )
 
         return lower_port, upper_port
@@ -723,7 +724,11 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             )
 
     def _tunnel_to_kernel(
-        self, connection_info: dict, server: str, port: int = ssh_port, key: Optional[str] = None
+        self,
+        connection_info: dict,
+        server: str,
+        port: int = ssh_port,
+        key: Optional[str] = None,
     ):
         """
         Tunnel connections to a kernel over SSH
@@ -847,7 +852,10 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             ssh_server = server + ":" + str(port)
             return tunnel.paramiko_tunnel(local_port, remote_port, ssh_server, remote_ip, key)
         else:
-            ssh = "ssh -p %s -o ServerAliveInterval=%i" % (port, max_keep_alive_interval)
+            ssh = "ssh -p %s -o ServerAliveInterval=%i" % (
+                port,
+                max_keep_alive_interval,
+            )
             cmd = "%s -S none -L 127.0.0.1:%i:%s:%i %s" % (
                 ssh,
                 local_port,

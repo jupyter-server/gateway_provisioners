@@ -158,15 +158,17 @@ class ResponseManager(SingletonConfigurable):
                 if e.errno == errno.EADDRINUSE:
                     self.log.info(f"Response port {port} is already in use, trying another port...")
                     continue
-                elif e.errno in (errno.EACCES, getattr(errno, "WSAEACCES", errno.EACCES)):
+                elif e.errno in (
+                    errno.EACCES,
+                    getattr(errno, "WSAEACCES", errno.EACCES),
+                ):
                     self.log.warning(
                         f"Permission to bind to response port {port} denied - continuing..."
                     )
                     continue
                 else:
-                    raise RuntimeError(
-                        f"Failed to bind to port '{port}' for response address due to: '{e}'"
-                    )
+                    err_msg = f"Failed to bind to port '{port}' for response address due to: '{e}'"
+                    raise RuntimeError(err_msg) from e
             else:
                 response_port = port
                 break
@@ -255,9 +257,8 @@ class ResponseManager(SingletonConfigurable):
             # Get the version
             version = payload.get("version")
             if version is None:
-                raise ValueError(
-                    "Payload received from kernel does not include a version indicator!"
-                )
+                err_msg = "Payload received from kernel does not include a version indicator!"
+                raise ValueError(err_msg)
             self.log.debug(f"Version {version} payload received.")
 
             if version == 1:
@@ -272,7 +273,8 @@ class ResponseManager(SingletonConfigurable):
                 encrypted_connection_info = base64.b64decode(payload["conn_info"].encode())
                 connection_info_str = unpad(cipher.decrypt(encrypted_connection_info), 16).decode()
             else:
-                raise ValueError(f"Unexpected version indicator received: {version}!")
+                err_msg = f"Unexpected version indicator received: {version}!"
+                raise ValueError(err_msg)
         except Exception as ex:
             # Could be version "0", walk the registrant kernel-ids and attempt to decrypt using each as a key.
             # If none are found, re-raise the triggering exception.

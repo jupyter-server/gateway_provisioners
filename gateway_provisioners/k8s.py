@@ -81,7 +81,10 @@ class KubernetesProvisioner(ContainerProvisionerBase):
     async def get_provisioner_info(self) -> dict[str, Any]:
         provisioner_info = await super().get_provisioner_info()
         provisioner_info.update(
-            {"kernel_ns": self.kernel_namespace, "delete_ns": self.delete_kernel_namespace}
+            {
+                "kernel_ns": self.kernel_namespace,
+                "delete_ns": self.delete_kernel_namespace,
+            }
         )
         return provisioner_info
 
@@ -334,7 +337,10 @@ class KubernetesProvisioner(ContainerProvisionerBase):
             api_group="", kind="ClusterRole", name=kernel_cluster_role
         )
         binding_subjects = client.V1Subject(
-            api_group="", kind="ServiceAccount", name=service_account_name, namespace=namespace
+            api_group="",
+            kind="ServiceAccount",
+            name=service_account_name,
+            namespace=namespace,
         )
 
         body = client.V1RoleBinding(

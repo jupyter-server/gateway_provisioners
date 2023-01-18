@@ -135,10 +135,11 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         num_services = len(services)
         if num_services != 1:
             if num_services > 1:
-                raise RuntimeError(
+                err_msg = (
                     f"{self.__class__.__name__}: Found more than one service "
                     f"({num_services}) for kernel_id '{self.kernel_id}'!"
                 )
+                raise RuntimeError(err_msg)
         else:
             service = services[0]
             self.container_name = service.name
@@ -156,10 +157,11 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
             num_tasks = len(tasks)
             if num_tasks != 1:
                 if num_tasks > 1:
-                    raise RuntimeError(
+                    err_msg = (
                         f"{self.__class__.__name__}: Found more than one task ({num_tasks}) "
                         f"for service '{service.name}', kernel_id '{self.kernel_id}'!"
                     )
+                    raise RuntimeError(err_msg)
             else:
                 task = tasks[0]
         return task
@@ -277,10 +279,11 @@ class DockerProvisioner(ContainerProvisionerBase):
         num_containers = len(containers)
         if num_containers != 1:
             if num_containers > 1:
-                raise RuntimeError(
+                err_msg = (
                     f"{self.__class__.__name__}: Found more than one container "
                     f"({num_containers}) for kernel_id '{self.kernel_id}'!"
                 )
+                raise RuntimeError(err_msg)
         else:
             container = containers[0]
         return container

@@ -90,7 +90,7 @@ class BaseApp(JupyterApp):
         """
         self.toree_jar_path = None
         try:
-            import toree  # noqa: F401
+            import toree
         except ImportError:
             self.log.warning(
                 "The Apache Torre kernel package is not installed in this environment and is required "
@@ -201,8 +201,9 @@ class BaseApp(JupyterApp):
             module = __import__(package, fromlist=[obj])
             try:
                 pak = getattr(module, obj)
-            except AttributeError:
-                raise ImportError("No module named %s" % obj)
+            except AttributeError as ae:
+                err_msg = f"No module named '{obj}'"
+                raise ImportError(err_msg) from ae
             return pak
         else:
             # called with un-dotted string
@@ -226,7 +227,8 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
     )
 
     display_name = Unicode(
-        config=True, help="""The display name of the kernel - used by user-facing applications."""
+        config=True,
+        help="""The display name of the kernel - used by user-facing applications.""",
     )
 
     language = Unicode(
@@ -241,8 +243,9 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
         value = proposal["value"]
         try:
             assert value.lower() in SUPPORTED_LANGUAGES
-        except AssertionError:
-            raise TraitError(f"Invalid language value {value}, not in {SUPPORTED_LANGUAGES}")
+        except AssertionError as ae:
+            err_msg = f"Invalid language value {value}, not in {SUPPORTED_LANGUAGES}"
+            raise TraitError(err_msg) from ae
         return value
 
     ipykernel_subclass_name = Unicode(
@@ -269,10 +272,11 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
         value = proposal["value"]
         try:
             assert value.lower() in SPARK_INIT_MODES
-        except AssertionError:
-            raise TraitError(
+        except AssertionError as ae:
+            err_msg = (
                 f"Invalid Spark initialization mode value '{value}', not in {SPARK_INIT_MODES}"
             )
+            raise TraitError(err_msg) from ae
         return value.lower()  # always use lowercase form
 
     extra_spark_opts = Unicode("", config=True, help="Specify additional Spark options.")
@@ -311,12 +315,18 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
     super_aliases.update(base_aliases)
 
     super_flags = {
-        "user": ({"BaseSpecApp": {"user": True}}, "Install to the per-user kernel registry"),
+        "user": (
+            {"BaseSpecApp": {"user": True}},
+            "Install to the per-user kernel registry",
+        ),
         "sys-prefix": (
             {"BaseSpecApp": {"prefix": sys.prefix}},
             "Install to Python's sys.prefix. Useful in conda/virtual environments.",
         ),
-        "spark": ({"BaseSpecApp": {"spark": True}}, "Install kernelspec with Spark support."),
+        "spark": (
+            {"BaseSpecApp": {"spark": True}},
+            "Install kernelspec with Spark support.",
+        ),
         "debug": base_flags["debug"],
     }
 
@@ -368,7 +378,10 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
         # install to destination
         self.log.info(f"Installing kernel specification for '{self.display_name}'")
         self.install_dir = self.kernel_spec_manager.install_kernel_spec(
-            staging_dir, kernel_name=self.kernel_name, user=self.user, prefix=self.prefix
+            staging_dir,
+            kernel_name=self.kernel_name,
+            user=self.user,
+            prefix=self.prefix,
         )
         self._delete_directory(staging_dir)
         # If we're installing a scala kernel and don't have the toree jar file, issue
@@ -396,22 +409,25 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
                 self.kernel_spec_dir_name,
             ]
         ):
-            raise ValueError(
+            err_msg = (
                 "Invalid parameters.  Each of launcher_dir_name, resource_dir_name, "
                 "and kernel_spec_dir_name must have a value!"
             )
+            raise ValueError(err_msg)
 
         if self.launcher_dir_name not in launcher_dirs:
-            raise ValueError(
+            err_msg = (
                 f"Invalid launcher_dir_name '{self.launcher_dir_name}' "
                 f"detected! Must be one of: {launcher_dirs}"
             )
+            raise ValueError(err_msg)
 
         if self.resource_dir_name not in resource_dirs:
-            raise ValueError(
+            err_msg = (
                 f"Invalid resource_dir_name '{self.resource_dir_name}' "
                 f"detected! Must be one of: {resource_dirs}"
             )
+            raise ValueError(err_msg)
 
         # Copy the launcher files
         self._copy_launcher_files(self.launcher_dir_name, staging_dir)
@@ -478,7 +494,7 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
 
         This method is overridden by subclasses which should first call super().get_substitutions().
         """
-        substitutions = dict()
+        substitutions = {}
         substitutions["spark_home"] = self.spark_home
         substitutions["extra_spark_opts"] = self.extra_spark_opts
         substitutions["spark_init_mode"] = self.spark_init_mode
