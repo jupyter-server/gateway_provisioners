@@ -53,11 +53,11 @@ jupyter-k8s-spec install --language=Scala --spark --kernel-name=scala_k8s_spark
     """
 
     @default("kernel_name")
-    def kernel_name_default(self) -> str:
+    def _kernel_name_default(self) -> str:
         return DEFAULT_KERNEL_NAMES[DEFAULT_LANGUAGE]
 
     @default("display_name")
-    def display_name_default(self) -> str:
+    def _display_name_default(self) -> str:
         return DEFAULT_DISPLAY_NAMES[DEFAULT_LANGUAGE]
 
     # Image name
@@ -71,7 +71,7 @@ enabled for Spark usage, this image will be the driver image. (GP_IMAGE_NAME env
     )
 
     @default("image_name")
-    def image_name_default(self):
+    def _image_name_default(self):
         return os.getenv(self.image_name_env)
 
     executor_image_name_env = "GP_EXECUTOR_IMAGE_NAME"
@@ -84,7 +84,7 @@ Spark-enabled kernel specifications.  (GP_EXECUTOR_IMAGE_NAME env var)""",
     )
 
     @default("executor_image_name")
-    def executor_image_name_default(self):
+    def _executor_image_name_default(self):
         return os.getenv(self.executor_image_name_env)
 
     # Flags

@@ -45,7 +45,7 @@ class BaseApp(JupyterApp):
     kernel_spec_manager = Instance(KernelSpecManager)
 
     @default("kernel_spec_manager")
-    def kernel_spec_manager_default(self) -> KernelSpecManager:
+    def _kernel_spec_manager_default(self) -> KernelSpecManager:
         return KernelSpecManager()
 
     launcher_dir_name = Unicode()  # kernel-launchers directory name
@@ -181,16 +181,15 @@ class BaseApp(JupyterApp):
 
     @staticmethod
     def import_item(name: str) -> Any:
-        """Import and return ``bar`` given the string ``foo.bar``.
+        """
+        Import and return ``bar`` given the string ``foo.bar``.
         Calling ``bar = import_item("foo.bar")`` is the functional equivalent of
         executing the code ``from foo import bar``.
-        Parameters
-        ----------
-        name : string
+
+        :param name : string
           The fully qualified name of the module/package being imported.
-        Returns
-        -------
-        mod : module object
+
+        :returns mod : module object
            The module that was imported.
         """
 
@@ -239,7 +238,7 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
     )
 
     @validate("language")
-    def language_validate(self, proposal: dict[str, str]) -> str:
+    def _language_validate(self, proposal: dict[str, str]) -> str:
         value = proposal["value"]
         try:
             assert value.lower() in SUPPORTED_LANGUAGES
@@ -268,7 +267,7 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
     )
 
     @validate("spark_init_mode")
-    def spark_init_mode_validate(self, proposal: dict[str, str]) -> str:
+    def _spark_init_mode_validate(self, proposal: dict[str, str]) -> str:
         value = proposal["value"]
         try:
             assert value.lower() in SPARK_INIT_MODES

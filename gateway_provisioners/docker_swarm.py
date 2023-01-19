@@ -6,7 +6,6 @@ import os
 from typing import Any, Optional
 
 from overrides import overrides
-from traitlets import validate
 
 try:
     from docker.client import DockerClient
@@ -33,16 +32,6 @@ docker_network = os.environ.get("GP_DOCKER_NETWORK", "bridge")
 
 class DockerSwarmProvisioner(ContainerProvisionerBase):
     """Kernel provisioner for kernels in Docker Swarm."""
-
-    @validate("impersonation_enabled")
-    def impersonation_enabled_validate(self, proposal):
-        value = proposal["value"]
-        # If impersonation is enabled, issue warning and disable.
-        if bool(value) is True:
-            self.log.warning(
-                "Impersonation is not supported by DockerSwarmProvisioner - disabling."
-            )
-        return False
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -169,14 +158,6 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
 
 class DockerProvisioner(ContainerProvisionerBase):
     """Kernel provisioner for kernels in Docker (non-Swarm)."""
-
-    @validate("impersonation_enabled")
-    def impersonation_enabled_validate(self, proposal):
-        value = proposal["value"]
-        # If impersonation is enabled, issue warning and disable.
-        if bool(value) is True:
-            self.log.warning("Impersonation is not supported by DockerProvisioner - disabling.")
-        return False
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

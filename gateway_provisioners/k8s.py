@@ -38,14 +38,15 @@ kernel_cluster_role = os.environ.get("GP_KERNEL_CLUSTER_ROLE", "cluster-admin")
 
 # Since provisioners are a single-user scenario (not going through EG), use a shared namespace.
 shared_namespace = bool(os.environ.get("GP_SHARED_NAMESPACE", "True").lower() == "true")
-kpt_dir = os.environ.get("GP_POD_TEMPLATE_DIR", "/tmp")
+kpt_dir = os.environ.get("GP_POD_TEMPLATE_DIR", "/tmp")  # noqa: S108
 
 app_name = os.environ.get("GP_APP_NAME", "k8s-provisioner")
 
-if bool(os.environ.get("GP_USE_INCLUSTER_CONFIG", "True").lower() == "true"):
-    config.load_incluster_config()
-else:
-    config.load_kube_config()
+if not os.environ.get("SPHINX_BUILD_IN_PROGRESS", ""):
+    if bool(os.environ.get("GP_USE_INCLUSTER_CONFIG", "True").lower() == "true"):
+        config.load_incluster_config()
+    else:
+        config.load_kube_config()
 
 
 class KubernetesProvisioner(ContainerProvisionerBase):
@@ -130,7 +131,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         return pod_status
 
     @overrides
-    async def terminate_container_resources(self, restart: bool = False) -> None:
+    async def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
         # Kubernetes objects don't go away on their own - so we need to tear down the namespace
         # or pod associated with the kernel.  If we created the namespace, and we're not in the
         # process of restarting the kernel, then that's our target, else just delete the pod.
@@ -195,7 +196,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
                     )
         except Exception as err:
             if isinstance(err, client.rest.ApiException) and err.status == 404:
-                result = True  # okay if its not found
+                result = True  # okay if it's not found
             else:
                 self.log.warning(f"Error occurred deleting {object_name}: {err}")
 

@@ -74,12 +74,8 @@ test: ## run tests quickly with the default Python
 # 	pytest -v --cov gateway_provisioners gateway_provisioners
 
 docs: ## generate Sphinx HTML documentation, including API docs
-	rm -f docs/gateway_provisioners.rst
-	rm -f docs/modules.rst
-	sphinx-apidoc -o docs/ gateway_provisioners
-	$(MAKE) -C docs clean
-	$(MAKE) -C docs requirements
-	$(MAKE) -C docs html
+	hatch run docs:api
+	hatch run docs:build
 
 release: dist ## package and upload a release
 	twine upload dist/*

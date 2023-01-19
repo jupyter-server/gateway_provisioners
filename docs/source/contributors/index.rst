@@ -22,4 +22,5 @@ These pages target people who are interested in contributing directly to the Jup
    docker
    devinstall
    sequence-diagrams
+   API Docs <../api/modules>
    debug

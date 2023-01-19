@@ -40,11 +40,11 @@ jupyter-yarn-spec install --language=Scala --spark-init-mode eager
     """
 
     @default("kernel_name")
-    def kernel_name_default(self) -> str:
+    def _kernel_name_default(self) -> str:
         return DEFAULT_KERNEL_NAMES[DEFAULT_LANGUAGE]
 
     @default("display_name")
-    def display_name_default(self) -> str:
+    def _display_name_default(self) -> str:
         return DEFAULT_DISPLAY_NAMES[DEFAULT_LANGUAGE]
 
     # Yarn endpoint
@@ -59,7 +59,7 @@ active resource manager. (GP_YARN_ENDPOINT env var)""",
     )
 
     @default("yarn_endpoint")
-    def yarn_endpoint_default(self):
+    def _yarn_endpoint_default(self):
         return os.getenv(self.yarn_endpoint_env)
 
     # Alt Yarn endpoint
@@ -76,7 +76,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
     )
 
     @default("alt_yarn_endpoint")
-    def alt_yarn_endpoint_default(self):
+    def _alt_yarn_endpoint_default(self):
         return os.getenv(self.alt_yarn_endpoint_env)
 
     python_root = Unicode(
@@ -99,7 +99,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
     )
 
     @default("yarn_endpoint_security_enabled")
-    def yarn_endpoint_security_enabled_default(self):
+    def _yarn_endpoint_security_enabled_default(self):
         return bool(
             os.getenv(
                 self.yarn_endpoint_security_enabled_env,
@@ -117,7 +117,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
     )
 
     @default("impersonation_enabled")
-    def impersonation_enabled_default(self):
+    def _impersonation_enabled_default(self):
         return bool(os.getenv(self.impersonation_enabled_env, "false").lower() == "true")
 
     dask = Bool(False, config=True, help="Kernelspec will be configured for Dask YARN.")

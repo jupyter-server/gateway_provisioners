@@ -33,11 +33,11 @@ jupyter-ssh-spec install --language Scala --spark --spark_init_mode 'eager'
     """
 
     @default("kernel_name")
-    def kernel_name_default(self) -> str:
+    def _kernel_name_default(self) -> str:
         return DEFAULT_KERNEL_NAMES[DEFAULT_LANGUAGE]
 
     @default("display_name")
-    def display_name_default(self) -> str:
+    def _display_name_default(self) -> str:
         return DEFAULT_DISPLAY_NAMES[DEFAULT_LANGUAGE]
 
     remote_hosts_env = "GP_REMOTE_HOSTS"
@@ -50,7 +50,7 @@ each be specified via separate options: --remote-hosts host1 --remote-hosts host
     )
 
     @default("remote_hosts")
-    def remote_hosts_default(self):
+    def _remote_hosts_default(self):
         return os.getenv(self.remote_hosts_env, self.remote_hosts_default_value).split(",")
 
     spark_master_default_value = "yarn"

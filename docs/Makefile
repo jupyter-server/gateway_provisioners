@@ -20,7 +20,6 @@ DOC_REQUIREMENTS = doc-requirements.txt
 
 help:
 	@echo "Please use \`make <target>' where <target> is one of"
-	@echo "  requirements to install required packages"
 	@echo "  html         to make standalone HTML files"
 	@echo "  dirhtml      to make HTML files named index.html in directories"
 	@echo "  singlehtml   to make a single large HTML file"
@@ -48,9 +47,6 @@ help:
 
 clean:
 	rm -rf $(BUILDDIR)/*
-
-requirements:
-	pip install -q -r $(DOC_REQUIREMENTS)
 
 html:
 	$(SPHINXBUILD) -b html $(ALLSPHINXOPTS) $(BUILDDIR)/html

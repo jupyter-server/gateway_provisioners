@@ -33,9 +33,8 @@ jobs:
         uses: nick-invision/retry@v2.8.3
         with:
           timeout_minutes: 10
-          max_attempts: 2
           command: |
-            make clean dist install
+            make clean lint dist install
       - name: Log current Python dependencies version
         run: |
           pip freeze

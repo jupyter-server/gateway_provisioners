@@ -52,7 +52,7 @@ jupyter-image-bootstrap install --languages=Python --languages=Scala
     )
 
     @validate("languages")
-    def languages_validate(self, proposal: dict[str, Any]) -> List:
+    def _languages_validate(self, proposal: dict[str, Any]) -> List:
         value = proposal["value"]
         try:
             for lang in value:

@@ -322,15 +322,13 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 self.log_and_raise(RuntimeError(error_message))
 
     def log_and_raise(self, ex: Exception, chained: Optional[Exception] = None) -> None:
-        """Helper method that logs the stringized exception 'ex' and raises that exception.
+        """Helper method that logs the string-ized exception 'ex' and raises that exception.
 
-        If a chained exception is provided that exception will be in the raised exceptions's from clause.
+        If a chained exception is provided that exception will be in the raised exception's from clause.
 
-        Parameters
-        ----------
-        ex : Exception
+        :param ex : Exception
             The exception to log and raise
-        chained : Exception (optional)
+        :param chained : Exception (optional)
             The exception to use in the 'from' clause.
         """
 
@@ -458,25 +456,12 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
     def _enforce_authorization(self, **kwargs):
         """Applies any authorization configuration using the kernel user.
 
-        Regardless of impersonation enablement, this method first adds the appropriate value for
-        GP_IMPERSONATION_ENABLED into environment (for use by kernelspecs), then ensures that KERNEL_USERNAME
-        has a value and is present in the environment (again, for use by kernelspecs).  If unset, KERNEL_USERNAME
-        will be defaulted to the current user.
-
         Authorization is performed by comparing the value of KERNEL_USERNAME with each value in the set of
         unauthorized users.  If any (case-sensitive) matches are found, HTTP error 403 (Forbidden) will be raised
         - preventing the launch of the kernel.  If the authorized_users set is non-empty, it is then checked to
         ensure the value of KERNEL_USERNAME is present in that list.  If not found, HTTP error 403 will be raised.
 
-        It is assumed that the kernelspec logic will take the appropriate steps to impersonate the user identified
-        by KERNEL_USERNAME when impersonation_enabled is True.
         """
-        # Get the env
-        env_dict = kwargs.get("env")
-
-        # Although it may already be set in the env, just override in case it was only set via command line or config
-        # Convert to string since execve() (called by Popen in base classes) wants string values.
-        env_dict["GP_IMPERSONATION_ENABLED"] = str(self.impersonation_enabled)
 
         # Now perform authorization checks
         if self.kernel_username in self.unauthorized_users:
