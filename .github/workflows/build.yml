@@ -37,15 +37,15 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install ".[test]"
+      - name: Log Python dependencies
+        run: |
+          pip freeze
       - name: Build and install Gateway Provisioners
         uses: nick-invision/retry@v2.8.3
         with:
           timeout_minutes: 10
           command: |
             make clean lint dist install
-      - name: Log current Python dependencies version
-        run: |
-          pip freeze
       - name: Run unit tests
         uses: nick-invision/retry@v2.8.3
         with:
@@ -74,7 +74,8 @@ jobs:
         uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
       - name: Build Docs
         run: make docs
-      - name: Log current Python dependencies version
+      - name: Log Python dependencies
+        if: success() || failure()
         run: |
           pip freeze
 
