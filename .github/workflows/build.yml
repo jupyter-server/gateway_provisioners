@@ -9,8 +9,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
-        python-version: ["3.8", "3.9", "3.10", "3.11"]
+        os: [ubuntu-latest, macos-latest]
+        python-version: ["3.8", "3.11"]
+        include:
+          - os: ubuntu-latest
+            python-version: "3.9"
+          - os: ubuntu-latest
+            python-version: "pypy-3.8"
+          - os: macos-latest
+            python-version: "3.10"
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -59,7 +66,7 @@ jobs:
           ignore_links: "http://my-gateway-server.com:8888"
 
   build_docs:
-    runs-on: windows-latest
+    runs-on: macos-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v3
@@ -80,7 +87,7 @@ jobs:
       - uses: jupyterlab/maintainer-tools/.github/actions/install-minimums@v1
       - name: Run the unit tests
         run: |
-          pytest -vv -W default || pytest -vv -W default --lf
+          pytest -vv -W default gateway_provisioners || pytest -vv -W default --lf gateway_provisioners
 
   make_sdist:
     name: Make SDist
