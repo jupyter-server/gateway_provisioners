@@ -46,6 +46,7 @@ build-dependencies: ## install packages necessary to complete the build
 clean: clean-build clean-pyc clean-test ## remove all build, test, coverage and Python artifacts
 
 clean-build: ## remove build artifacts
+	make -C docs clean
 	rm -rf build/
 	rm -rf dist/
 	rm -rf gateway_provisioners/kernel-launchers/scala/lib

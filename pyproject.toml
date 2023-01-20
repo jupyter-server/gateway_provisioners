@@ -51,6 +51,11 @@ test = [
   "pytest",
   "pytest-cov",
   "pytest-timeout",
+  # Install optional dependencies so all modules will load during collection
+  "docker>=3.5.0",
+  "yarn-api-client",
+  "kubernetes>=18.20.0",
+  "jinja2>=3.1",
 ]
 docs = [
   "mistune<1",
