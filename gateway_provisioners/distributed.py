@@ -19,9 +19,8 @@ from traitlets import List, TraitError, Unicode, default, validate
 from .config_mixin import max_poll_attempts, poll_interval, ssh_port
 from .remote_provisioner import RemoteProvisionerBase
 
-kernel_log_dir = os.getenv(
-    "GP_KERNEL_LOG_DIR", "/tmp"
-)  # would prefer /var/log, but its only writable by root
+# would prefer /var/log, but its only writable by root
+kernel_log_dir = os.getenv("GP_KERNEL_LOG_DIR", "/tmp")  # noqa: S108
 
 
 class TrackKernelOnHost:
@@ -80,7 +79,7 @@ class DistributedProvisioner(RemoteProvisionerBase):
     )
 
     @default("remote_hosts")
-    def remote_hosts_default(self):
+    def _remote_hosts_default(self):
         return os.getenv(self.remote_hosts_env, self.remote_hosts_default_value).split(",")
 
     load_balancing_algorithm_env = "GP_LOAD_BALANCING_ALGORITHM"
@@ -95,9 +94,10 @@ class DistributedProvisioner(RemoteProvisionerBase):
     )
 
     @default("load_balancing_algorithm")
-    def load_balancing_algorithm_default(self) -> str:
+    def _load_balancing_algorithm_default(self) -> str:
         return os.getenv(
-            self.load_balancing_algorithm_env, self.load_balancing_algorithm_default_value
+            self.load_balancing_algorithm_env,
+            self.load_balancing_algorithm_default_value,
         )
 
     @validate("load_balancing_algorithm")
@@ -105,10 +105,9 @@ class DistributedProvisioner(RemoteProvisionerBase):
         value = proposal["value"]
         try:
             assert value in ["round-robin", "least-connection"]
-        except ValueError:
-            raise TraitError(
-                f"Invalid load_balancing_algorithm value {value}, not in [round-robin,least-connection]"
-            )
+        except ValueError as ve:
+            err_msg = f"Invalid load_balancing_algorithm value {value}, not in [round-robin,least-connection]"
+            raise TraitError(err_msg) from ve
         return value
 
     def __init__(self, **kwargs):

@@ -5,7 +5,7 @@
 import os
 
 from tornado.log import LogFormatter
-from traitlets import Bool, Integer, Set, Unicode, default
+from traitlets import Integer, Set, Unicode, default
 from traitlets.config import Configurable
 
 # Commonly used envs
@@ -39,9 +39,9 @@ To specify multiple names via the CLI, separate options must be provided for eac
     )
 
     @default("authorized_users")
-    def authorized_users_default(self):
+    def _authorized_users_default(self):
         au_env = os.getenv(self.authorized_users_env)
-        return au_env.split(",") if au_env is not None else []
+        return set(au_env.split(",") if au_env is not None else [])
 
     # Unauthorized users
     unauthorized_users_env = "GP_UNAUTHORIZED_USERS"
@@ -57,7 +57,7 @@ options must be provided for each entry.
     )
 
     @default("unauthorized_users")
-    def unauthorized_users_default(self):
+    def _unauthorized_users_default(self):
         return os.getenv(self.unauthorized_users_env, self.unauthorized_users_default_value).split(
             ","
         )
@@ -76,7 +76,7 @@ enforcement.  (GP_PORT_RANGE env var)""",
     )
 
     @default("port_range")
-    def port_range_default(self):
+    def _port_range_default(self):
         return os.getenv(self.port_range_env, self.port_range_default_value)
 
     # # Conductor endpoint - TODO: Move to ConductorProvisioner when created
@@ -92,19 +92,6 @@ enforcement.  (GP_PORT_RANGE env var)""",
     # def conductor_endpoint_default(self):
     #     return os.getenv(self.conductor_endpoint_env, self.conductor_endpoint_default_value)
 
-    # Impersonation enabled
-    impersonation_enabled_env = "GP_IMPERSONATION_ENABLED"
-    impersonation_enabled = Bool(
-        False,
-        config=True,
-        help="""Indicates whether impersonation will be performed during kernel launch.
-                                 (GP_IMPERSONATION_ENABLED env var)""",
-    )
-
-    @default("impersonation_enabled")
-    def impersonation_enabled_default(self):
-        return bool(os.getenv(self.impersonation_enabled_env, "false").lower() == "true")
-
     launch_timeout_env = "GP_LAUNCH_TIMEOUT"
     launch_timeout_default_value = 30
     launch_timeout = Integer(
@@ -115,7 +102,7 @@ enforcement.  (GP_PORT_RANGE env var)""",
     )
 
     @default("launch_timeout")
-    def launch_timeout_default(self):
+    def _launch_timeout_default(self):
         return int(
             os.getenv(
                 self.launch_timeout_env,

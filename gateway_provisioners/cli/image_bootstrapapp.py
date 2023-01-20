@@ -52,16 +52,17 @@ jupyter-image-bootstrap install --languages=Python --languages=Scala
     )
 
     @validate("languages")
-    def languages_validate(self, proposal: dict[str, Any]) -> List:
+    def _languages_validate(self, proposal: dict[str, Any]) -> List:
         value = proposal["value"]
         try:
             for lang in value:
                 assert lang.lower() in SUPPORTED_LANGUAGES
-        except AssertionError:
-            raise TraitError(
+        except AssertionError as ae:
+            err_msg = (
                 f"Invalid languages value {value}, at least one of which is "
                 f"not in {SUPPORTED_LANGUAGES} (case-insensitive)"
             )
+            raise TraitError(err_msg) from ae
         return value
 
     launchers_only = Bool(

@@ -42,7 +42,7 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
     )
 
     @default("image_name")
-    def image_name_default(self):
+    def _image_name_default(self):
         return os.getenv(self.image_name_env)
 
     executor_image_name_env = "GP_EXECUTOR_IMAGE_NAME"
@@ -55,7 +55,7 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
     )
 
     @default("executor_image_name")
-    def executor_image_name_default(self):
+    def _executor_image_name_default(self):
         return os.getenv(self.executor_image_name_env) or self.image_name
 
     def __init__(self, **kwargs):
@@ -122,13 +122,11 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
         """Determines if container is still active.
 
         Submitting a new kernel to the container manager will take a while to be Running.
-        Thus kernel ID will probably not be available immediately for poll.
+        Thus, kernel ID will probably not be available immediately for poll.
         So will regard the container as active when no status is available or one of the initial
         phases.
-
-        Returns
-        -------
-        None if the container cannot be found or its in an initial state. Otherwise, return an exit code of 0.
+        Returns None if the container cannot be found or its in an initial state. Otherwise,
+        return an exit code of 0.
         """
         result = 0
 
@@ -143,13 +141,7 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
 
     @overrides
     async def send_signal(self, signum: int) -> None:
-        """Send signal `signum` to container.
-
-        Parameters
-        ----------
-        signum : int
-            The signal number to send.  Zero is used to determine heartbeat.
-        """
+        """Send signal `signum` to container."""
         if signum == 0:
             return await self.poll()
         elif signum == signal.SIGKILL:
@@ -161,12 +153,7 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
 
     @overrides
     async def kill(self, restart: bool = False) -> None:
-        """Kills a containerized kernel.
-
-        Returns
-        -------
-        None if the container is gracefully terminated, False otherwise.
-        """
+        """Kills a containerized kernel."""
         result = None
 
         if self.container_name:  # We only have something to terminate if we have a name
@@ -238,6 +225,6 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
         raise NotImplementedError
 
     @abstractmethod
-    async def terminate_container_resources(self, restart: bool = False) -> None:
+    async def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
         """Terminate any artifacts created on behalf of the container's lifetime."""
         raise NotImplementedError

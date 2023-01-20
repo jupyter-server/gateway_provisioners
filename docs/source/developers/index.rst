@@ -18,3 +18,4 @@ These pages target *developers* authoring remote provisioners for other resource
    kernel-launcher
    kernel-specification
    custom-images
+   API Docs <../api/modules>

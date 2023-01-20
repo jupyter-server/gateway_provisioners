@@ -6,7 +6,6 @@ import os
 from typing import Any, Optional
 
 from overrides import overrides
-from traitlets import validate
 
 try:
     from docker.client import DockerClient
@@ -33,16 +32,6 @@ docker_network = os.environ.get("GP_DOCKER_NETWORK", "bridge")
 
 class DockerSwarmProvisioner(ContainerProvisionerBase):
     """Kernel provisioner for kernels in Docker Swarm."""
-
-    @validate("impersonation_enabled")
-    def impersonation_enabled_validate(self, proposal):
-        value = proposal["value"]
-        # If impersonation is enabled, issue warning and disable.
-        if bool(value) is True:
-            self.log.warning(
-                "Impersonation is not supported by DockerSwarmProvisioner - disabling."
-            )
-        return False
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -135,10 +124,11 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         num_services = len(services)
         if num_services != 1:
             if num_services > 1:
-                raise RuntimeError(
+                err_msg = (
                     f"{self.__class__.__name__}: Found more than one service "
                     f"({num_services}) for kernel_id '{self.kernel_id}'!"
                 )
+                raise RuntimeError(err_msg)
         else:
             service = services[0]
             self.container_name = service.name
@@ -156,10 +146,11 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
             num_tasks = len(tasks)
             if num_tasks != 1:
                 if num_tasks > 1:
-                    raise RuntimeError(
+                    err_msg = (
                         f"{self.__class__.__name__}: Found more than one task ({num_tasks}) "
                         f"for service '{service.name}', kernel_id '{self.kernel_id}'!"
                     )
+                    raise RuntimeError(err_msg)
             else:
                 task = tasks[0]
         return task
@@ -167,14 +158,6 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
 
 class DockerProvisioner(ContainerProvisionerBase):
     """Kernel provisioner for kernels in Docker (non-Swarm)."""
-
-    @validate("impersonation_enabled")
-    def impersonation_enabled_validate(self, proposal):
-        value = proposal["value"]
-        # If impersonation is enabled, issue warning and disable.
-        if bool(value) is True:
-            self.log.warning("Impersonation is not supported by DockerProvisioner - disabling.")
-        return False
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -277,10 +260,11 @@ class DockerProvisioner(ContainerProvisionerBase):
         num_containers = len(containers)
         if num_containers != 1:
             if num_containers > 1:
-                raise RuntimeError(
+                err_msg = (
                     f"{self.__class__.__name__}: Found more than one container "
                     f"({num_containers}) for kernel_id '{self.kernel_id}'!"
                 )
+                raise RuntimeError(err_msg)
         else:
             container = containers[0]
         return container

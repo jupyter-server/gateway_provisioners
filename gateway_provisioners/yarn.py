@@ -55,7 +55,7 @@ class YarnProvisioner(RemoteProvisionerBase):
     )
 
     @default("yarn_endpoint")
-    def yarn_endpoint_default(self):
+    def _yarn_endpoint_default(self):
         return os.getenv(self.yarn_endpoint_env)
 
     # Alt Yarn endpoint
@@ -72,7 +72,7 @@ class YarnProvisioner(RemoteProvisionerBase):
     )
 
     @default("alt_yarn_endpoint")
-    def alt_yarn_endpoint_default(self):
+    def _alt_yarn_endpoint_default(self):
         return os.getenv(self.alt_yarn_endpoint_env)
 
     yarn_endpoint_security_enabled_env = "GP_YARN_ENDPOINT_SECURITY_ENABLED"
@@ -85,13 +85,26 @@ class YarnProvisioner(RemoteProvisionerBase):
     )
 
     @default("yarn_endpoint_security_enabled")
-    def yarn_endpoint_security_enabled_default(self):
+    def _yarn_endpoint_security_enabled_default(self):
         return bool(
             os.getenv(
                 self.yarn_endpoint_security_enabled_env,
                 self.yarn_endpoint_security_enabled_default_value,
             )
         )
+
+    # Impersonation enabled
+    impersonation_enabled_env = "GP_IMPERSONATION_ENABLED"
+    impersonation_enabled = Bool(
+        False,
+        config=True,
+        help="""Indicates whether impersonation will be performed during kernel launch.
+                                 (GP_IMPERSONATION_ENABLED env var)""",
+    )
+
+    @default("impersonation_enabled")
+    def _impersonation_enabled_default(self):
+        return bool(os.getenv(self.impersonation_enabled_env, "false").lower() == "true")
 
     initial_states = {"NEW", "SUBMITTED", "ACCEPTED", "RUNNING"}
     final_states = {"FINISHED", "KILLED", "FAILED"}
@@ -120,6 +133,12 @@ class YarnProvisioner(RemoteProvisionerBase):
         self.last_known_state = None
         self.candidate_queue = None
         self.candidate_partition = None
+
+        # Transfer impersonation enablement to env.  It is assumed that the kernelspec
+        # logic will take the appropriate steps to impersonate the user identified by
+        # KERNEL_USERNAME when impersonation_enabled is True.
+        env_dict = kwargs.get("env")
+        env_dict["GP_IMPERSONATION_ENABLED"] = str(self.impersonation_enabled)
 
         kwargs = await super().pre_launch(**kwargs)
 

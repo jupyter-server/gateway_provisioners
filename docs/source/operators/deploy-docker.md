@@ -3,7 +3,7 @@
 FIXME - "deployments" into containerized envs is mostly
 
 1. Installing the package
-2. Configuring the kernelspecs into the image
+1. Configuring the kernelspecs into the image
    Steps for Docker and DockerSwarm are the same (? is that true)
    Does Docker instructions differ from k8s? what portion of the helm charts are provisioner-specific? RBAC!
 

@@ -20,4 +20,5 @@ def setup_server_listener(
     cluster_type: Optional[str] = None,
     as_thread: Optional[bool] = True,
 ):
-    raise NotImplementedError("kernel-launcher assembly is required!")
+    err_msg = "kernel-launcher assembly is required!"
+    raise NotImplementedError(err_msg)

@@ -136,9 +136,8 @@ class WaitingForSparkSessionToBeInitialized:
             self._init_thread.join(timeout=None)
             exc = self._init_thread.exc
             if exc:
-                raise RuntimeError(
-                    f"Variable: {self._spark_session_variable} was not initialized properly."
-                ) from exc
+                err_msg = f"Variable: {self._spark_session_variable} was not initialized properly."
+                raise RuntimeError(err_msg) from exc
 
             # now return attribute/function reference from actual Spark object
             return getattr(self._namespace[self._spark_session_variable], name)
@@ -157,18 +156,17 @@ def _validate_port_range(port_range: Optional[str]) -> tuple[int, int]:
         port_range_size = upper_port - lower_port
         if port_range_size != 0:
             if port_range_size < min_port_range_size:
-                raise RuntimeError(
+                err_msg = (
                     f"Port range validation failed for range: '{port_range}'.  Range size must be at least "
                     f"{min_port_range_size} as specified by env MIN_PORT_RANGE_SIZE"
                 )
+                raise RuntimeError(err_msg)
     except ValueError as ve:
-        raise RuntimeError(
-            f"Port range validation failed for range: '{port_range}'.  Error was: {ve}"
-        )
+        err_msg = f"Port range validation failed for range: '{port_range}'.  Error was: {ve}"
+        raise RuntimeError(err_msg) from ve
     except IndexError as ie:
-        raise RuntimeError(
-            f"Port range validation failed for range: '{port_range}'.  Error was: {ie}"
-        )
+        err_msg = f"Port range validation failed for range: '{port_range}'.  Error was: {ie}"
+        raise RuntimeError(err_msg) from ie
 
     return lower_port, upper_port
 
@@ -222,8 +220,9 @@ def import_item(name: str) -> Any:
         module = __import__(package, fromlist=[obj])
         try:
             pak = getattr(module, obj)
-        except AttributeError:
-            raise ImportError("No module named %s" % obj)
+        except AttributeError as ae:
+            err_msg = f"No module named '{obj}'"
+            raise ImportError(err_msg) from ae
         return pak
     else:
         # called with un-dotted string
@@ -328,16 +327,19 @@ if __name__ == "__main__":
     spark_init_mode = arguments["init_mode"]
     cluster_type = arguments["cluster_type"]
     kernel_class_name = arguments["kernel_class_name"]
-    ip = "0.0.0.0"
+    ip = "0.0.0.0"  # noqa: S104
 
     if kernel_id is None:
-        raise RuntimeError("Parameter '--kernel-id' must be provided!")
+        err_msg = "Parameter '--kernel-id' must be provided!"
+        raise RuntimeError(err_msg)
 
     if response_addr is None:
-        raise RuntimeError("Parameter '--response-address' must be provided!")
+        err_msg = "Parameter '--response-address' must be provided!"
+        raise RuntimeError(err_msg)
 
     if public_key is None:
-        raise RuntimeError("Parameter '--public-key' must be provided!")
+        err_msg = "Parameter '--public-key' must be provided!"
+        raise RuntimeError(err_msg)
 
     # Initialize the kernel namespace for the given cluster type
     if cluster_type == "spark" and spark_init_mode == "none":

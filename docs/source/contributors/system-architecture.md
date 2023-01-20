@@ -222,9 +222,9 @@ sandboxes, providing collaboration behavior, adhering to port range restrictions
 There are four primary tasks of a kernel launcher:
 
 1. Creation of the connection file and ZMQ ports on the remote (target) system along with a _server listener_ socket
-2. Conveyance of the connection (and listener socket) information back to the Gateway Provisioner's server process
-3. Invocation of the target kernel
-4. Listen for interrupt and shutdown requests from the Gateway Provisioner's server and carry out the action when appropriate
+1. Conveyance of the connection (and listener socket) information back to the Gateway Provisioner's server process
+1. Invocation of the target kernel
+1. Listen for interrupt and shutdown requests from the Gateway Provisioner's server and carry out the action when appropriate
 
 Kernel launchers are minimally invoked with three parameters (all of which are conveyed by the `argv` stanza of the corresponding `kernel.json` file) - the kernel's ID as created by the server and conveyed via the placeholder `{kernel_id}`, a response address consisting of the Gateway Provisioner's server's IP and port on which to return the connection information similarly represented by the placeholder `{response_address}`, and a public-key used by the launcher to encrypt an AES key that encrypts the kernel's connection information back to the server and represented by the placeholder `{public_key}`.
 
@@ -300,12 +300,12 @@ eval exec \
 Theoretically speaking, enabling a kernel for use in other frameworks amounts to the following:
 
 1. Build a kernel specification file that identifies the provisioner class to be used.
-2. Implement the provisioner class such that it supports the four primitive functions of
+1. Implement the provisioner class such that it supports the four primitive functions of
    `poll()`, `wait()`, `send_signal(signum)` and `kill()` along with `launch_process()`. If this
    provisioner derives from another, these method implementations can be inherited.
-3. If the provisioner corresponds to a remote process, derive the provisioner class from
+1. If the provisioner corresponds to a remote process, derive the provisioner class from
    `RemoteProvisionerBase` and implement `confirm_remote_startup()` and `handle_timeout()`.
-4. Insert invocation of a launcher (if necessary) which builds the connection file and
+1. Insert invocation of a launcher (if necessary) which builds the connection file and
    returns its contents on the `{response_address}` socket and following the encryption protocol set forth in the other launchers.
 
 ```{seealso}

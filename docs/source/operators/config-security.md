@@ -115,9 +115,9 @@ script and requires the following:
    sudo operations on each potential host. This enablement must also be done to prevent password
    prompts since the server runs in the background. Refer to your operating system documentation
    for details.
-2. Each user identified by `KERNEL_USERNAME` must be associated with an actual operating system
+1. Each user identified by `KERNEL_USERNAME` must be associated with an actual operating system
    user on each host.
-3. Once the server's user is configured for `sudo` privileges it is **strongly recommended** that
+1. Once the server's user is configured for `sudo` privileges it is **strongly recommended** that
    that user be included in the set of `unauthorized_users`. Otherwise, kernels not configured
    for impersonation, or those requests that do not include `KERNEL_USERNAME`, will run as
    the, now, highly privileged user in which the server is running!

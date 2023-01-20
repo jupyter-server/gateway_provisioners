@@ -16,7 +16,12 @@ swarm_mode = bool(os.getenv("DOCKER_MODE", os.getenv("GP_DOCKER_MODE", "swarm"))
 
 
 def launch_docker_kernel(
-    kernel_id, port_range, response_addr, public_key, spark_context_init_mode, kernel_class_name
+    kernel_id,
+    port_range,
+    response_addr,
+    public_key,
+    spark_context_init_mode,
+    kernel_class_name,
 ):
     # Launches a containerized kernel.
 
@@ -32,13 +37,13 @@ def launch_docker_kernel(
     docker_network = os.environ.get("DOCKER_NETWORK", os.environ.get("EG_DOCKER_NETWORK", "bridge"))
 
     # Build labels - these will be modelled similar to kubernetes: kernel_id, component, app, ...
-    labels = dict()
+    labels = {}
     labels["kernel_id"] = kernel_id
     labels["component"] = "kernel"
     labels["app"] = "enterprise-gateway"
 
     # Capture env parameters...
-    param_env = dict()
+    param_env = {}
     param_env["PORT_RANGE"] = port_range
     param_env["PUBLIC_KEY"] = public_key
     param_env["RESPONSE_ADDRESS"] = response_addr
@@ -57,7 +62,7 @@ def launch_docker_kernel(
     group = param_env.get("KERNEL_GID")
 
     # setup common args
-    kwargs = dict()
+    kwargs = {}
     kwargs["name"] = container_name
     kwargs["hostname"] = container_name
     kwargs["user"] = user
@@ -65,7 +70,7 @@ def launch_docker_kernel(
 
     client = DockerClient.from_env()
     if swarm_mode:
-        networks = list()
+        networks = []
         networks.append(docker_network)
         # mounts = list()  # Enable if necessary
         # mounts.append("/usr/local/share/jupyter/kernels:/usr/local/share/jupyter/kernels:ro")
@@ -83,7 +88,7 @@ def launch_docker_kernel(
             kwargs["workdir"] = param_env.get("KERNEL_WORKING_DIR")
         # kwargs['mounts'] = mounts   # Enable if necessary
         # print("service args: {}".format(kwargs))  # useful for debug
-        client.services.create(image_name, **kwargs)  # noqa
+        client.services.create(image_name, **kwargs)
     else:
         # volumes = {  # Enable if necessary
         #     "/usr/local/share/jupyter/kernels": {
@@ -102,7 +107,7 @@ def launch_docker_kernel(
             kwargs["working_dir"] = param_env.get("KERNEL_WORKING_DIR")
         # kwargs['volumes'] = volumes   # Enable if necessary
         # print("container args: {}".format(kwargs))  # useful for debug
-        client.containers.run(image_name, **kwargs)  # noqa
+        client.containers.run(image_name, **kwargs)
 
 
 if __name__ == "__main__":
@@ -155,5 +160,10 @@ if __name__ == "__main__":
     kernel_class_name = arguments["kernel_class_name"]
 
     launch_docker_kernel(
-        kernel_id, port_range, response_addr, public_key, spark_context_init_mode, kernel_class_name
+        kernel_id,
+        port_range,
+        response_addr,
+        public_key,
+        spark_context_init_mode,
+        kernel_class_name,
     )

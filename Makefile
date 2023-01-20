@@ -46,6 +46,7 @@ build-dependencies: ## install packages necessary to complete the build
 clean: clean-build clean-pyc clean-test ## remove all build, test, coverage and Python artifacts
 
 clean-build: ## remove build artifacts
+	make -C docs clean
 	rm -rf build/
 	rm -rf dist/
 	rm -rf gateway_provisioners/kernel-launchers/scala/lib
@@ -70,15 +71,12 @@ lint: build-dependencies ## check style with flake8
 	pre-commit run --all-files
 
 test: ## run tests quickly with the default Python
-	pytest -v --cov gateway_provisioners gateway_provisioners
+	@echo "No tests exist!"
+# 	pytest -v --cov gateway_provisioners gateway_provisioners
 
 docs: ## generate Sphinx HTML documentation, including API docs
-	rm -f docs/gateway_provisioners.rst
-	rm -f docs/modules.rst
-	sphinx-apidoc -o docs/ gateway_provisioners
-	$(MAKE) -C docs clean
-	$(MAKE) -C docs requirements
-	$(MAKE) -C docs html
+	hatch run docs:api
+	hatch run docs:build
 
 release: dist ## package and upload a release
 	twine upload dist/*

@@ -5,7 +5,7 @@
 Gateway Provisioners provides [kernel provisioners](https://jupyter-client.readthedocs.io/en/latest/provisioning.html)
 that interact with kernels launched into resource-managed clusters or otherwise run remotely from the launching server.
 This functionality derives from [Jupyter Enterprise Gateway's](https://github.com/jupyter-server/enterprise_gateway)
-_process proxy_ architecture. However, unlike [process proxies]
+_process proxy_ architecture. However, unlike \[process proxies\]
 (https://jupyter-enterprise-gateway.readthedocs.io/en/latest/contributors/system-architecture.html#process-proxy),
 you do not need to use a gateway server to use these provisioners - although, in certain cases,
 it is recommended (for example when the launching server does not reside within the same network as the launched kernel).

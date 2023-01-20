@@ -61,7 +61,7 @@ def launch_kubernetes_kernel(
         config.load_kube_config()
 
     # Capture keywords and their values.
-    keywords = dict()
+    keywords = {}
 
     # Factory values...
     # Since jupyter lower cases the kernel directory as the kernel-name, we need to capture its case-sensitive
@@ -143,7 +143,7 @@ def launch_kubernetes_kernel(
             with open(spark_opts_out, "w+") as soo_fd:
                 soo_fd.write(additional_spark_opts)
         else:  # If no spark_opts_out was specified, print to stdout in case this is an old caller
-            print(additional_spark_opts)
+            print(additional_spark_opts)  # noqa: T201
 
 
 def _get_spark_resources(pod_template: dict) -> str:

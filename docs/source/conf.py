@@ -17,6 +17,10 @@ import os
 
 # -- General configuration ------------------------------------------------
 
+# Set indicator that a Sphinx build is occurring so that code
+# can react accordingly.
+os.environ["SPHINX_BUILD_IN_PROGRESS"] = "1"
+
 # If your documentation needs a minimal Sphinx version, state it here.
 needs_sphinx = "3.0"
 
@@ -25,16 +29,17 @@ needs_sphinx = "3.0"
 # ones.
 extensions = [
     "myst_parser",
-    "sphinx.ext.autodoc",
     "sphinx.ext.doctest",
     "sphinx.ext.intersphinx",
-    "sphinx.ext.autosummary",
     "sphinx.ext.mathjax",
     "sphinxcontrib_github_alt",
     "sphinxcontrib.mermaid",
     "sphinxcontrib.openapi",
     "sphinxemoji.sphinxemoji",
     "sphinx_copybutton",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
+    "sphinx_autodoc_typehints",
 ]
 
 myst_enable_extensions = ["html_image"]
@@ -69,7 +74,7 @@ _version_py = os.path.join("..", "..", "gateway_provisioners", "_version.py")
 version_ns = {}
 
 with open(_version_py) as version_file:
-    exec(version_file.read(), version_ns)
+    exec(version_file.read(), version_ns)  # noqa: S102
 
 # The short X.Y version.
 version = version_ns["__version__"][:3]
@@ -274,7 +279,13 @@ latex_documents = [
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
 man_pages = [
-    (master_doc, "gateway_provisioners", "Gateway Provisioners Documentation", [author], 1)
+    (
+        master_doc,
+        "gateway_provisioners",
+        "Gateway Provisioners Documentation",
+        [author],
+        1,
+    )
 ]
 
 # If true, show URL addresses after external links.
@@ -385,7 +396,11 @@ epub_exclude_files = ["search.html"]
 intersphinx_mapping = {
     "python": ("https://docs.python.org/", None),
     "ipython": ("https://ipython.readthedocs.io/en/stable/", None),
-    "jupyter": ("https://jupyter.readthedocs.io/en/latest/", None),
+    "jupyter": ("https://docs.jupyter.org/en/latest/", None),
+    "jupyter_core": ("https://jupyter-core.readthedocs.io/en/stable/", None),
+    "jupyter_client": ("https://jupyter-client.readthedocs.io/en/stable/", None),
+    "jupyter_server": ("https://jupyter-server.readthedocs.io/en/stable/", None),
+    "traitlets": ("https://traitlets.readthedocs.io/en/stable/", None),
 }
 
 spelling_lang = "en_US"

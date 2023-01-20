@@ -16,7 +16,11 @@ KERNEL_SPEC_TEMPLATE_NAMES = {
     R: "container_r",
 }
 DEFAULT_DISPLAY_NAMES = {PYTHON: "Docker Python", SCALA: "Docker Scala", R: "Docker R"}
-DEFAULT_IMAGE_NAMES = {PYTHON: "elyra/kernel-py", SCALA: "elyra/kernel-scala", R: "elyra/kernel-r"}
+DEFAULT_IMAGE_NAMES = {
+    PYTHON: "elyra/kernel-py",
+    SCALA: "elyra/kernel-scala",
+    R: "elyra/kernel-r",
+}
 
 DOCKER_PROVISIONER_NAME = "docker-provisioner"
 SWARM_PROVISIONER_NAME = "docker-swarm-provisioner"
@@ -39,11 +43,11 @@ jupyter-docker-spec install --swarm --kernel-name=python_swarm
     """
 
     @default("kernel_name")
-    def kernel_name_default(self) -> str:
+    def _kernel_name_default(self) -> str:
         return DEFAULT_KERNEL_NAMES[DEFAULT_LANGUAGE]
 
     @default("display_name")
-    def display_name_default(self) -> str:
+    def _display_name_default(self) -> str:
         return DEFAULT_DISPLAY_NAMES[DEFAULT_LANGUAGE]
 
     # Image name
@@ -57,7 +61,7 @@ enabled for Spark usage, this image will be the driver image. (GP_IMAGE_NAME env
     )
 
     @default("image_name")
-    def image_name_default(self):
+    def _image_name_default(self):
         return os.getenv(self.image_name_env)
 
     # Flags
