@@ -1,14 +1,11 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 
-import asyncio
 import os
 import sys
 from socket import socket
 
 import pytest
-import tornado
-import tornado.testing
 import yarn_api_client
 
 os.environ["PYTEST_CURRENT_TEST"] = "1"
@@ -35,23 +32,7 @@ from gateway_provisioners.response_manager import ResponseManager
 
 
 @pytest.fixture
-def asyncio_loop():
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(autouse=True)
-def io_loop(asyncio_loop):
-    async def get_tornado_loop():
-        return tornado.ioloop.IOLoop.current()
-
-    return asyncio_loop.run_until_complete(get_tornado_loop())
-
-
-@pytest.fixture
-def response_manager(io_loop, monkeypatch):
+def response_manager(monkeypatch):
     """Setup the Kernel Provisioner Factory, mocking the entrypoint fetch calls."""
     monkeypatch.setattr(ResponseManager, "register_event", mock_register_event)
     monkeypatch.setattr(socket, "listen", mock_socket_listen)
