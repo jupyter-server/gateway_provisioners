@@ -13,7 +13,7 @@ import time
 from abc import abstractmethod
 from enum import Enum
 from socket import AF_INET, SHUT_WR, SOCK_STREAM, socket, timeout
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 import pexpect
 from jupyter_client import (
@@ -68,6 +68,10 @@ class KernelChannel(Enum):
     )
 
 
+def gp_launch_kernel(cmd: list, **kwargs):
+    return launch_kernel(cmd, **kwargs)
+
+
 class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase):
     """Base class for remote provisioners."""
 
@@ -105,7 +109,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         pass
 
     @overrides
-    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
         self.response_manager.register_event(self.kernel_id)
 
         cmd = self.kernel_spec.argv  # Build launch command, provide substitutions
@@ -140,10 +144,10 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         return kwargs
 
     @overrides
-    async def launch_kernel(self, cmd: list[str], **kwargs: Any) -> KernelConnectionInfo:
+    async def launch_kernel(self, cmd: List[str], **kwargs: Any) -> KernelConnectionInfo:
 
         launch_kwargs = RemoteProvisionerBase._scrub_kwargs(kwargs)
-        self.local_proc = launch_kernel(cmd, **launch_kwargs)
+        self.local_proc = gp_launch_kernel(cmd, **launch_kwargs)
         self.pid = self.local_proc.pid
         self.ip = local_ip
 

@@ -42,7 +42,11 @@ kpt_dir = os.environ.get("GP_POD_TEMPLATE_DIR", "/tmp")  # noqa: S108
 
 app_name = os.environ.get("GP_APP_NAME", "k8s-provisioner")
 
-if not os.environ.get("SPHINX_BUILD_IN_PROGRESS", ""):
+if (
+    "SPHINX_BUILD_IN_PROGRESS" not in os.environ
+    and "PYTEST_CURRENT_TEST" not in os.environ
+    and "PYTEST_RUN_CONFIG" not in os.environ
+):
     if bool(os.environ.get("GP_USE_INCLUSTER_CONFIG", "True").lower() == "true"):
         config.load_incluster_config()
     else:
