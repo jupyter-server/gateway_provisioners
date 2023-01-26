@@ -1,11 +1,12 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 
+import os
 from uuid import uuid4
 
 import pytest
 from jupyter_client import KernelConnectionInfo
-from utils import TEST_USER, K8sValidator
+from validators import TEST_USER, K8sValidator
 
 
 @pytest.mark.parametrize("seed_env", [{"KERNEL_USERNAME": TEST_USER}])
@@ -16,6 +17,7 @@ async def test_lifecycle(init_api_mocks, response_manager, get_provisioner, seed
     validator = K8sValidator.create_instance(
         name, seed_env, kernel_id=kernel_id, response_manager=response_manager
     )
+    os.environ.update(seed_env)
 
     provisioner = get_provisioner(name, kernel_id)
     validator.validate_provisioner(provisioner)
@@ -28,19 +30,21 @@ async def test_lifecycle(init_api_mocks, response_manager, get_provisioner, seed
     connection_info: KernelConnectionInfo = await provisioner.launch_kernel(cmd, **kwargs)
     validator.validate_launch_kernel(connection_info)
 
-    # post-launch()
+    await provisioner.post_launch(**kwargs)
+    validator.validate_post_launch(kwargs)
 
-    # has_kernel()
+    assert provisioner.has_process is True, "has_process property has unexpected value: False"
 
-    # poll()
+    poll_result = await provisioner.poll()
+    assert poll_result is None, f"poll() returned unexpected result: '{poll_result}'"
 
-    # send_signal()? only tests remote provisioner, need to mock connection port
-    #  mock _send_signal_via_listener()
+    # send_signal()? only tests remote provisioner and probably better-suited for launcher tests
 
-    # kill()
+    # In the container-based provisioners, kill and terminate are identical, so only testing terminate.
 
-    # terminate()
+    await provisioner.terminate()
 
-    # shutdown_requested()
+    # shutdown_requested() would only test remote provisioner and probably better-suited for launcher tests
 
-    # cleanup()
+    await provisioner.cleanup(restart=False)
+    assert provisioner.has_process is False, "has_process property has unexpected value: True"

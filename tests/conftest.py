@@ -21,7 +21,7 @@ from jupyter_client.kernelspec import KernelSpec
 from jupyter_client.provisioning.factory import KernelProvisionerFactory
 from mocks.docker_client import mock_docker_from_env
 from mocks.k8s_client import MockK8sClient
-from mocks.proc import mock_launch_kernel
+from mocks.popen import mock_launch_kernel
 from mocks.response_manager import mock_get_connection_info, mock_register_event, mock_socket_listen
 from mocks.yarn_client import MockResourceManager
 

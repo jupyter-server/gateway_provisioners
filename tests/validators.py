@@ -9,6 +9,8 @@ from mocks.response_manager import generate_connection_info
 from gateway_provisioners.remote_provisioner import RemoteProvisionerBase
 from gateway_provisioners.response_manager import ResponseManager
 
+# warning including YarnProvisioner will break the mock of the Yarn ResourceManager
+
 TEST_USER = "test-user"
 
 
@@ -32,6 +34,7 @@ class ValidatorBase:
         self.kernel_id: str = kwargs.get("kernel_id")
         self.response_manager: ResponseManager = kwargs.get("response_manager")
         self.kernel_spec: Optional[KernelSpec] = None
+        self.provisioner = None
 
     def validate_provisioner(self, provisioner: RemoteProvisionerBase) -> None:
         assert provisioner.kernel_id == self.kernel_id
@@ -39,6 +42,7 @@ class ValidatorBase:
         assert not provisioner.kernel_username
         assert provisioner.kernel_spec.language == "python"
         self.kernel_spec = provisioner.kernel_spec
+        self.provisioner = provisioner
 
     def validate_pre_launch(self, kwargs: dict) -> None:
         cmd: list = kwargs.get("cmd")
@@ -57,6 +61,10 @@ class ValidatorBase:
     def validate_launch_kernel(self, connection_info: dict) -> None:
         assert connection_info == generate_connection_info(self.kernel_id)
 
+    def validate_post_launch(self, kwargs: dict) -> None:
+        """Not currently used by GP"""
+        pass
+
 
 class YarnValidator(ValidatorBase):
     """Handles validation of YarnProvisioners"""
@@ -66,6 +74,7 @@ class YarnValidator(ValidatorBase):
 
         env: dict = kwargs.get("env")
         assert env["GP_IMPERSONATION_ENABLED"] == "False"
+        assert self.provisioner.rm_addr == env["GP_YARN_ENDPOINT"]
 
 
 class K8sValidator(ValidatorBase):

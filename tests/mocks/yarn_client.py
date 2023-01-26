@@ -19,6 +19,7 @@ class YarnResource:
         self.id = f"application_{str(time_ns())}_0001"
         self.status: str = "NEW"
         self.query_counter: int = 1
+        self.terminate_counter: int = 0
 
 
 yarn_resources: dict = {}
@@ -37,12 +38,17 @@ class MockResponse:
             self.data["status"] = status
 
 
-class MockResourceManager:  # (ResourceManager):
+class MockResourceManager:
+
+    CLUSTER_CONTAINER_MEMORY = 1024 * 1024 * 1024  # 1GB
+
     def __init__(self, **kwargs):
+        self.endpoints = kwargs.get("service_endpoints")
         pass
 
     def get_active_endpoint(self):
-        pass
+        assert len(self.endpoints) > 0
+        return self.endpoints[0]
 
     def cluster_applications(
         self,
@@ -78,7 +84,7 @@ class MockResourceManager:  # (ResourceManager):
 
     def cluster_application(self, application_id):
         response = MockResponse()
-        resource = self._locate_resource(application_id)
+        resource = MockResourceManager._locate_resource(application_id)
         if resource:
             app_entry: dict = {
                 "name": resource.kernel_id,
@@ -92,22 +98,41 @@ class MockResourceManager:  # (ResourceManager):
 
     def cluster_application_state(self, application_id):
         response = MockResponse()
-        resource = self._locate_resource(application_id)
+        resource = MockResourceManager._locate_resource(application_id)
+
         if resource:
+            if resource.terminate_counter:  # Let this cycle a bit
+                if resource.terminate_counter > 3:
+                    resource.status = "FINISHED"
+                resource.terminate_counter += 1
             response.data["state"] = resource.status
 
         return response
 
     def cluster_application_kill(self, application_id):
-        pass
+        response = MockResponse()
+        resource = MockResourceManager._locate_resource(application_id)
+        if resource:
+            response.data["state"] = resource.status
+            resource.terminate_counter = 1
 
     def cluster_node_container_memory(self):
-        pass
+        return MockResourceManager.CLUSTER_CONTAINER_MEMORY
 
     def cluster_scheduler_queue(self, yarn_queue_name):
+        # TODO - add impl when adding queue testing
         pass
 
-    def _locate_resource(self, app_id: str) -> Optional[YarnResource]:
+    def cluster_queue_partition(self, yarn_queue, node_label):
+        # TODO - add impl when adding queue testing
+        pass
+
+    def cluster_scheduler_queue_availability(self, partition, partition_availability_threshold):
+        # TODO - add impl when adding queue testing
+        pass
+
+    @staticmethod
+    def _locate_resource(app_id: str) -> Optional[YarnResource]:
         for resource in yarn_resources.values():
             if resource.id == app_id:
                 return resource

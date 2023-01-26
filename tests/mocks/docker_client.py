@@ -42,6 +42,9 @@ class MockService:
     def tasks(self, **kwargs):
         return self.task_list
 
+    def remove(self, **kwargs):
+        docker_resources.pop(self.resource.kernel_id)
+
 
 class MockServiceCollection:  # (ServiceCollection):
     def __init__(self, **kwargs):

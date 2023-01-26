@@ -46,10 +46,7 @@ class MockResponse:
         self.items.append(pod_info)
 
 
-class MockCoreV1Api:  # (CoreV1Api):
-    def __init__(self, **kwargs):
-        pass
-
+class MockCoreV1Api:
     def list_namespaced_pod(self, namespace, **kwargs):
         kernel_id: str = ""
         label_selector = kwargs.get("label_selector", "")
@@ -93,6 +90,20 @@ class MockCoreV1Api:  # (CoreV1Api):
 
         raise ApiException(status=404, reason="Could not find resource with pod-name: '{name}'!")
 
+    def delete_namespace(self, name, body):
+        # TODO - add impl when adding namespace lifecycle testing
+        pass
+
+    def create_namespace(self, body):
+        # TODO - add impl when adding namespace lifecycle testing
+        pass
+
+
+class MockRbacAuthorizationV1Api:
+    def create_namespaced_role_binding(self, namespace, body):
+        # TODO - add impl when adding namespace lifecycle testing
+        pass
+
 
 class MockK8sClient:
     def __init__(self, **kwargs):
@@ -104,5 +115,29 @@ class MockK8sClient:
         return MockCoreV1Api()
 
     @classmethod
+    def RbacAuthorizationV1Api(cls):
+        return MockRbacAuthorizationV1Api()
+
+    @classmethod
     def V1DeleteOptions(cls, grace_period_seconds=0, propagation_policy="Background") -> dict:
         return {"grace_period_seconds": 0, "propagation_policy": "Background"}
+
+    @classmethod
+    def V1ObjectMeta(cls, name, labels) -> dict:
+        pass
+
+    @classmethod
+    def V1Namespace(cls, metadata) -> dict:
+        pass
+
+    @classmethod
+    def V1RoleRef(cls, api_group, name) -> dict:
+        pass
+
+    @classmethod
+    def V1Subject(cls, api_group, kind, name, namespace) -> dict:
+        pass
+
+    @classmethod
+    def V1RoleBinding(cls, kind, metadata, role_ref, subjects) -> dict:
+        pass
