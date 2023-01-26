@@ -3,7 +3,7 @@
 """Code related to managing kernels running in docker-based containers."""
 import logging
 import os
-from typing import Any, Optional
+from typing import Any, Dict, Optional, Set
 
 from overrides import overrides
 
@@ -38,7 +38,7 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         self.client = DockerClient.from_env()
 
     @overrides
-    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
         kwargs = await super().pre_launch(**kwargs)
 
         # Convey the network to the docker launch script
@@ -47,7 +47,7 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         return kwargs
 
     @overrides
-    def get_initial_states(self) -> set[str]:
+    def get_initial_states(self) -> Set[str]:
         return {"preparing", "starting", "running"}
 
     @overrides
@@ -164,7 +164,7 @@ class DockerProvisioner(ContainerProvisionerBase):
         self.client = DockerClient.from_env()
 
     @overrides
-    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
         kwargs = await super().pre_launch(**kwargs)
 
         # Convey the network to the docker launch script
@@ -173,7 +173,7 @@ class DockerProvisioner(ContainerProvisionerBase):
         return kwargs
 
     @overrides
-    def get_initial_states(self) -> set[str]:
+    def get_initial_states(self) -> Set[str]:
         return {"created", "running"}
 
     @overrides

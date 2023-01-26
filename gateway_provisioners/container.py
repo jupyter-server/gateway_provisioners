@@ -4,7 +4,7 @@
 import os
 import signal
 from abc import abstractmethod
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import urllib3  # docker ends up using this and it causes lots of noise, so turn off warnings
 from jupyter_client import localinterfaces
@@ -70,7 +70,7 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
         return self.container_name is not None
 
     @overrides
-    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
         # Unset assigned_host, ip, and node_ip in pre-launch, otherwise, these screw up restarts
         self.assigned_host = ""
         self.assigned_ip = None
@@ -91,7 +91,7 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
         return kwargs
 
     @overrides
-    def log_kernel_launch(self, cmd: list[str]) -> None:
+    def log_kernel_launch(self, cmd: List[str]) -> None:
         self.log.info(
             f"{self.__class__.__name__}: kernel launched. Kernel image: {self.image_name}, "
             f"KernelID: {self.kernel_id}, cmd: '{cmd}'"
@@ -198,7 +198,7 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
                 self.detect_launch_failure()
 
     @overrides
-    async def get_provisioner_info(self) -> dict[str, Any]:
+    async def get_provisioner_info(self) -> Dict[str, Any]:
         """Captures the base information necessary for kernel persistence relative to containers."""
         provisioner_info = await super().get_provisioner_info()
         provisioner_info.update(
@@ -215,7 +215,7 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
         self.assigned_node_ip = provisioner_info.get("assigned_node_ip")
 
     @abstractmethod
-    def get_initial_states(self) -> set[str]:
+    def get_initial_states(self) -> Set[str]:
         """Return list of states indicating container is starting (includes running)."""
         raise NotImplementedError
 

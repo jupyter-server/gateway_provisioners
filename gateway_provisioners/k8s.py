@@ -5,7 +5,7 @@
 import logging
 import os
 import re
-from typing import Any, Optional
+from typing import Any, Dict, Optional, Set
 
 import urllib3
 from overrides import overrides
@@ -68,7 +68,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         self.restarting = False
 
     @overrides
-    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
         # Set env before superclass call so we see these in the debug output
 
         # Kubernetes relies on many internal env variables.  Since we're running in a k8s pod, we will
@@ -83,7 +83,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         return kwargs
 
     @overrides
-    async def get_provisioner_info(self) -> dict[str, Any]:
+    async def get_provisioner_info(self) -> Dict[str, Any]:
         provisioner_info = await super().get_provisioner_info()
         provisioner_info.update(
             {
@@ -100,7 +100,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         self.delete_kernel_namespace = provisioner_info["delete_ns"]
 
     @overrides
-    def get_initial_states(self) -> set[str]:
+    def get_initial_states(self) -> Set[str]:
         return {"Pending", "Running"}
 
     @overrides

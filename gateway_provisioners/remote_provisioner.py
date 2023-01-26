@@ -13,7 +13,7 @@ import time
 from abc import abstractmethod
 from enum import Enum
 from socket import AF_INET, SHUT_WR, SOCK_STREAM, socket, timeout
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import pexpect
 from jupyter_client import (
@@ -217,7 +217,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         await self.shutdown_listener(restart)
 
     @overrides
-    async def get_provisioner_info(self) -> dict[str, Any]:
+    async def get_provisioner_info(self) -> Dict[str, Any]:
         provisioner_info = await super().get_provisioner_info()
         provisioner_info.update(
             {
@@ -250,7 +250,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         return recommended
 
     @overrides
-    def _finalize_env(self, env: dict[str, str]) -> None:
+    def _finalize_env(self, env: Dict[str, str]) -> None:
 
         # add the applicable kernel_id and language to the env dict
         env["KERNEL_ID"] = self.kernel_id
@@ -266,9 +266,9 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             env.pop(k, None)
 
     @staticmethod
-    def _scrub_kwargs(kwargs: dict[str, Any]) -> dict[str, Any]:
+    def _scrub_kwargs(kwargs: Dict[str, Any]) -> Dict[str, Any]:
         """Remove any keyword arguments that Popen does not tolerate."""
-        keywords_to_scrub: list[str] = ["extra_arguments", "kernel_id"]
+        keywords_to_scrub: List[str] = ["extra_arguments", "kernel_id"]
         scrubbed_kwargs = kwargs.copy()
         for kw in keywords_to_scrub:
             scrubbed_kwargs.pop(kw, None)
@@ -276,7 +276,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         return scrubbed_kwargs
 
     @abstractmethod
-    def log_kernel_launch(self, cmd: list[str]) -> None:
+    def log_kernel_launch(self, cmd: List[str]) -> None:
         """Logs the kernel launch from the respective remote provisioner"""
         pass
 
@@ -486,7 +486,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         )
         self.log_and_raise(PermissionError(error_message))
 
-    def _validate_port_range(self) -> tuple[int, int]:
+    def _validate_port_range(self) -> Tuple[int, int]:
         """Validates the port range configuration option to ensure appropriate values."""
 
         lower_port = upper_port = 0
@@ -854,7 +854,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             )
             return pexpect.spawn(cmd, env=os.environ.copy().pop("SSH_ASKPASS", None))
 
-    def _select_ports(self, count: int) -> list[int]:
+    def _select_ports(self, count: int) -> List[int]:
         """
         Selects and returns n random ports that adhere to the configured port range, if applicable.
 
@@ -867,8 +867,8 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         -------
         List - ports available and adhering to the configured port range
         """
-        ports: list[int] = []
-        sockets: list[socket] = []
+        ports: List[int] = []
+        sockets: List[socket] = []
         for _i in range(count):
             sock = self._select_socket()
             ports.append(sock.getsockname()[1])
