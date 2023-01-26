@@ -5,7 +5,7 @@
 import logging
 import os
 import re
-from typing import Any, Optional
+from typing import Any, Dict, Optional, Set
 
 import urllib3
 from overrides import overrides
@@ -42,7 +42,11 @@ kpt_dir = os.environ.get("GP_POD_TEMPLATE_DIR", "/tmp")  # noqa: S108
 
 app_name = os.environ.get("GP_APP_NAME", "k8s-provisioner")
 
-if not os.environ.get("SPHINX_BUILD_IN_PROGRESS", ""):
+if (
+    "SPHINX_BUILD_IN_PROGRESS" not in os.environ
+    and "PYTEST_CURRENT_TEST" not in os.environ
+    and "PYTEST_RUN_CONFIG" not in os.environ
+):
     if bool(os.environ.get("GP_USE_INCLUSTER_CONFIG", "True").lower() == "true"):
         config.load_incluster_config()
     else:
@@ -64,7 +68,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         self.restarting = False
 
     @overrides
-    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
         # Set env before superclass call so we see these in the debug output
 
         # Kubernetes relies on many internal env variables.  Since we're running in a k8s pod, we will
@@ -79,7 +83,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         return kwargs
 
     @overrides
-    async def get_provisioner_info(self) -> dict[str, Any]:
+    async def get_provisioner_info(self) -> Dict[str, Any]:
         provisioner_info = await super().get_provisioner_info()
         provisioner_info.update(
             {
@@ -96,7 +100,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         self.delete_kernel_namespace = provisioner_info["delete_ns"]
 
     @overrides
-    def get_initial_states(self) -> set[str]:
+    def get_initial_states(self) -> Set[str]:
         return {"Pending", "Running"}
 
     @overrides

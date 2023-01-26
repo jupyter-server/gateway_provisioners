@@ -9,7 +9,8 @@ import signal
 import subprocess
 import warnings
 from socket import gethostbyname, gethostname
-from typing import Any, Optional
+from typing import Any, Dict, Optional
+from typing import List as tyList
 
 import paramiko
 from jupyter_client import KernelConnectionInfo, launch_kernel
@@ -101,7 +102,7 @@ class DistributedProvisioner(RemoteProvisionerBase):
         )
 
     @validate("load_balancing_algorithm")
-    def _validate_load_balancing_algorithm(self, proposal: dict[str, str]) -> str:
+    def _validate_load_balancing_algorithm(self, proposal: Dict[str, str]) -> str:
         value = proposal["value"]
         try:
             assert value in ["round-robin", "least-connection"]
@@ -135,7 +136,7 @@ class DistributedProvisioner(RemoteProvisionerBase):
         return self.local_proc is not None or (self.ip is not None and self.pid > 0)
 
     @overrides
-    async def launch_kernel(self, cmd: list[str], **kwargs: Any) -> KernelConnectionInfo:
+    async def launch_kernel(self, cmd: tyList[str], **kwargs: Any) -> KernelConnectionInfo:
         """
         Launches a kernel process on a selected host.
 
@@ -216,14 +217,14 @@ class DistributedProvisioner(RemoteProvisionerBase):
                 ready_to_connect = await self.receive_connection_info()
 
     @overrides
-    def log_kernel_launch(self, cmd: list[str]) -> None:
+    def log_kernel_launch(self, cmd: tyList[str]) -> None:
         self.log.info(
             f"{self.__class__.__name__}: kernel launched.  Host: '{self.assigned_host}', "
             f"pid: {self.pid}, Kernel ID: {self.kernel_id}, "
             f"Log file: {self.assigned_host}:{self.kernel_log}, cmd: '{cmd}'."
         )
 
-    def _launch_remote_process(self, cmd: list[str], **kwargs: Any):
+    def _launch_remote_process(self, cmd: tyList[str], **kwargs: Any):
         """
         Launch the kernel as indicated by the argv stanza in the kernelspec.  Note that this method
         will bypass use of ssh if the remote host is also the local machine.
@@ -248,7 +249,7 @@ class DistributedProvisioner(RemoteProvisionerBase):
 
         return result_pid
 
-    def _build_startup_command(self, cmd: list[str], **kwargs: Any) -> list[str]:
+    def _build_startup_command(self, cmd: tyList[str], **kwargs: Any) -> tyList[str]:
         """
         Builds the command to invoke by concatenating envs from kernelspec followed by the kernel argvs.
 

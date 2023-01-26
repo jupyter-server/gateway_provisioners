@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.4"]
+requires = ["hatchling>=1.11"]
 build-backend = "hatchling.build"
 
 [project]
@@ -16,12 +16,12 @@ classifiers = [
 ]
 requires-python = ">=3.8"
 dependencies = [
-    "jupyter_client>=7.2",
+    "jupyter_client>=7.4",
     "overrides",
     "paramiko>=2.4.0",
     "pexpect>=4.2.0",
     "pycryptodomex>=3.9.7",
-    "tornado>=6.1",
+    "tornado>=6.2",
     "traitlets>=5.1"
 ]
 dynamic = ["version"]
@@ -46,11 +46,14 @@ Tracker = "https://github.com/gateway-experiments/gateway_provisioners/issues"
 
 [project.optional-dependencies]
 test = [
+  "importlib_metadata",
   "mock",
   "pre-commit",
   "pytest",
   "pytest-cov",
   "pytest-timeout",
+  "pytest-tornasync",
+  "pytest-jupyter[server]>=0.4",
   # Install optional dependencies so all modules will load during collection
   "docker>=3.5.0",
   "yarn-api-client",
@@ -123,6 +126,13 @@ features = ["docs"]
 build = "make -C docs html SPHINXOPTS='-W'"
 api = "sphinx-apidoc -o docs/source/api -f -E gateway_provisioners"
 
+[tool.hatch.envs.test]
+features = ["test"]
+[tool.hatch.envs.test.scripts]
+test = "python -m pytest -vv {args}"
+nowarn = "test -W default {args}"
+
+
 [tool.mypy]
 check_untyped_defs = true
 disallow_any_generics = false
@@ -151,11 +161,15 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 addopts = "-raXs --durations 10 --color=yes --doctest-modules"
 testpaths = [
-    "gateway_provisioners/tests/"
+    "tests/"
 ]
 filterwarnings= [
   # Fail on warnings
   "error",
+  "ignore:zmq.eventloop.ioloop is deprecated in pyzmq 17:DeprecationWarning",
+  "ignore:There is no current event loop:DeprecationWarning",
+  # In PyPy/Cython: see https://github.com/yaml/pyyaml/issues/688
+  "ignore:can't resolve package from __spec__ or __package__, falling back on __name__ and __path__:ImportWarning",
 ]
 
 [tool.black]
@@ -210,3 +224,5 @@ unfixable = [
 [tool.ruff.per-file-ignores]
 # T201 `print` found
 "gateway_provisioners/cli/*" = ["T201"]
+# N802 Function name should be lowercase
+"tests/mocks/k8s_client.py" = ["N802"]

@@ -8,7 +8,7 @@ import os
 import signal
 import socket
 import time
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from overrides import overrides
 from traitlets import Bool, Unicode, default
@@ -128,7 +128,7 @@ class YarnProvisioner(RemoteProvisionerBase):
         return self.local_proc is not None or self.application_id is not None
 
     @overrides
-    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
         self.application_id = None
         self.last_known_state = None
         self.candidate_queue = None
@@ -245,7 +245,7 @@ class YarnProvisioner(RemoteProvisionerBase):
         await super().cleanup(restart=restart)
 
     @overrides
-    async def get_provisioner_info(self) -> dict[str, Any]:
+    async def get_provisioner_info(self) -> Dict[str, Any]:
         provisioner_info = await super().get_provisioner_info()
         provisioner_info.update({"application_id": self.application_id})
         return provisioner_info
@@ -286,7 +286,7 @@ class YarnProvisioner(RemoteProvisionerBase):
                 self.detect_launch_failure()
 
     @overrides
-    def log_kernel_launch(self, cmd: list[str]) -> None:
+    def log_kernel_launch(self, cmd: List[str]) -> None:
         self.log.info(
             f"{self.__class__.__name__}: kernel launched. YARN RM: {self.rm_addr}, "
             f"pid: {self.local_proc.pid}, Kernel ID: {self.kernel_id}, cmd: '{cmd}'"
@@ -325,7 +325,7 @@ class YarnProvisioner(RemoteProvisionerBase):
             timeout_message = f"KernelID: '{self.kernel_id}' launch timeout due to: {reason}"
             self.log_and_raise(TimeoutError(timeout_message))
 
-    async def _shutdown_application(self) -> tuple[Optional[bool], str]:
+    async def _shutdown_application(self) -> Tuple[Optional[bool], str]:
         """Shuts down the YARN application, returning None if final state is confirmed, False otherwise."""
         result = False
         self._kill_app_by_id(self.application_id)
@@ -342,7 +342,7 @@ class YarnProvisioner(RemoteProvisionerBase):
 
         return result, state
 
-    def _confirm_yarn_queue_availability(self, **kwargs: dict[str, Any]) -> None:
+    def _confirm_yarn_queue_availability(self, **kwargs: Dict[str, Any]) -> None:
         """
         Submitting jobs to yarn queue and then checking till the jobs are in running state
         will lead to orphan jobs being created in some scenarios.
@@ -447,7 +447,7 @@ class YarnProvisioner(RemoteProvisionerBase):
             reason = f"Yarn Compute Resource is unavailable after {self.yarn_resource_check_wait_time} seconds"
             self.log_and_raise(TimeoutError(reason))
 
-    def _initialize_resource_manager(self, **kwargs: Optional[dict[str, Any]]) -> None:
+    def _initialize_resource_manager(self, **kwargs: Optional[Dict[str, Any]]) -> None:
         """Initialize the Hadoop YARN Resource Manager instance used for this kernel's lifecycle."""
 
         endpoints = None
