@@ -71,7 +71,7 @@ lint: build-dependencies ## check style with flake8
 	pre-commit run --all-files
 
 test: ## run tests quickly with the default Python
-	pytest -v --cov tests tests
+	hatch run test:test
 
 docs: ## generate Sphinx HTML documentation, including API docs
 	hatch run docs:api

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.4"]
+requires = ["hatchling>=1.11"]
 build-backend = "hatchling.build"
 
 [project]
@@ -125,6 +125,13 @@ features = ["docs"]
 [tool.hatch.envs.docs.scripts]
 build = "make -C docs html SPHINXOPTS='-W'"
 api = "sphinx-apidoc -o docs/source/api -f -E gateway_provisioners"
+
+[tool.hatch.envs.test]
+features = ["test"]
+[tool.hatch.envs.test.scripts]
+test = "python -m pytest -vv {args}"
+nowarn = "test -W default {args}"
+
 
 [tool.mypy]
 check_untyped_defs = true
