@@ -44,7 +44,6 @@ class MockResourceManager:
 
     def __init__(self, **kwargs):
         self.endpoints = kwargs.get("service_endpoints")
-        pass
 
     def get_active_endpoint(self):
         assert len(self.endpoints) > 0

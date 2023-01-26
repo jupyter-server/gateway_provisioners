@@ -108,7 +108,6 @@ class MockRbacAuthorizationV1Api:
 class MockK8sClient:
     def __init__(self, **kwargs):
         self.args = kwargs
-        pass
 
     @classmethod
     def CoreV1Api(cls):
