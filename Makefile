@@ -35,17 +35,22 @@ DIST_FILES=$(WHEEL_FILE) $(SDIST_FILE)
 
 TOREE_LAUNCHER_FILES:=$(shell find gateway_provisioners/kernel-launchers/scala/toree-launcher/src -type f -name '*')
 
+WHICH_SBT:=which sbt >> /dev/null
+
 echo-version:
 	@echo $(VERSION)
 
-build-dependencies: ## install packages necessary to complete the build
+check-sbt:
+	@$(WHICH_SBT) || (echo "WARNING: sbt does not appear to be installed, please check https://www.scala-sbt.org/1.x/docs/Setup.html. Continuing...")
+
+build-dependencies: check-sbt ## Install packages necessary to complete the build
 	@pip install -q pre-commit
 	@pip install -q build
 	@pip install -q hatchling
 
-clean: clean-build clean-pyc clean-test ## remove all build, test, coverage and Python artifacts
+clean: clean-build clean-pyc clean-test ## Remove all build, test, coverage, and Python artifacts
 
-clean-build: ## remove build artifacts
+clean-build: # Remove build artifacts
 	make -C docs clean
 	rm -rf build/
 	rm -rf dist/
@@ -56,31 +61,31 @@ clean-build: ## remove build artifacts
 	find . -name '*.egg-info' -exec rm -rf {} +
 	find . -name '*.egg' -exec rm -f {} +
 
-clean-pyc: ## remove Python file artifacts
+clean-pyc: # Remove Python file artifacts (pyc files, __pycache__, etc.)
 	find . -name '*.pyc' -exec rm -f {} +
 	find . -name '*.pyo' -exec rm -f {} +
 	find . -name '*~' -exec rm -f {} +
 	find . -name '__pycache__' -exec rm -rf {} +
 
-clean-test: ## remove test and coverage artifacts
+clean-test: # Remove test and coverage artifacts
 	rm -f .coverage
 	rm -rf htmlcov/
 	rm -rf .pytest_cache
 
-lint: build-dependencies ## check style with flake8
+lint: build-dependencies ## Check style and linting using pre-commit
 	pre-commit run --all-files
 
-test: ## run tests quickly with the default Python
+test: ## Run tests with the currently active Python version
 	hatch run test:test
 
-docs: ## generate Sphinx HTML documentation, including API docs
+docs: ## Generate Sphinx HTML documentation, including API docs
 	hatch run docs:api
 	hatch run docs:build
 
-release: dist ## package and upload a release
+release: dist ## Package and upload a release using twine
 	twine upload dist/*
 
-dist: wheel sdist  ## builds wheel and source packages
+dist: wheel sdist  ## Build wheel and source distributions
 	ls -l dist
 
 sdist: $(SDIST_FILE)
@@ -93,7 +98,7 @@ wheel: gateway_provisioners/kernel-launchers/scala/lib $(WHEEL_FILE)
 $(WHEEL_FILE): $(WHEEL_FILES)
 	python -m build --wheel
 
-install: clean wheel ## install the package to the active Python's site-packages
+install: clean wheel ## Install the package to the active Python's site-packages
 	pip uninstall -y remote-provisioners
 	pip install dist/gateway_provisioners-*.whl
 
