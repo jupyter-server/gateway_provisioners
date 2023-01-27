@@ -36,7 +36,7 @@ content-type = "text/markdown"
 
 
 [project.license]
-file = "LICENSE"
+file = "LICENSE.md"
 
 [project.urls]
 Homepage = "https://jupyter.org"
@@ -132,6 +132,8 @@ features = ["test"]
 test = "python -m pytest -vv {args}"
 nowarn = "test -W default {args}"
 
+[tool.jupyter-releaser.options]
+post-version-spec = "dev"
 
 [tool.mypy]
 check_untyped_defs = true
