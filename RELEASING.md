@@ -21,17 +21,33 @@ git clean -dffx
 
 ### Update the version and apply the tag
 
-```bash
+````bash
 echo "Enter new version"
 read new_version
 hatch version ${new_version}
+git commit -a -m "Release ${new_version}"
 git tag -a ${new_version} -m "Release ${new_version}"
-```
+
+If building the changelog notes via the releases page (prior to jupyter-releaser) you'll want to push
+the tags so the changelog generator can know what to reference, otherwise this can be skipped.
+
+```bash
+git push origin
+git push --tags origin
+````
+
+````
 
 ### Build the artifacts
 
 ```bash
 make clean dist
+````
+
+### Run tests
+
+```bash
+make test
 ```
 
 ### Update the version back to dev
@@ -40,7 +56,11 @@ make clean dist
 echo "Enter dev version"
 read dev_version
 hatch version ${dev_version}
+git commit -a -m "Back to dev"
 git push origin $(git branch --show-current)
+
+If tags were not pushed previously (to build changelog) push now.
+git push --tags origin
 ```
 
 ### Publish the artifacts to pypi
