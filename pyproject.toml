@@ -253,4 +253,4 @@ unfixable = [
 "tests/mocks/k8s_client.py" = ["N802"]
 
 [tool.check-wheel-contents]
-ignore = ["W002"]
+ignore = ["W002", "W004"]
