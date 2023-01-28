@@ -54,7 +54,7 @@ jobs:
           command: |
             make test
 
- check_release:
+  check_release:
    name: Check Release
    runs-on: ubuntu-latest
    steps:
