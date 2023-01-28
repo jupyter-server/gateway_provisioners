@@ -251,3 +251,6 @@ unfixable = [
 "gateway_provisioners/cli/*" = ["T201"]
 # N802 Function name should be lowercase
 "tests/mocks/k8s_client.py" = ["N802"]
+
+[tool.check-wheel-contents]
+ignore = ["W002"]
