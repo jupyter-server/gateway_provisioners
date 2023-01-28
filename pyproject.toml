@@ -116,6 +116,7 @@ docker-swarm-provisioner = "gateway_provisioners.docker_swarm:DockerSwarmProvisi
 
 [tool.hatch.version]
 path = "gateway_provisioners/_version.py"
+validate-bump = false
 
 [tool.hatch.build]
 artifacts = ["gateway_provisioners/kernel-launchers/scala/lib"]
