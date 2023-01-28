@@ -153,7 +153,7 @@ fmt = [
 ]
 
 [tool.jupyter-releaser.hooks]
-before-build-python = ["make clean lint dist install"]
+before-build-python = ["pip install -e .[dev]", "make clean lint dist install"]
 
 [tool.jupyter-releaser.options]
 post-version-spec = "dev"
