@@ -1,4 +1,4 @@
-.PHONY: build-dependencies clean-test clean-pyc clean-build docs help \
+.PHONY: clean-test clean-pyc clean-build docs help \
 	gp-spark-base gp-kernel-py gp-kernel-py gp-kernel-spark-py \
 	gp-kernel-r gp-kernel-spark-r gp-kernel-scala
 .DEFAULT_GOAL := help
@@ -43,11 +43,6 @@ echo-version:
 check-sbt:
 	@$(WHICH_SBT) || (echo "WARNING: sbt does not appear to be installed, please check https://www.scala-sbt.org/1.x/docs/Setup.html. Continuing...")
 
-build-dependencies: check-sbt ## Install packages necessary to complete the build
-	@pip install -q pre-commit
-	@pip install -q build
-	@pip install -q hatchling
-
 clean: clean-build clean-pyc clean-test ## Remove all build, test, coverage, and Python artifacts
 
 clean-build: # Remove build artifacts
@@ -72,8 +67,8 @@ clean-test: # Remove test and coverage artifacts
 	rm -rf htmlcov/
 	rm -rf .pytest_cache
 
-lint: build-dependencies ## Check style and linting using pre-commit
-	pre-commit run --all-files
+lint: ## Check style and linting
+	hatch run lint:style
 
 test: ## Run tests with the currently active Python version
 	hatch run test:test
