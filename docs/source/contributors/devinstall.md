@@ -41,7 +41,6 @@ corresponding [`Makefile`](https://github.com/gateway-experiments/gateway_provis
 Entering `make` with no parameters yields the following:
 
 ```text
-build-dependencies             Install packages necessary to complete the build
 clean-images                   Remove all docker images.  Targets clean-base-images and clean-kernel-images can also be used.
 clean                          Remove all build, test, coverage, and Python artifacts
 dist                           Build wheel and source distributions
