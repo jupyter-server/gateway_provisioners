@@ -1,6 +1,7 @@
 name: Builds
 on:
   push:
+    branches: ["main"]
   pull_request:
 
 jobs:
@@ -36,7 +37,7 @@ jobs:
           curl -L -o $HOME/.sbt/launchers/1.3.12/sbt-launch.jar https://repo1.maven.org/maven2/org/scala-sbt/sbt-launch/1.3.12/sbt-launch.jar
       - name: Install Python dependencies
         run: |
-          pip install ".[test]"
+          pip install ".[dev]"
       - name: Log Python dependencies
         run: |
           pip freeze
@@ -54,22 +55,18 @@ jobs:
           command: |
             make test
 
-# Disabled for now, tokens are not in place
-#  check_release:
-#    name: Check Release
-#    runs-on: ubuntu-latest
-#    steps:
-#      - name: Checkout
-#        uses: actions/checkout@v3
-#      - name: Base Setup
-#        uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
-#      - name: Install Dependencies
-#        run: |
-#          pip install -e .
-#      - name: Check Release
-#        uses: jupyter-server/jupyter_releaser/.github/actions/check-release@v2
-#        with:
-#          token: ${{ secrets.GITHUB_TOKEN }}
+  check_release:
+   name: Check Release
+   runs-on: ubuntu-latest
+   steps:
+     - name: Checkout
+       uses: actions/checkout@v3
+     - name: Base Setup
+       uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
+     - name: Check Release
+       uses: jupyter-server/jupyter_releaser/.github/actions/check-release@v2
+       with:
+         token: ${{ secrets.GITHUB_TOKEN }}
 
   link_check:
     name: Check Links
@@ -131,7 +128,7 @@ jobs:
     needs:
       - build
       - link_check
-      # - check_release
+      - check_release
       # - test_minimum_versions
       - build_docs
       - test_sdist
