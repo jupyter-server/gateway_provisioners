@@ -475,11 +475,14 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
 
         This method is overridden by subclasses which should call super().add_optional_config_entries().
         """
-        if self.authorized_users and list(self.authorized_users) != self.authorized_users_default():
+        if (
+            self.authorized_users
+            and list(self.authorized_users) != self._authorized_users_default()
+        ):
             config_stanza["authorized_users"] = list(self.authorized_users)
         if (
             self.unauthorized_users
-            and list(self.unauthorized_users) != self.unauthorized_users_default()
+            and list(self.unauthorized_users) != self._unauthorized_users_default()
         ):
             config_stanza["unauthorized_users"] = list(self.unauthorized_users)
         if self.port_range and self.port_range != self.port_range_default_value:
