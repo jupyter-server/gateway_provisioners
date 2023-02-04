@@ -15,9 +15,9 @@ in the kernel startup request's JSON body will be available to the kernel for it
 ```text
   KERNEL_GID=<from user> or 100
     Container-based provisioners only. This value represents the group id in which the container
-    will run. The default value is 100 representing the users group - which is how all kernel
-    images produced by Enterprise Gateway are built.  See also KERNEL_UID.
-    Kubernetes: Warning - If KERNEL_GID is set it is strongly recommened that feature-gate
+    will run. The default value is 100 representing the users group - which is the default group ID
+    when building images from within the Gateway Provisioners project.  See also KERNEL_UID.
+    Kubernetes: Warning - If KERNEL_GID is set it is strongly recommended that feature-gate
     RunAsGroup be enabled, otherwise, this value will be ignored and the pod will run as
     the root group id.  As a result, the setting of this value into the Security Context
     of the kernel pod is commented out in the kernel-pod.yaml file and must be enabled
@@ -27,9 +27,9 @@ in the kernel startup request's JSON body will be available to the kernel for it
     value listed in its supplemental groups.
 
   KERNEL_EXECUTOR_IMAGE=<from kernel.json process-proxy stanza> or KERNEL_IMAGE
-    Kubernetees w/ Spark provisioners only. This indicates the image that Spark on Kubernetes
-    will use for the its executors.  Although this value could come from the user, its strongly
-    recommended that the process-proxy stanza of the corresponding kernel's kernelspec
+    Kubernetees w/ Spark provisioners only. This indicates the image that Spark-based Kubernetes
+    deployments will use for the its executors.  Although this value could come from the user, its strongly
+    recommended that the kernel-provisioner stanza of the corresponding kernel's kernelspec
     (kernel.json) file be updated to include the image name.  If no image name is
     provided, the value of KERNEL_IMAGE will be used.
 
@@ -40,7 +40,7 @@ in the kernel startup request's JSON body will be available to the kernel for it
     of the user setting this value to ensure the options passed are appropriate relative to
     the target environment.  Because this variable contains space-separate values, it requires
     appropriate quotation.  For example, to use with the notebook docker image
-    jupyterhub/k8s-singleuser-sample , the environment variable would look something like this:
+    jupyterhub/k8s-singleuser-sample, the environment variable would look something like this:
 
     docker run ... -e KERNEL_EXTRA_SPARK_OPTS=\"--conf spark.driver.memory=2g
     --conf spark.executor.memory=2g\" ... jupyterhub/k8s-singleuser-sample
@@ -53,33 +53,34 @@ in the kernel startup request's JSON body will be available to the kernel for it
   KERNEL_IMAGE=<from user> or <from kernel.json process-proxy stanza>
     Container-based provisioners only. This indicates the image to use for the kernel in
     containerized environments - Kubernetes or Docker.  Although it can be provided by the
-    user, it is strongly recommended that the process-proxy stanza of the corresponding
+    user, it is strongly recommended that the kernel-provisioner stanza of the corresponding
     kernel's kernelspec (kernel.json) file be updated to include the image name.
 
-  KERNEL_LAUNCH_TIMEOUT=<from user> or EG_KERNEL_LAUNCH_TIMEOUT
+  KERNEL_LAUNCH_TIMEOUT=<from user> or GP_KERNEL_LAUNCH_TIMEOUT
     Indicates the time (in seconds) to allow for a kernel's launch.  This value should
     be submitted in the kernel startup if that particular kernel's startup time is
-    expected to exceed that of the EG_KERNEL_LAUNCH_TIMEOUT set when Enterprise
-    Gateway starts.
+    expected to exceed that of the GP_KERNEL_LAUNCH_TIMEOUT set when Gateway Provisioner's
+    hosting application starts.
 
-  KERNEL_NAMESPACE=<from user> or KERNEL_POD_NAME or EG_NAMESPACE
+  KERNEL_NAMESPACE=<from user> or KERNEL_POD_NAME or GP_NAMESPACE
     Kubernetes provisioners only.  This indicates the name of the namespace to use or
     create on Kubernetes in which the kernel pod will be located.  For users wishing to
-    use a pre-created namespace, this value should be submitted in the kernel startup
-    request.  In such cases, the user must also provide KERNEL_SERVICE_ACCOUNT_NAME.
-    If not provided, Enterprise Gateway will create a new namespace for the kernel
-    whose value is derived from KERNEL_POD_NAME.  In rare cases where
-    EG_SHARED_NAMESPACE is True, this value will be set to the value of EG_NAMESPACE.
+    use a pre-created namespace, this value should be submitted in the env stanza of
+    the kernel startup request.  In such cases, the user must also provide KERNEL_SERVICE_ACCOUNT_NAME.
+    If not provided, and GP_SHARED_NAMESPACE is False, Gateway Provisioners will attempt to
+    create a new namespace for the kernel whose value is derived from KERNEL_POD_NAME.  When
+    GP_SHARED_NAMESPACE is True (the default value in Gateway Provisioners), this value will
+    be set to the value of GP_NAMESPACE.
 
-    Note that if the namespace is created by Enterprise Gateway, it will be removed
-    upon the kernel's termination.  Otherwise, the Enterprise Gateway will not
+    Note that if the namespace is created by Gateway Provisioners, it will be removed
+    upon the kernel's termination.  Otherwise, the Gateway Provisioners will not
     remove the namespace.
 
   KERNEL_POD_NAME=<from user> or KERNEL_USERNAME-KERNEL_ID
-    Kubernetes provisioners only. By default, Enterprise Gateway will use a kernel
+    Kubernetes provisioners only. By default, Gateway Provisioners will use a kernel
     pod name whose value is derived from KERNEL_USERNAME and KERNEL_ID separated by
     a hyphen ('-').  This variable is typically NOT provided by the user, but, in
-    such cases, Enterprise Gateway will honor that value.  However, when provided,
+    such cases, Gateway Provisioners will honor that value.  However, when provided,
     it is the user's responsibility that KERNEL_POD_NAME is unique relative to
     any pods in the target namespace.  In addition, the pod must NOT exist -
     unlike the case if KERNEL_NAMESPACE is provided.
@@ -88,12 +89,12 @@ in the kernel startup request's JSON body will be available to the kernel for it
     Distributed provisioner only.  When specified, this value will override the
     configured load-balancing algorithm.
 
-  KERNEL_SERVICE_ACCOUNT_NAME=<from user> or EG_DEFAULT_KERNEL_SERVICE_ACCOUNT_NAME
+  KERNEL_SERVICE_ACCOUNT_NAME=<from user> or GP_DEFAULT_KERNEL_SERVICE_ACCOUNT_NAME
     Kubernetes provisioners only.  This value represents the name of the service account
-    that Enterprise Gateway should equate with the kernel pod.  If Enterprise Gateway
+    that Gateway Provisioners should equate with the kernel pod.  If Gateway Provisioners
     creates the kernel's namespace, it will be associated with the cluster role
-    identified by EG_KERNEL_CLUSTER_ROLE.  If not provided, it will be derived
-    from EG_DEFAULT_KERNEL_SERVICE_ACCOUNT_NAME.
+    identified by GP_KERNEL_CLUSTER_ROLE.  If not provided, it will be derived
+    from EGP_DEFAULT_KERNEL_SERVICE_ACCOUNT_NAME.
 
   KERNEL_SPARKAPP_CONFIG_MAP=<from user> or None
     SparkOperator provisioner only. The name of a Kubernetes ConfigMap which will be used to
@@ -103,15 +104,15 @@ in the kernel startup request's JSON body will be available to the kernel for it
 
   KERNEL_UID=<from user> or 1000
     Container-based provisioners only. This value represents the user id in which the container
-    will run. The default value is 1000 representing the jovyan user - which is how all kernel
-    images produced by Enterprise Gateway are built.  See also KERNEL_GID.
-    Kubernetes: Warning - If KERNEL_UID is set it is strongly recommened that feature-gate
+    will run. The default value is 1000 representing the jovyan user - which is the default user ID
+    when building images from within the Gateway Provisioners project.  See also KERNEL_GID.
+    Kubernetes: Warning - If KERNEL_UID is set it is strongly recommended that feature-gate
     RunAsGroup be enabled and KERNEL_GID also be set, otherwise, the pod will run as
     the root group id. As a result, the setting of this value into the Security Context
     of the kernel pod is commented out in the kernel-pod.yaml file and must be enabled
     by the administrator.
 
-  KERNEL_USERNAME=<from user> or <enterprise-gateway-user>
+  KERNEL_USERNAME=<from user> or <gateway-provisioner-hosting-application-user>
     This value represents the logical name of the user submitting the request to
     start the kernel. Of all the KERNEL_ variables, KERNEL_USERNAME is the one that
     should be submitted in the request. In environments in which impersonation is
@@ -123,8 +124,8 @@ in the kernel startup request's JSON body will be available to the kernel for it
     appropriate volume mounts in the kernel container such that the user's notebook
     filesystem exists in the container and enables the sharing of resources used within
     the notebook. As a result, the primary use case for this is for Jupyter Hub users running
-    in Kubernetes.  When a value is provided and EG_MIRROR_WORKING_DIRS=True, Enterprise
-    Gateway will set the container's working directory to the value specified in
-    KERNEL_WORKING_DIR.  If EG_MIRROR_WORKING_DIRS is False, KERNEL_WORKING_DIR will
-    not be available for use during the kernel's launch.  See also EG_MIRROR_WORKING_DIRS.
+    in Kubernetes.  When a value is provided and GP_MIRROR_WORKING_DIRS=True, Gateway
+    Provisioners will set the container's working directory to the value specified in
+    KERNEL_WORKING_DIR.  If GP_MIRROR_WORKING_DIRS is False, KERNEL_WORKING_DIR will
+    not be available for use during the kernel's launch.  See also GP_MIRROR_WORKING_DIRS.
 ```

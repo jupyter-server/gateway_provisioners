@@ -7,7 +7,7 @@ diagrams based on demand and contributions.
 
 This diagram depicts the interactions between components when a kernel start request
 is submitted from Jupyter Lab running against [Jupyter Server configured to use
-Enterprise Gateway](../users/connecting-to-eg.md). The diagram also includes the
+Enterprise Gateway](../users/connecting-to-a-gateway.md). The diagram also includes the
 retrieval of kernel specifications (kernelspecs) prior to the kernel's initialization.
 
 ```{mermaid}

@@ -1,24 +1,37 @@
 Users Guide
 ===========
 
-Because Enterprise Gateway is a headless web server, it is typically accessed from other applications like JupyterLab and Jupyter Notebook.
+Gateway Provisioners is a package available to any application that leverages `jupyter_client`
+to manage its kernels.  While all kernels launched using Gateway Provisioners run remotely from
+their *launching application*, some require that the launching application reside within the cluster
+in which the kernels will run, while others do not.  As a result, deployment steps for a given
+Gateway provisioner will vary, and are covered in our `Operators Guide <../operators/index.html>`_ .
+
+Examples of applications that leverage `jupyter_client` include, but are not limited to, the
+following:
+
+ - `JupyterLab <https://jupyterlab.readthedocs.io/en/stable/>`_ - the next-generation web-based
+   user interface for Project Jupyter.  Kernels are typically local to the Lab server process, but
+   it is straightforward to redirect kernel management to a Gateway server.
+ - `Papermill <https://papermill.readthedocs.io/en/latest/>`_ - a tool for parameterizing and
+   executing Jupyter Notebooks.  Traditionally, this application runs kernels locally, but it too
+   can be configured to redirect kernel management to a Gateway server.
+ - `Jupyter Kernel Gateway <https://jupyter-kernel-gateway.readthedocs.io/en/latest/>`_ - a web
+   server that provides headless access to Jupyter kernels.  A Gateway server itself, all kernels
+   are launched from this server into their respective remote clusters.  It is via a Gateway server
+   that users are able to *disconnect* their local server from the remote cluster to access different
+   compute resources.
 
 .. admonition:: Use cases
 
-    - *As a data scientist, I want to run my notebook using the Enterprise Gateway such that I can free up resources on my own laptop and leverage my company's large Hadoop YARN cluster to run my compute-intensive operations.*
+    - *As a data scientist, I want to run my notebook remotely on my local cluster so that I can free up resources on my own laptop and perform compute-intensive operations on the other, more performant, nodes of my cluster.*
 
-    - *As a student, my Data Science 101 course is leveraging GPUs in our experiments.  Since GPUs are expensive, we must share resources within the university's compute cluster and configure our Notebooks to leverage the department's Enterprise Gateway server, which can then spawn container-based kernels that have access to a GPU on Kubernetes.*
-
-The following assumes an Enterprise Gateway server has been configured and deployed.  Please consult the `operators <../operators/index.html>`_ documentation to deploy and configure the Enterprise Gateway server.
-
-.. note::
-  There are two primary client applications that can use Enterprise Gateway, JupyterLab running on Jupyter Server and Jupyter Notebook.  When a reference to a *Jupyter server* (lowercase 'server') or *the server* is made, the reference applies to both Jupyter Server and Jupyter Notebook.  Generally speaking, the client-side behaviors are identical between the two, although references to Jupyter Server are preferred since it's more current.  If anything is different, that difference will be noted, otherwise, please assume discussion of the two are interchangeable.
+    - *As a student, my Data Science 101 course is leveraging GPUs in our experiments.  Since GPUs are expensive, we must share resources within the university's compute cluster and configure our Notebooks to leverage the department's Gateway server, which can then spawn container-based kernels that have access to a GPU on Kubernetes.*
 
 .. toctree::
    :maxdepth: 1
    :name: users
 
-   connecting-to-eg
+
+   connecting-to-a-gateway
    kernel-envs
-..
-   other clients (nbclient, papermill)
