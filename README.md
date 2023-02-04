@@ -37,8 +37,8 @@ files into docker images relative to the desired provisioner:
 
 **NOTE: The container-based provisioners (`KubernetesProvisioner`, `DockerSwarmProvisioner`, and `DockerProvisioner`)
 require that the hosting server also be running within the same environment/network. As a result, these
-provisioners may be better suited for use by a Gateway Server (Kernel Gateway or Enterprise Gateway) so
-as to not require the Notebook/Lab server to be in a container.**
+provisioners may be better suited for use by a Gateway Server (Kernel Gateway or Enterprise Gateway) to
+not require the Notebook/Lab server to be in a container.**
 
 ## Installation
 
@@ -60,8 +60,8 @@ jupyter k8s-spec install
 ## Contributing
 
 The [Contribution page](https://gateway-provisioners.readthedocs.io/en/latest/contributors/contrib.html) includes
-information about how to contribute to Gateway Provisioners. We encourage you to explore the other topics in our \[Contributor's Guide\]
-(https://gateway-provisioners.readthedocs.io/en/latest/contributors/index.html)
+information about how to contribute to Gateway Provisioners. We encourage you to explore the other topics in our
+[Contributor's Guide](https://gateway-provisioners.readthedocs.io/en/latest/contributors/index.html)
 like how to [set up a development environment](https://gateway-provisioners.readthedocs.io/en/latest/contributors/devinstall.html),
 gaining an understanding of the [system architecture](https://gateway-provisioners.readthedocs.io/en/latest/contributors/system-architecture.html),
-and taking a look at the \[API documentation\[(https://gateway-provisioners.readthedocs.io/en/latest/api/modules.html), among other thigns.
+and taking a look at the [API documentation](https://gateway-provisioners.readthedocs.io/en/latest/api/modules.html), among other thigns.
