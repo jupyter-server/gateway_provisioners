@@ -29,16 +29,16 @@ needs_sphinx = "3.0"
 # ones.
 extensions = [
     "myst_parser",
+    "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
     "sphinx.ext.doctest",
     "sphinx.ext.intersphinx",
     "sphinx.ext.mathjax",
+    "sphinx.ext.napoleon",
     "sphinxcontrib_github_alt",
     "sphinxcontrib.mermaid",
     "sphinxcontrib.openapi",
     "sphinxemoji.sphinxemoji",
-    "sphinx_copybutton",
-    "sphinx.ext.autodoc",
-    "sphinx.ext.autosummary",
     "sphinx_autodoc_typehints",
 ]
 
@@ -51,7 +51,7 @@ templates_path = ["_templates"]
 # The suffix(es) of source filenames.
 source_suffix = {
     ".rst": "restructuredtext",
-    ".txt": "markdown",
+    ".txt": "text",
     ".md": "markdown",
 }
 
@@ -62,7 +62,7 @@ source_suffix = {
 master_doc = "index"
 
 # General information about the project.
-project = "Jupyter Enterprise Gateway"
+project = "Gateway Provisioners"
 copyright = "2022, Project Jupyter"
 author = "Jupyter Server Team"
 
@@ -131,7 +131,6 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 html_theme = "pydata_sphinx_theme"
-# html_theme = "sphinx_book_theme"
 html_logo = "_static/jupyter-logo.png"
 
 # Add any paths that contain custom themes here, relative to this directory.
@@ -225,7 +224,7 @@ html_css_files = [
 # html_search_scorer = 'scorer.js'
 
 # Output file base name for HTML help builder.
-htmlhelp_basename = "EnterpriseGatewaydoc"
+htmlhelp_basename = "GatewayProvisionersdoc"
 
 # -- Options for LaTeX output ---------------------------------------------
 
@@ -246,8 +245,8 @@ latex_elements = {
 latex_documents = [
     (
         master_doc,
-        "EnterpriseGateway.tex",
-        "Enterprise Gateway Documentation",
+        "GatewayProvisioners.tex",
+        "Gateway Provisioners Documentation",
         "https://jupyter.org",
         "manual",
     ),
@@ -300,11 +299,12 @@ man_pages = [
 texinfo_documents = [
     (
         master_doc,
-        "remmote_provisioners",
-        "Remote Provisioners Documentation",
+        "gateway_provisioners",
+        "Gateway Provisioners Documentation",
         author,
-        "RemoteProvisioners",
-        "One line description of project.",
+        "GatewayProvisioners",
+        "Gateway Provisioners provides kernel provisioners that interact with kernels launched into resource-managed "
+        "clusters or otherwise run remotely from the launching server.",
         "Miscellaneous",
     ),
 ]

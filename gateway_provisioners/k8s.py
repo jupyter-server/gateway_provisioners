@@ -28,7 +28,7 @@ from .container import ContainerProvisionerBase
 urllib3.disable_warnings()
 
 # Default logging level of kubernetes produces too much noise - raise to warning only.
-logging.getLogger("kubernetes").setLevel(os.environ.get("EG_KUBERNETES_LOG_LEVEL", logging.WARNING))
+logging.getLogger("kubernetes").setLevel(os.environ.get("GP_KUBERNETES_LOG_LEVEL", logging.WARNING))
 
 k8s_provisioner_namespace = os.environ.get("GP_NAMESPACE", "default")
 default_kernel_service_account_name = os.environ.get(
@@ -36,7 +36,7 @@ default_kernel_service_account_name = os.environ.get(
 )
 kernel_cluster_role = os.environ.get("GP_KERNEL_CLUSTER_ROLE", "cluster-admin")
 
-# Since provisioners are a single-user scenario (not going through EG), use a shared namespace.
+# Since provisioners are a single-user scenario (not going through EG), use a shared namespace by default.
 shared_namespace = bool(os.environ.get("GP_SHARED_NAMESPACE", "True").lower() == "true")
 kpt_dir = os.environ.get("GP_POD_TEMPLATE_DIR", "/tmp")  # noqa: S108
 
