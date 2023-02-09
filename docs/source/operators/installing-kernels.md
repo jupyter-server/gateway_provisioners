@@ -1,6 +1,6 @@
-# Installing supported kernels (common)
+# Installing Supported Kernels (Servers)
 
-Gateway Provisioners includes kernel specifications that support the following kernels:
+Gateway Provisioners includes tooling to create kernel specifications that support the following kernels:
 
 - IPython kernel (Python)
 - Apache Toree (Scala)
@@ -16,12 +16,12 @@ kernel specification) must be installed on every node of the cluster available t
 For example, run `pip install ipykernel` on each applicable node.
 
 Note: This step is **not** required for the Scala (Apache Toree) Kernel as that can be expressed as a
-dependency in the `spark_submit` invocation where the package is copied during launch.
+dependency in the `spark-submit` invocation where the package is copied during launch.
 ```
 
 ## Python Kernel (IPython kernel)
 
-The IPython kernel comes pre-installed with Anaconda and we have tested with its default version
+The IPython kernel comes pre-installed with Anaconda, and we have tested with its default version
 of [IPython kernel](https://ipython.readthedocs.io/en/stable/).
 
 ```bash

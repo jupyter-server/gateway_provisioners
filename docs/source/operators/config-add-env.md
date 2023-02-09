@@ -1,6 +1,6 @@
 # Additional environment variables
 
-Besides those environment variables associated with configurable options, the following environment variables can
+In addition to those environment variables associated with configurable options, the following environment variables can
 also be used to influence functionality:
 
 ```text

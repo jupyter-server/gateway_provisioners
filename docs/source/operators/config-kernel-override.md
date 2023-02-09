@@ -13,16 +13,8 @@ The following enumerates the set of per-kernel configuration overrides:
 Unless noted otherwise, these values only apply to provisioners derived from `RemoteProvisioner`.
 ```
 
-- `remote_hosts`: This provisioner configuration entry can be used to override
-  `c.RemoteProvisionerConfigMixin.remote_hosts`. Any values specified in the config dictionary
-  override the globally defined values. This applies to all `DistributedProvisioner` kernels.
-- `yarn_endpoint`: This provisioner configuration entry can be used to override
-  `c.RemoteProvisionerConfigMixin.yarn_endpoint`.
-  Any values specified in the config dictionary override the globally defined values. These
-  apply to all `YarnProvisioner` kernels. Note that you'll likely be required to specify a
-  different `HADOOP_CONF_DIR` setting in the kernel.json's `env` stanza in order of the
-  `spark-submit` command to target the appropriate YARN cluster. This applies to all
-  `YarnProvisioner` kernels.
+### `RemoteProvisioner` per-kernel overrides
+
 - `authorized_users`: This provisioner configuration entry can be used to override
   `c.RemoteProvisionerConfigMixin.authorized_users`. Any values specified in the config
   dictionary override the globally defined values. Note that the typical use-case for
@@ -36,15 +28,30 @@ Unless noted otherwise, these values only apply to provisioners derived from `Re
   `c.RemoteProvisionerConfigMixin.port_range`. Any values specified in the config
   dictionary override the globally defined values.
 
+### `DistributedProvisioner` per-kernel overrides
+
+- `remote_hosts`: This provisioner configuration entry can be used to override
+  `c.DistributedProvisioner.remote_hosts`. Any values specified in the config dictionary
+  override the globally defined values.
+
+### `YarnProvisioner` per-kernel overrides
+
+- `yarn_endpoint`: This provisioner configuration entry can be used to override
+  `c.RemoteProvisionerConfigMixin.yarn_endpoint`.
+  Any values specified in the config dictionary override the globally defined values. These
+  apply to all `YarnProvisioner` kernels. Note that you'll likely be required to specify a
+  different `HADOOP_CONF_DIR` setting in the kernel.json's `env` stanza in order of the
+  `spark-submit` command to target the appropriate YARN cluster.
+
 ## Per-kernel environment overrides
 
 In some cases, it is useful to allow specific values that exist in a kernel.json `env` stanza to be
 overridden on a per-kernel basis. For example, if the kernel.json supports resource limitations you
-may want to allow some requests to have access to more memory or GPUs than another. Remote Provisioners
+may want to allow some requests to have access to more memory or GPUs than another. Gateway Provisioners
 enables this capability by honoring environment variables provided in the json request over
 those same-named variables in the kernel.json `env` stanza.
 
 Environment variables for which this can occur are any variables prefixed with `KERNEL_`.
 
-See [Kernel Environment Variables](../users/kernel-envs.md) in the Users documentation
-section for a complete set of recognized `KERNEL_` variables.
+See [Kernel Environment Variables](../users/kernel-envs.md) in the Users Guide
+for a complete set of recognized `KERNEL_` variables.

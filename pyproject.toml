@@ -86,9 +86,6 @@ dev = [
   "build",
   "twine",
 ]
-kerberos = [
-
-]
 yarn = [
     "yarn-api-client"
 ]

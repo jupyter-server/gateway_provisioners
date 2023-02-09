@@ -1,5 +1,193 @@
 # Docker and Docker Swarm deployments
 
+Because Gateway Provisioners is a _library package_ and not an _application_, deployment into Docker and Docker Swarm
+configurations consists of ensuring the _host application image_ has the appropriate kernel specifications in place
+along with any necessary configuration items (typically environment variables in containerized deployments) are
+present in the host application.
+
+With respect to Docker vs. Docker Swarm, Docker Swarm is more _service oriented_ and provides a better element of
+_scheduling_ whereas Docker is just about containers distributed across a cluster.
+
+## Generating Kernel Specifications
+
+Kernelspec generation for Docker and Docker Swarm deployments is performed using the `jupyter-docker-spec` command.  Because
+the host application will also reside within a docker image, the commands are usually placed into a Dockerfile
+that _extends_ an existing image.  However, some may choose to `docker exec` into a running container, perform and test
+the necessary configuration, then use `docker commit` to generate a new image.  That said, the following will assume a
+Dockerfile approach.
+
+```{admonition} Important!
+For Docker Swarm deployments, be sure to include the `--swarm` flag.  This adds the appropriate provisioner reference
+to the generated `kernel.json` file.
+```
+
+To generate a default kernel specification (where Python is the default kernel) enter:
+
+```dockerfile
+RUN jupyter docker-spec install
+```
+
+which produces the following output...
+
+```
+[I 2023-02-15 14:10:16.892 DockerSpecInstaller] Installing kernel specification for 'Docker Python'
+[I 2023-02-15 14:10:17.306 DockerSpecInstaller] Installed kernelspec docker_python in /usr/local/share/jupyter/kernels/docker_python
+```
+
+and the following set of files and directories:
+
+```
+/usr/local/share/jupyter/kernels/docker_python
+kernel.json logo-64x64.png
+
+/usr/local/share/jupyter/kernels/docker_python/scripts:
+launch_docker.py
+```
+
+where each provides the following function...
+
+- `kernel.json` - the primary file as it is what the host application uses to discover a given kernel's availability.
+  This file contains _stanzas_ that describe the kernel's argument vector (`argv`), its runtime environment (`env`),
+  its display name (`display_name`) and language (`language`), as
+  well as its kernel provisioner's configuration (`metadata.kernel_provisioner`) - which, in this case, will reflect the
+  `DockerProvisioner`.
+- `logo-64x64.png` - the icon resource corresponding to this kernel specification.  Icon resource files must be start
+  with the `logo-` prefix to be included in the kernel specification.
+- `scripts/launch_docker.py` - the "launcher" for the kernel image identified by the
+  `metadata.kernel_provisioner.config.image_name` entry.  This file can be modified to include instructions for
+  volume mounts, etc, and is compatible with both Docker and Docker Swarm - performing the applicable instructions for
+  each environment.
+
+```{seealso}
+See [Command-line Options](#command-line-options) below for how to adjust the `image-name`, `display-name`, and
+others.
+```
+
+## Other Necessary Configuration Items
+
+## Command-line Options
+
+The following is produced using `juptyer docker-spec install --help` and displays the complete set of command-line
+options:
+
+```text
+Creates a Jupyter kernel specification for use within a Docker or Docker Swarm
+cluster.
+
+Options
+=======
+The options below are convenience aliases to configurable class-options,
+as listed in the "Equivalent to" description-line of the aliases.
+To see all configurable class-options for some <cmd>, use:
+    <cmd> --help-all
+
+--swarm
+    Install kernel for use within a Docker Swarm cluster.
+    Equivalent to: [--DockerSpecInstaller.swarm=True]
+--user
+    Install to the per-user kernel registry
+    Equivalent to: [--BaseSpecApp.user=True]
+--sys-prefix
+    Install to Python's sys.prefix. Useful in conda/virtual environments.
+    Equivalent to: [--BaseSpecApp.prefix=/opt/miniconda3/envs/provisioners]
+--spark
+    Install kernelspec with Spark support.
+    Equivalent to: [--BaseSpecApp.spark=True]
+--debug
+    set log level to logging.DEBUG (maximize logging output)
+    Equivalent to: [--Application.log_level=10]
+--image-name=<Unicode>
+    The kernel image to use for this kernel specification. If this specification
+    is enabled for Spark usage, this image will be the driver image.
+    (GP_IMAGE_NAME env var)
+    Default: None
+    Equivalent to: [--DockerSpecInstaller.image_name]
+--prefix=<Unicode>
+    Specify a prefix to install to, e.g. an env. The kernelspec will be
+    installed in PREFIX/share/jupyter/kernels/
+    Default: ''
+    Equivalent to: [--BaseSpecApp.prefix]
+--kernel-name=<Unicode>
+    Install the kernel spec into a directory with this name.
+    Default: ''
+    Equivalent to: [--BaseSpecApp.kernel_name]
+--display-name=<Unicode>
+    The display name of the kernel - used by user-facing applications.
+    Default: ''
+    Equivalent to: [--BaseSpecApp.display_name]
+--language=<Unicode>
+    The language of the kernel referenced in the kernel specification.  Must be one of
+        'Python', 'R', or 'Scala'.  Default = 'Python'.
+    Default: 'Python'
+    Equivalent to: [--BaseSpecApp.language]
+--spark-home=<Unicode>
+    Specify where the spark files can be found.
+    Default: '/opt/spark'
+    Equivalent to: [--BaseSpecApp.spark_home]
+--spark-init-mode=<Unicode>
+    Spark context initialization mode.  Must be one of ['lazy', 'eager', 'none'].
+        Default = lazy.
+    Default: 'lazy'
+    Equivalent to: [--BaseSpecApp.spark_init_mode]
+--extra-spark-opts=<Unicode>
+    Specify additional Spark options.
+    Default: ''
+    Equivalent to: [--BaseSpecApp.extra_spark_opts]
+--authorized-users=<set-item-1>...
+    List of user names against which KERNEL_USERNAME will be compared. Any match
+    (case-sensitive) will allow the kernel's launch, otherwise an HTTP 403
+    (Forbidden) error will be raised.  The set of unauthorized users takes
+    precedence. This option should be used carefully as it can dramatically
+    limit who can launch kernels. To specify multiple names via the CLI,
+    separate options must be provided for each entry. (GP_AUTHORIZED_USERS env
+    var - non-bracketed, just comma-separated)
+    Default: set()
+    Equivalent to: [--BaseSpecApp.authorized_users]
+--unauthorized-users=<set-item-1>...
+    List of user names against which KERNEL_USERNAME will be compared. Any match
+    (case-sensitive) will prevent the kernel's launch and result in an HTTP 403
+    (Forbidden) error. To specify multiple names via the CLI, separate options
+    must be provided for each entry. (GP_UNAUTHORIZED_USERS env var - non-
+    bracketed, just comma-separated)
+    Default: {'root'}
+    Equivalent to: [--BaseSpecApp.unauthorized_users]
+--port-range=<Unicode>
+    Specifies the lower and upper port numbers from which ports are created. The
+    bounded values are separated by '..' (e.g., 33245..34245 specifies a range
+    of 1000 ports to be randomly selected). A range of zero (e.g., 33245..33245
+    or 0..0) disables port-range enforcement.  (GP_PORT_RANGE env var)
+    Default: '0..0'
+    Equivalent to: [--BaseSpecApp.port_range]
+--launch-timeout=<Int>
+    Number of ports to try if the specified port is not available
+    (GP_LAUNCH_TIMEOUT env var)
+    Default: 30
+    Equivalent to: [--BaseSpecApp.launch_timeout]
+--ipykernel-subclass-name=<Unicode>
+    For Python kernels, the name of the ipykernel subclass.
+    Default: 'ipykernel.ipkernel.IPythonKernel'
+    Equivalent to: [--BaseSpecApp.ipykernel_subclass_name]
+--log-level=<Enum>
+    Set the log level by value or name.
+    Choices: any of [0, 10, 20, 30, 40, 50, 'DEBUG', 'INFO', 'WARN', 'ERROR', 'CRITICAL']
+    Default: 30
+    Equivalent to: [--Application.log_level]
+--config=<Unicode>
+    Full path of a config file.
+    Default: ''
+    Equivalent to: [--JupyterApp.config_file]
+
+Examples
+--------
+
+    jupyter-docker-spec install --language=R --kernel-name=r_docker --image_name=foo/my_r_kernel_image:v4_0
+
+    jupyter-docker-spec install --swarm --kernel-name=python_swarm
+
+To see all available configurables, use `--help-all`.
+
+```
+
 FIXME - "deployments" into containerized envs is mostly
 
 1. Installing the package

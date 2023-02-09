@@ -26,7 +26,15 @@ endif
 # Set NO_CACHE=--no-cache to force docker build to not use cached layers
 NO_CACHE?=
 
+# All ARGs following SPARK_VERSION have values that must correspond to
+# that version of Spark.  See https://spark.apache.org/downloads.html
+# (OPENJDK_VERSION can be any of 8, 11, 17)
 SPARK_VERSION?=3.3.1
+SPARK_CHECKSUM?=817f89d83ffacda1c2075d28d4a649bc007a0dd4b8edeac4b2c5e0365efc34fafceff0afedc809faa0e687c6aabf0ff6dbcda329e9045692d700c63018d93171
+HADOOP_VERSION?=2
+SCALA_VERSION?=2.12
+OPENJDK_VERSION?=17
+
 
 WHEEL_FILES:=$(shell find gateway_provisioners -type f ! -path "*/__pycache__/*" )
 WHEEL_FILE:=dist/gateway_provisioners-$(VERSION)-py3-none-any.whl
@@ -125,7 +133,9 @@ DOCKER_gp-kernel-spark-r := gateway_provisioners/docker/kernel-image
 DOCKER_gp-kernel-scala := gateway_provisioners/docker/kernel-image
 
 #
-BUILD_ARGS_gp-spark-base := --build-arg SPARK_VERSION=${SPARK_VERSION}
+BUILD_ARGS_gp-spark-base := --build-arg SPARK_VERSION=${SPARK_VERSION} --build-arg HADOOP_VERSION=${HADOOP_VERSION} \
+	--build-arg SCALA_VERSION=${SCALA_VERSION} --build-arg OPENJDK_VERSION=${OPENJDK_VERSION} \
+	--build-arg SPARK_CHECKSUM=${SPARK_CHECKSUM}
 BUILD_ARGS_gp-kernel-py := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=python
 BUILD_ARGS_gp-kernel-spark-py := ${BUILD_ARGS_gp-kernel-py} --build-arg BASE_CONTAINER=${DOCKER_ORG}/gp-spark-base:$(TAG)
 BUILD_ARGS_gp-kernel-r := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=r

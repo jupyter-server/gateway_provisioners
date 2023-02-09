@@ -107,7 +107,7 @@ each be specified via separate options: --remote-hosts host1 --remote-hosts host
     @overrides
     def add_optional_config_entries(self, config_stanza: dict) -> None:
         super().add_optional_config_entries(config_stanza)
-        if self.remote_hosts and list(self.remote_hosts) != self.remote_hosts_default():
+        if self.remote_hosts and list(self.remote_hosts) != self._remote_hosts_default():
             config_stanza["remote_hosts"] = list(self.remote_hosts)
 
     @overrides
