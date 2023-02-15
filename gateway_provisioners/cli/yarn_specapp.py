@@ -8,7 +8,7 @@ from overrides import overrides
 from traitlets import Bool, Unicode, default
 
 from .._version import __version__
-from .base_app import DASK, DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecApp, R
+from .base_app import DASK, DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecSparkApp, R
 
 DEFAULT_KERNEL_NAMES = {
     PYTHON: "yarn_spark_python",
@@ -24,7 +24,7 @@ DEFAULT_DISPLAY_NAMES = {
 }
 
 
-class YarnSpecInstaller(BaseSpecApp):
+class YarnSpecInstaller(BaseSpecSparkApp):
     """CLI for extension management."""
 
     name = "jupyter-yarn-spec"
@@ -128,7 +128,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         "python-root": "YarnSpecInstaller.python_root",
         "extra-dask-opts": "YarnSpecInstaller.extra_dask_opts",
     }
-    aliases.update(BaseSpecApp.super_aliases)
+    aliases.update(BaseSpecSparkApp.aliases)
 
     flags = {
         "dask": (
@@ -144,7 +144,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             "Install kernelspec to impersonate user (requires root privileges).",
         ),
     }
-    flags.update(BaseSpecApp.super_flags)
+    flags.update(BaseSpecSparkApp.flags)
 
     @overrides
     def detect_missing_extras(self):

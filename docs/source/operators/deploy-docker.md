@@ -55,12 +55,23 @@ where each provides the following function...
   with the `logo-` prefix to be included in the kernel specification.
 - `scripts/launch_docker.py` - the "launcher" for the kernel image identified by the
   `metadata.kernel_provisioner.config.image_name` entry.  This file can be modified to include instructions for
-  volume mounts, etc, and is compatible with both Docker and Docker Swarm - performing the applicable instructions for
+  volume mounts, etc., and is compatible with both Docker and Docker Swarm - performing the applicable instructions for
   each environment.
 
 ```{seealso}
 See [Command-line Options](#command-line-options) below for how to adjust the `image-name`, `display-name`, and
 others.
+```
+
+### Generating Multiple Specifications
+
+Its common practice to support multiple languages or use different images for kernels of the same language.  For each
+of those differences, a separate installation command should be provided:
+
+```dockerfile
+RUN jupyter docker-spec install --image-name my-numpy-image:dev --kernel-name my_numpy_kernel_py --display-name "My Numpy"
+RUN jupyter docker-spec install --image-name my-tensor-image:dev --kernel-name my_tensor_kernel_py --display-name "My Tensorflow"
+RUN jupyter docker-spec install --image-name my-R-image:dev --language R --display-name "My R Kernel"
 ```
 
 ## Other Necessary Configuration Items
@@ -90,9 +101,6 @@ To see all configurable class-options for some <cmd>, use:
 --sys-prefix
     Install to Python's sys.prefix. Useful in conda/virtual environments.
     Equivalent to: [--BaseSpecApp.prefix=/opt/miniconda3/envs/provisioners]
---spark
-    Install kernelspec with Spark support.
-    Equivalent to: [--BaseSpecApp.spark=True]
 --debug
     set log level to logging.DEBUG (maximize logging output)
     Equivalent to: [--Application.log_level=10]
@@ -120,19 +128,6 @@ To see all configurable class-options for some <cmd>, use:
         'Python', 'R', or 'Scala'.  Default = 'Python'.
     Default: 'Python'
     Equivalent to: [--BaseSpecApp.language]
---spark-home=<Unicode>
-    Specify where the spark files can be found.
-    Default: '/opt/spark'
-    Equivalent to: [--BaseSpecApp.spark_home]
---spark-init-mode=<Unicode>
-    Spark context initialization mode.  Must be one of ['lazy', 'eager', 'none'].
-        Default = lazy.
-    Default: 'lazy'
-    Equivalent to: [--BaseSpecApp.spark_init_mode]
---extra-spark-opts=<Unicode>
-    Specify additional Spark options.
-    Default: ''
-    Equivalent to: [--BaseSpecApp.extra_spark_opts]
 --authorized-users=<set-item-1>...
     List of user names against which KERNEL_USERNAME will be compared. Any match
     (case-sensitive) will allow the kernel's launch, otherwise an HTTP 403
@@ -185,7 +180,6 @@ Examples
     jupyter-docker-spec install --swarm --kernel-name=python_swarm
 
 To see all available configurables, use `--help-all`.
-
 ```
 
 FIXME - "deployments" into containerized envs is mostly
