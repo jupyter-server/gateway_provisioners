@@ -90,8 +90,7 @@ _container_. As a result, the kernel will always reside on the same host as the 
 Items worth noting:
 
 1. The Swarm service or Docker container name will be composed of the launching username (`KERNEL_USERNAME`) and kernel-id.
-1. The service/container will have 3 labels applied: "kernel_id=<kernel-id>", "component=kernel", and
-1. "app=gateway-provisioners" - similar to Kubernetes.
+1. The service/container will have 3 labels applied: `"kernel_id=<kernel-id>"`, `"component=kernel"`, and `"app=gateway-provisioners"` - similar to Kubernetes.
 1. The service/container will be launched within the same docker network as the host application.
 
 ## Other Configuration Items

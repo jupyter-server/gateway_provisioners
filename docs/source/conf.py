@@ -22,7 +22,7 @@ import os
 os.environ["SPHINX_BUILD_IN_PROGRESS"] = "1"
 
 # If your documentation needs a minimal Sphinx version, state it here.
-needs_sphinx = "3.0"
+# needs_sphinx = "3.0"
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
@@ -30,9 +30,9 @@ needs_sphinx = "3.0"
 extensions = [
     "myst_parser",
     "sphinx.ext.autodoc",
-    "sphinx.ext.autosummary",
     "sphinx.ext.doctest",
     "sphinx.ext.intersphinx",
+    "sphinx.ext.autosummary",
     "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
     "sphinxcontrib_github_alt",
@@ -40,7 +40,15 @@ extensions = [
     "sphinxcontrib.openapi",
     "sphinxemoji.sphinxemoji",
     "sphinx_autodoc_typehints",
+    "sphinx_copybutton",
 ]
+
+try:
+    import enchant  # type:ignore  # noqa
+
+    extensions += ["sphinxcontrib.spelling"]
+except ImportError:
+    pass
 
 myst_enable_extensions = ["html_image"]
 myst_heading_anchors = 4  # Needs to be 4 or higher
@@ -100,7 +108,7 @@ exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
-# default_role = None
+default_role = "literal"
 
 # If true, '()' will be appended to :func: etc. cross-reference text.
 # add_function_parentheses = True
@@ -159,9 +167,14 @@ html_static_path = ["_static"]
 
 # These paths are either relative to html_static_path
 # or fully qualified paths (eg. https://...)
-html_css_files = [
-    "custom.css",
-]
+# html_css_files = [
+#     "custom.css",
+# ]
+
+html_context = {
+    # ...
+    "default_mode": "dark"
+}
 
 # Add any extra paths that contain custom files (such as robots.txt or
 # .htaccess) here, relative to this directory. These files are copied
@@ -228,16 +241,16 @@ htmlhelp_basename = "GatewayProvisionersdoc"
 
 # -- Options for LaTeX output ---------------------------------------------
 
-latex_elements = {
-    # The paper size ('letterpaper' or 'a4paper').
-    # 'papersize': 'letterpaper',
-    # The font size ('10pt', '11pt' or '12pt').
-    # 'pointsize': '10pt',
-    # Additional stuff for the LaTeX preamble.
-    # 'preamble': '',
-    # Latex figure (float) alignment
-    # 'figure_align': 'htbp',
-}
+# latex_elements = {
+# The paper size ('letterpaper' or 'a4paper').
+# 'papersize': 'letterpaper',
+# The font size ('10pt', '11pt' or '12pt').
+# 'pointsize': '10pt',
+# Additional stuff for the LaTeX preamble.
+# 'preamble': '',
+# Latex figure (float) alignment
+# 'figure_align': 'htbp',
+# }
 
 # Grouping the document tree into LaTeX files. List of tuples
 # (source start file, target name, title,
@@ -320,76 +333,6 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 # texinfo_no_detailmenu = False
-
-
-# -- Options for Epub output ----------------------------------------------
-
-# Bibliographic Dublin Core info.
-epub_title = project
-epub_author = author
-epub_publisher = author
-epub_copyright = copyright
-
-# The basename for the epub file. It defaults to the project name.
-# epub_basename = project
-
-# The HTML theme for the epub output. Since the default themes are not optimized
-# for small screen space, using the same theme for HTML and epub output is
-# usually not wise. This defaults to 'epub', a theme designed to save visual
-# space.
-# epub_theme = 'epub'
-
-# The language of the text. It defaults to the language option
-# or 'en' if the language is not set.
-# epub_language = ''
-
-# The scheme of the identifier. Typical schemes are ISBN or URL.
-# epub_scheme = ''
-
-# The unique identifier of the text. This can be a ISBN number
-# or the project homepage.
-# epub_identifier = ''
-
-# A unique identification for the text.
-# epub_uid = ''
-
-# A tuple containing the cover image and cover page html template filenames.
-# epub_cover = ()
-
-# A sequence of (type, uri, title) tuples for the guide element of content.opf.
-# epub_guide = ()
-
-# HTML files that should be inserted before the pages created by sphinx.
-# The format is a list of tuples containing the path and title.
-# epub_pre_files = []
-
-# HTML files shat should be inserted after the pages created by sphinx.
-# The format is a list of tuples containing the path and title.
-# epub_post_files = []
-
-# A list of files that should not be packed into the epub file.
-epub_exclude_files = ["search.html"]
-
-# The depth of the table of contents in toc.ncx.
-# epub_tocdepth = 3
-
-# Allow duplicate toc entries.
-# epub_tocdup = True
-
-# Choose between 'default' and 'includehidden'.
-# epub_tocscope = 'default'
-
-# Fix unsupported image types using the Pillow.
-# epub_fix_images = False
-
-# Scale large images.
-# epub_max_image_width = 0
-
-# How to display URL addresses: 'footnote', 'no', or 'inline'.
-# epub_show_urls = 'inline'
-
-# If false, no index is generated.
-# epub_use_index = True
 
 
 # Example configuration for intersphinx: refer to the Python standard library.

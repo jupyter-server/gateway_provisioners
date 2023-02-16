@@ -6,13 +6,14 @@ Gateway Provisioners includes tooling to generate kernel specifications that sup
 - Apache Toree (Scala)
 - IRKernel (R)
 
-Kernel specifications reside within the host application image and their generation is addressed in the applicable
-sections for [Kubernetes](deploy-kubernetes.md) and [Docker/DockerSwarm](deploy-docker.md).  What follows are
-instructions for how to build the kernel-based image.
+Kernel specifications reside within the host application image (or volume mount) and their generation is addressed
+in the applicable sections for [Kubernetes](deploy-kubernetes.md) and [Docker/DockerSwarm](deploy-docker.md).  What
+follows are instructions for how to build the kernel-based image.
 
 ```{tip}
-Gateway Provisioners provides a Makefile for building the various kernel images.  The instructions that follow will
-reference `make` targets to accomplish these tasks.
+Gateway Provisioners provides a [Makefile](https://github.com/gateway-experiments/gateway_provisioners/blob/main/Makefile)
+for building the various kernel images.  The instructions that follow will reference `make` targets to accomplish
+these tasks.
 ```
 
 ## Kernel-image Dockerfiles
@@ -121,6 +122,8 @@ This script becomes the image's command (`CMD`) and is placed into the image usi
 command line script.
 
 ```dockerfile
+CMD /usr/local/bin/bootstrap-kernel.sh
+
 # Install bootstrap and applicable launchers (per languages)
 RUN jupyter image-bootstrap install --languages ${KERNEL_LANG}
 
