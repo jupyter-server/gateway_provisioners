@@ -38,7 +38,7 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
         config=True,
         allow_none=True,
         help="""The image name to use when launching container-based kernels.
-                              (GP_IMAGE_NAME env var)""",
+(GP_IMAGE_NAME env var)""",
     )
 
     @default("image_name")
@@ -51,7 +51,7 @@ class ContainerProvisionerBase(RemoteProvisionerBase):
         config=True,
         allow_none=True,
         help="""The image name to use as the Spark executor image when launching
-                               container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env var)""",
+container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env var)""",
     )
 
     @default("executor_image_name")

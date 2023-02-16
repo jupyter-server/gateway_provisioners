@@ -57,6 +57,9 @@ server where the host application resides.
    deploy-yarn-cluster
    deploy-distributed
 
+
+.. _configuring-gp:
+
 Configuring Gateway Provisioners
 --------------------------------
 The Gateway Provisioners package adheres to
