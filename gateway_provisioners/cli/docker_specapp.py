@@ -73,7 +73,7 @@ enabled for Spark usage, this image will be the driver image. (GP_IMAGE_NAME env
     aliases = {
         "image-name": "DockerSpecInstaller.image_name",
     }
-    aliases.update(BaseSpecApp.super_aliases)
+    aliases.update(BaseSpecApp.aliases)
 
     flags = {
         "swarm": (
@@ -81,7 +81,7 @@ enabled for Spark usage, this image will be the driver image. (GP_IMAGE_NAME env
             "Install kernel for use within a Docker Swarm cluster.",
         ),
     }
-    flags.update(BaseSpecApp.super_flags)
+    flags.update(BaseSpecApp.flags)
 
     @overrides
     def detect_missing_extras(self):

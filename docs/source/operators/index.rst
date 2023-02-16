@@ -8,15 +8,25 @@ gateway provisioners.
 
     - *As an operator, I want to fix the bottleneck on the local server due to large number of kernels running on it and the size of each kernel (spark driver) process, by deploying the Gateway Provisioners, such that kernels can be launched as managed resources within a Hadoop YARN cluster, distributing the resource-intensive driver processes across the cluster, while still allowing the multiple data analysts to leverage the compute power of a large cluster.*
     - *As an operator, I want to constrain applications to specific port ranges so I can more easily identify issues and manage network configurations that adhere to my corporate policy.*
-    - *As an operator, I want to constrain the number of active kernels that each of my users can have at any given time.*
 
 
 Deploying Gateway Provisioners
 ------------------------------
-The deployment of Enterprise Gateway consists of several items, depending on
-the nature of the target environment.  Because this topic differs depending on
-whether the runtime environment is targeting containers or traditional servers,
-we've separated the discussions accordingly.
+When considering the deployment and configuration of Gateway Provisioners it is important
+to understand where your users notebooks will be located relative to the compute resources
+you wish to leverage.
+
+For example, if your users use notebooks on their local desktops but
+want to leverage kernels running within a Kubernetes cluster, the deployment and configuration
+of Gateway Provisioners should take place within a Gateway server (docker image) that can be remote from the
+user's desktop.
+
+If, on the other hand, your users already run within a Kubernetes cluster via JupyterHub (for example),
+then the deployment and configuration of Gateway Provisioners would take place within the Jupyter Lab container
+image that is launched on behalf of each user.
+
+Regardless of _which_ host application to update, Gateway Provisioners are deployed and configured wherever the
+kernel process is ultimately launched. In any case, the host application is using `jupyter_client` to launch kernels.
 
 Container-based deployments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -27,17 +37,16 @@ and Docker.
    :maxdepth: 1
    :name: container-deployments
 
+   installing-gp-container
+   installing-kernels-container
    deploy-kubernetes
    deploy-docker
 
 Server-based deployments
 ~~~~~~~~~~~~~~~~~~~~~~~~
-Tasks for traditional server deployments are nearly identical with respect to
-Gateway Provisioners' installation, differing slightly with how the kernel
-specifications are configured.  As a result, we marked those topics
-as "common" relative to the others.
-
-FIXME - review the "common" wording above
+Tasks for traditional server deployments are nearly identical to container-based deployments
+except the commands are not entered within a `Dockerfile`, but rather in the shell of the
+server where the host application resides.
 
 .. toctree::
    :maxdepth: 1
@@ -47,6 +56,9 @@ FIXME - review the "common" wording above
    installing-kernels
    deploy-yarn-cluster
    deploy-distributed
+
+
+.. _configuring-gp:
 
 Configuring Gateway Provisioners
 --------------------------------
@@ -58,7 +70,7 @@ environment variables.
 
 .. toctree::
    :maxdepth: 1
-   :name: configuring
+   :name: configuration
 
    config-file
    config-add-env

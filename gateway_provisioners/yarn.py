@@ -50,8 +50,8 @@ class YarnProvisioner(RemoteProvisionerBase):
         config=True,
         allow_none=True,
         help="""The http url specifying the YARN Resource Manager. Note: If this value is NOT set,
-                            the YARN library will use the files within the local HADOOP_CONFIG_DIR to determine the
-                            active resource manager. (GP_YARN_ENDPOINT env var)""",
+the YARN library will use the files within the local HADOOP_CONFIG_DIR to determine the
+active resource manager. (GP_YARN_ENDPOINT env var)""",
     )
 
     @default("yarn_endpoint")
@@ -65,10 +65,10 @@ class YarnProvisioner(RemoteProvisionerBase):
         config=True,
         allow_none=True,
         help="""The http url specifying the alternate YARN Resource Manager.  This value should
-                                be set when YARN Resource Managers are configured for high availability.  Note: If both
-                                YARN endpoints are NOT set, the YARN library will use the files within the local
-                                HADOOP_CONFIG_DIR to determine the active resource manager.
-                                (GP_ALT_YARN_ENDPOINT env var)""",
+be set when YARN Resource Managers are configured for high availability.  Note: If both
+YARN endpoints are NOT set, the YARN library will use the files within the local
+HADOOP_CONFIG_DIR to determine the active resource manager.
+(GP_ALT_YARN_ENDPOINT env var)""",
     )
 
     @default("alt_yarn_endpoint")
@@ -81,7 +81,7 @@ class YarnProvisioner(RemoteProvisionerBase):
         yarn_endpoint_security_enabled_default_value,
         config=True,
         help="""Is YARN Kerberos/SPNEGO Security enabled (True/False).
-                                          (GP_YARN_ENDPOINT_SECURITY_ENABLED env var)""",
+(GP_YARN_ENDPOINT_SECURITY_ENABLED env var)""",
     )
 
     @default("yarn_endpoint_security_enabled")
@@ -99,7 +99,7 @@ class YarnProvisioner(RemoteProvisionerBase):
         False,
         config=True,
         help="""Indicates whether impersonation will be performed during kernel launch.
-                                 (GP_IMPERSONATION_ENABLED env var)""",
+(GP_IMPERSONATION_ENABLED env var)""",
     )
 
     @default("impersonation_enabled")

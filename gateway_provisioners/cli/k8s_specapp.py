@@ -7,7 +7,7 @@ from overrides import overrides
 from traitlets import Bool, Unicode, default
 
 from .._version import __version__
-from .base_app import DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecApp, R
+from .base_app import DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecSparkApp, R
 
 DEFAULT_KERNEL_NAMES = {PYTHON: "k8s_python", SCALA: "k8s_scala", R: "k8s_r"}
 KERNEL_SPEC_TEMPLATE_NAMES = {
@@ -38,7 +38,7 @@ PROVISIONER_NAME = "kubernetes-provisioner"
 LAUNCHER_NAME = "launch_kubernetes.py"
 
 
-class K8sSpecInstaller(BaseSpecApp):
+class K8sSpecInstaller(BaseSpecSparkApp):
     """CLI for extension management."""
 
     name = "jupyter-k8s-spec"
@@ -97,10 +97,10 @@ Spark-enabled kernel specifications.  (GP_EXECUTOR_IMAGE_NAME env var)""",
         "image-name": "K8sSpecInstaller.image_name",
         "executor-image-name": "K8sSpecInstaller.executor_image_name",
     }
-    aliases.update(BaseSpecApp.super_aliases)
+    aliases.update(BaseSpecSparkApp.aliases)
 
     flags = {}
-    flags.update(BaseSpecApp.super_flags)
+    flags.update(BaseSpecSparkApp.flags)
 
     @overrides
     def detect_missing_extras(self):

@@ -40,7 +40,7 @@ def launch_docker_kernel(
     labels = {}
     labels["kernel_id"] = kernel_id
     labels["component"] = "kernel"
-    labels["app"] = "enterprise-gateway"
+    labels["app"] = "gateway-provisioners"
 
     # Capture env parameters...
     param_env = {}

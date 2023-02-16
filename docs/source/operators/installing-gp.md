@@ -1,8 +1,13 @@
-# Installing Gateway Provisioners
+# Installing Gateway Provisioners (Servers)
 
-Gateway Provisioners require `jupyter_client >= 7.0`. Attempts to install into existing environments
+These instructions are relative to the host application _server_.  For _container-based_ installations, see
+[Installing Gateway Provisioners (Containers)](installing-gp-container.md).
+
+```{admonition} Important!
+Gateway Provisioners require `jupyter_client >= 7.0`. Attempts to install Gateway Provisioners into existing environments
 with older versions of `jupyter_client` will be met with resolution warnings and no kernel provisioners
 (remote or local) will be used.
+```
 
 Base functionality is installed using either of the following commands...
 
@@ -23,8 +28,8 @@ commands should be directly replacable with `conda`.
 
 ## Optional Dependencies
 
-At this point, the GatewayProvisioners provides the _ability_ to configure kernel specifications for any of its
-kernel provisioner implementations. However, because so different target configurations are supported, the
+At this point, the Gateway Provisioners provides the _ability_ to configure kernel specifications for any of its
+kernel provisioner implementations. However, because multiple target configurations are supported, the
 libraries relative to the actual target environment should also be installed using optional dependencies.
 
 ```{note}
@@ -35,34 +40,6 @@ usable until their dependencies have been installed.
 
 GatewayProvisioners supports the following optional dependencies, each of which can be included in brackets on
 the installation command.
-
-### Kubernetes
-
-If you plan to target Kubernetes environments use:
-
-```bash
-pip install --upgrade gateway_provisioners[k8s]
-```
-
-or
-
-```bash
-mamba install -c conda-forge gateway_provisioners[k8s]
-```
-
-### Docker or DockerSwarm
-
-If you plan to target Docker or DockerSwarm environments use:
-
-```bash
-pip install --upgrade gateway_provisioners[docker]
-```
-
-or
-
-```bash
-mamba install -c conda-forge gateway_provisioners[docker]
-```
 
 ### Hadoop YARN
 
@@ -83,14 +60,14 @@ mamba install -c conda-forge gateway_provisioners[yarn]
 If you plan to target multi-node environments via SSH, nothing additional is necessary as all required libraries
 are included in the base installation.
 
-### Mixed environments
+```bash
+pip install --upgrade gateway_provisioners
+```
 
-Although unlikely, if you need to support multiple types of clusters, the optional dependencies can be combined as
-comma-seperated values. For example, to support both Kubernetes and Hadoop YARN environments from the same server,
-one would issue:
+or
 
 ```bash
-pip install --upgrade gateway_provisioners[k8s, yarn]
+mamba install -c conda-forge gateway_provisioners
 ```
 
 ## Uninstalling Gateway Provisioners
@@ -107,5 +84,5 @@ mamba uninstall gateway_provisioners
 
 ```{tip}
 To fully _complete_ the removal of gateway provisioners, any kernel specifications referencing the various
-Gateway Provisioners should be removed as well.
+Gateway Provisioners should be removed as well.  Kernel specifications can be located using `jupyter kernelspec list`.
 ```

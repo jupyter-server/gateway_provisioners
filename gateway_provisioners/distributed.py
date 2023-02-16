@@ -76,7 +76,7 @@ class DistributedProvisioner(RemoteProvisionerBase):
         default_value=[remote_hosts_default_value],
         config=True,
         help="""List of host names on which this kernel can be launched.  Multiple entries must
-                        each be specified via separate options: --remote-hosts host1 --remote-hosts host2""",
+each be specified via separate options: --remote-hosts host1 --remote-hosts host2""",
     )
 
     @default("remote_hosts")
@@ -89,9 +89,7 @@ class DistributedProvisioner(RemoteProvisionerBase):
         load_balancing_algorithm_default_value,
         config=True,
         help="""Specifies which load balancing algorithm DistributedProvisioner should use.
-            Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITHM
-            env var)
-            """,
+Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITHM env var)""",
     )
 
     @default("load_balancing_algorithm")

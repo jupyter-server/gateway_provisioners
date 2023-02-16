@@ -7,7 +7,7 @@ from overrides import overrides
 from traitlets import List, Unicode, default
 
 from .._version import __version__
-from .base_app import DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecApp, R
+from .base_app import DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecSparkApp, R
 
 DEFAULT_KERNEL_NAMES = {PYTHON: "ssh_python", SCALA: "ssh_scala", R: "ssh_r"}
 DEFAULT_DISPLAY_NAMES = {PYTHON: "Python SSH", SCALA: "Scala SSH", R: "R SSH"}
@@ -15,7 +15,7 @@ SPARK_SUFFIX = "_spark"
 SPARK_DISPLAY_NAME_SUFFIX = " (with Spark)"
 
 
-class SshSpecInstaller(BaseSpecApp):
+class SshSpecInstaller(BaseSpecSparkApp):
     """CLI for extension management."""
 
     name = "jupyter-ssh-spec"
@@ -65,10 +65,10 @@ each be specified via separate options: --remote-hosts host1 --remote-hosts host
         "remote-hosts": "SshSpecInstaller.remote_hosts",
         "spark-master": "SshSpecInstaller.spark_master",
     }
-    aliases.update(BaseSpecApp.super_aliases)
+    aliases.update(BaseSpecSparkApp.aliases)
 
     flags = {}
-    flags.update(BaseSpecApp.super_flags)
+    flags.update(BaseSpecSparkApp.flags)
 
     @overrides
     def validate_parameters(self):
@@ -107,7 +107,7 @@ each be specified via separate options: --remote-hosts host1 --remote-hosts host
     @overrides
     def add_optional_config_entries(self, config_stanza: dict) -> None:
         super().add_optional_config_entries(config_stanza)
-        if self.remote_hosts and list(self.remote_hosts) != self.remote_hosts_default():
+        if self.remote_hosts and list(self.remote_hosts) != self._remote_hosts_default():
             config_stanza["remote_hosts"] = list(self.remote_hosts)
 
     @overrides

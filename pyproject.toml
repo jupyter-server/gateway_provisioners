@@ -61,16 +61,15 @@ test = [
   "jinja2>=3.1",
 ]
 docs = [
-  "mistune<3",
+  "docutils<0.20",
+  "mistune<1.0.0",
   "myst-parser",
   "pydata_sphinx_theme",
-  "sphinx",
   "sphinx-copybutton",
-  "sphinx-markdown-tables",
-  "sphinx_book_theme",
   "sphinxcontrib-mermaid",
   "sphinxcontrib-openapi",
   "sphinxcontrib_github_alt",
+  "sphinxcontrib-spelling",
   "sphinx-autodoc-typehints",
   "sphinxemoji",
   "tornado",
@@ -85,9 +84,6 @@ dev = [
   "pre-commit",
   "build",
   "twine",
-]
-kerberos = [
-
 ]
 yarn = [
     "yarn-api-client"

@@ -252,34 +252,6 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
         config=True,
         help="""For Python kernels, the name of the ipykernel subclass.""",
     )
-
-    spark_home = Unicode(
-        os.getenv("SPARK_HOME", "/opt/spark"),
-        config=True,
-        help="""Specify where the spark files can be found.""",
-    )
-
-    spark_init_mode = Unicode(
-        DEFAULT_INIT_MODE,
-        config=True,
-        help=f"""Spark context initialization mode.  Must be one of {SPARK_INIT_MODES}.
-    Default = {DEFAULT_INIT_MODE}.""",
-    )
-
-    @validate("spark_init_mode")
-    def _spark_init_mode_validate(self, proposal: dict[str, str]) -> str:
-        value = proposal["value"]
-        try:
-            assert value.lower() in SPARK_INIT_MODES
-        except AssertionError as ae:
-            err_msg = (
-                f"Invalid Spark initialization mode value '{value}', not in {SPARK_INIT_MODES}"
-            )
-            raise TraitError(err_msg) from ae
-        return value.lower()  # always use lowercase form
-
-    extra_spark_opts = Unicode("", config=True, help="Specify additional Spark options.")
-
     # Flags
     user = Bool(
         False,
@@ -295,25 +267,20 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
         "installed in PREFIX/share/jupyter/kernels/",
     )
 
-    spark = Bool(False, config=True, help="Install kernel for use with Spark.")
-
-    super_aliases = {
+    aliases = {
         "prefix": "BaseSpecApp.prefix",
         "kernel-name": "BaseSpecApp.kernel_name",
         "display-name": "BaseSpecApp.display_name",
         "language": "BaseSpecApp.language",
-        "spark-home": "BaseSpecApp.spark_home",
-        "spark-init-mode": "BaseSpecApp.spark_init_mode",
-        "extra-spark-opts": "BaseSpecApp.extra_spark_opts",
         "authorized-users": "BaseSpecApp.authorized_users",
         "unauthorized-users": "BaseSpecApp.unauthorized_users",
         "port-range": "BaseSpecApp.port_range",
         "launch-timeout": "BaseSpecApp.launch_timeout",
         "ipykernel-subclass-name": "BaseSpecApp.ipykernel_subclass_name",
     }
-    super_aliases.update(base_aliases)
+    aliases.update(base_aliases)
 
-    super_flags = {
+    flags = {
         "user": (
             {"BaseSpecApp": {"user": True}},
             "Install to the per-user kernel registry",
@@ -321,10 +288,6 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
         "sys-prefix": (
             {"BaseSpecApp": {"prefix": sys.prefix}},
             "Install to Python's sys.prefix. Useful in conda/virtual environments.",
-        ),
-        "spark": (
-            {"BaseSpecApp": {"spark": True}},
-            "Install kernelspec with Spark support.",
         ),
         "debug": base_flags["debug"],
     }
@@ -497,11 +460,67 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
         This method is overridden by subclasses which should first call super().get_substitutions().
         """
         substitutions = {}
-        substitutions["spark_home"] = self.spark_home
-        substitutions["extra_spark_opts"] = self.extra_spark_opts
-        substitutions["spark_init_mode"] = self.spark_init_mode
         substitutions["display_name"] = self.display_name
         substitutions["install_dir"] = install_dir
         substitutions["language"] = LANGUAGE_SUBSTITUTIONS[self.language.lower()]
         substitutions["ipykernel_subclass_name"] = self.ipykernel_subclass_name
+        return substitutions
+
+
+class BaseSpecSparkApp(BaseSpecApp):
+
+    spark_home = Unicode(
+        os.getenv("SPARK_HOME", "/opt/spark"),
+        config=True,
+        help="""Specify where the spark files can be found.""",
+    )
+
+    spark_init_mode = Unicode(
+        DEFAULT_INIT_MODE,
+        config=True,
+        help=f"""Spark context initialization mode.  Must be one of {SPARK_INIT_MODES}.
+    Default = {DEFAULT_INIT_MODE}.""",
+    )
+
+    @validate("spark_init_mode")
+    def _spark_init_mode_validate(self, proposal: dict[str, str]) -> str:
+        value = proposal["value"]
+        try:
+            assert value.lower() in SPARK_INIT_MODES
+        except AssertionError as ae:
+            err_msg = (
+                f"Invalid Spark initialization mode value '{value}', not in {SPARK_INIT_MODES}"
+            )
+            raise TraitError(err_msg) from ae
+        return value.lower()  # always use lowercase form
+
+    extra_spark_opts = Unicode("", config=True, help="Specify additional Spark options.")
+
+    spark = Bool(False, config=True, help="Install kernel for use with Spark.")
+
+    aliases = {
+        "spark-home": "BaseSpecSparkApp.spark_home",
+        "spark-init-mode": "BaseSpecSparkApp.spark_init_mode",
+        "extra-spark-opts": "BaseSpecSparkApp.extra_spark_opts",
+    }
+    aliases.update(BaseSpecApp.aliases)
+
+    flags = {
+        "spark": (
+            {"BaseSpecSparkApp": {"spark": True}},
+            "Install kernelspec with Spark support.",
+        ),
+    }
+    flags.update(BaseSpecApp.flags)
+
+    def get_substitutions(self, install_dir: os.path) -> dict:
+        """
+        Gather substitution strings to inject into the templated files.
+
+        This method is overridden by subclasses which should first call super().get_substitutions().
+        """
+        substitutions = super().get_substitutions(install_dir)
+        substitutions["spark_home"] = self.spark_home
+        substitutions["extra_spark_opts"] = self.extra_spark_opts
+        substitutions["spark_init_mode"] = self.spark_init_mode
         return substitutions

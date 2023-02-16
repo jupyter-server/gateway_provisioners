@@ -118,8 +118,7 @@ LABEL KERNEL_LANG=${KERNEL_LANG}
 # Build images from appropriate source - release or local
 FROM kernel-image AS package-release
 # Install remote provisioners from PYPI
-# TODO - uncomment once we have a release
-#RUN pip install gateway_provisioners
+RUN pip install gateway_provisioners
 
 # LOCAL (dev) build
 FROM kernel-image AS package-local

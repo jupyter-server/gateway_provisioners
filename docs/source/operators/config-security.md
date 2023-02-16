@@ -102,7 +102,7 @@ communicating with YARN via the YARN APIs.
 
 `GP_YARN_ENDPOINT_SECURITY_ENABLED` indicates the requirement to use SPNEGO authentication/authorization
 when connecting with the YARN APIs and can also be conveyed via the boolean configuration option
-`c.RemoteProvisionerConfigMixin.yarn_endpoint_security_enabled` (default = False)
+`c.YarnProvisioner.yarn_endpoint_security_enabled` (default = False)
 
 ### Impersonation in Standalone or YARN Client Mode
 
@@ -137,7 +137,7 @@ enabled/disabled via the environment variable `GP_ENABLE_TUNNELING=False`. Note,
 configuration file support for this variable.
 
 Note that SSH by default validates host keys before connecting to remote hosts and the connection
-will fail for invalid or unknown hosts. Remote Provisioners honors this requirement, and invalid
+will fail for invalid or unknown hosts. Gateway Provisioners honors this requirement, and invalid
 or unknown hosts will cause tunneling to fail. Please perform necessary steps to validate all
 hosts before enabling SSH tunneling, such as:
 
@@ -147,7 +147,7 @@ hosts before enabling SSH tunneling, such as:
 ## Using Generic Security Service (Kerberos)
 
 Gateway Provisioners has support for SSH connections using GSS (for example Kerberos), which
-enables its deployment without the use of an ssh key. The `RP_REMOTE_GSS_SSH` environment
+enables its deployment without the use of an ssh key. The `GP_REMOTE_GSS_SSH` environment
 variable can be used to control this behavior.
 
 ```{seealso}

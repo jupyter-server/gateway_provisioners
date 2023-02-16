@@ -40,7 +40,7 @@ kernel_cluster_role = os.environ.get("GP_KERNEL_CLUSTER_ROLE", "cluster-admin")
 shared_namespace = bool(os.environ.get("GP_SHARED_NAMESPACE", "True").lower() == "true")
 kpt_dir = os.environ.get("GP_POD_TEMPLATE_DIR", "/tmp")  # noqa: S108
 
-app_name = os.environ.get("GP_APP_NAME", "k8s-provisioner")
+app_name = os.environ.get("GP_APP_NAME", "gateway-provisioners")
 
 if (
     "SPHINX_BUILD_IN_PROGRESS" not in os.environ
