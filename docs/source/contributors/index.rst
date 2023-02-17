@@ -1,7 +1,7 @@
 Contributors Guide
 ==================
 
-These pages target people who are interested in contributing directly to the Jupyter Enterprise Gateway Project.
+These pages target people who are interested in contributing directly to the Gateway Provisioners Project.
 
 .. admonition:: Use cases
 
