@@ -47,7 +47,8 @@ dist                           Build wheel and source distributions
 docs                           Generate Sphinx HTML documentation, including API docs
 images                         Build all docker images.  Targets base-images and kernel-images can also be used.
 install                        Install the package to the active Python's site-packages
-lint                           Check style and linting using pre-commit
+lint-fix                       Run lint with updates enabled
+lint                           Check style and linting
 push-images                    Push all docker images.  Targets push-base-images and push-kernel-images can also be used.
 release                        Package and upload a release using twine
 test                           Run tests with the currently active Python version

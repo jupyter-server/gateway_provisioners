@@ -78,6 +78,9 @@ clean-test: # Remove test and coverage artifacts
 lint: ## Check style and linting
 	hatch run lint:style
 
+lint-fix: ## Run lint with updates enabled
+	hatch run lint:fmt
+
 test: ## Run tests with the currently active Python version
 	hatch run test:test
 
