@@ -3,16 +3,16 @@
 A new implementation for a [_kernel launcher_](../contributors/system-architecture.md#kernel-launchers) becomes
 necessary when you want to introduce another kind of kernel to an existing configuration. Out of the box, Gateway
 Provisioners provides [kernel launchers](https://github.com/gateway-experiments/gateway_provisioners/tree/main/gateway_provisioners/kernel-launchers)
-that support the IPython kernel, the Apache Toree scala kernel, and the R kernel - IRKernel. There are other
-"language-agnostic kernel launchers" provided by Remote Provisioners, but those are used in container environments
-to start the container or pod where the "kernel image" uses one of the three _language-based_ launchers to start
-the kernel within the container.
+that support the IPython kernel ([and subclasses thereof](#invoking-subclasses-of-ipykernelkernelbasekernel)), the
+Apache Toree scala kernel, and the R kernel - IRKernel. There are other "language-agnostic kernel launchers"
+provided by Remote Provisioners, but those are used in container environments to start the container or pod where
+the "kernel image" uses one of the three _language-based_ launchers to start the kernel within the container.
 
 Its generally recommended that the launcher be written in the language of the kernel, but that is not a requirement
 so long as the launcher can start and manage the kernel's lifecycle and issue interrupts (if the kernel does not
 support message-based interrupts itself).
 
-To reiterate, the four tasks of a kernel launcher are:
+The four tasks of a kernel launcher are:
 
 1. Create the necessary connection information based on the five zero-mq ports, a signature key and algorithm
    specifier, along with a _server listener_ socket.
@@ -37,6 +37,9 @@ The port used between the host application and the kernel launcher, known as the
 adhere to the port range. It is not required that this port be ZeroMQ (and is not a ZMQ port in existing
 implementations).
 
+Here's where the Python (and R) [ports are selected](https://github.com/gateway-experiments/gateway_provisioners/blob/main/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L163-L180),
+adhering to any port range restrictions.
+
 ## Encrypting the Connection Information
 
 The next task of the kernel launcher is sending the connection information back to the host server. Prior to doing
@@ -44,7 +47,7 @@ this, the connection information, including the communication port, is encrypted
 16-byte key. The AES key is then encrypted using the public key specified in the `public_key` parameter. These
 two fields (the AES-encrypted payload and the public-key-encrypted AES key) are then included into a JSON
 structure that also include the launcher's version information and base64 encoded. Here's such an example
-from the [Python kernel launcher](https://github.com/gateway-experiments/gateway_provisioners/blob/main/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L77-L100).
+from the [Python (and R) kernel launchers](https://github.com/gateway-experiments/gateway_provisioners/blob/main/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L77-L100).
 
 The payload is then [sent back on a socket](https://github.com/gateway-experiments/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L102-L139)
 identified by the `--response-address` option.
@@ -72,31 +75,47 @@ To specify an alternate subclass, add `--kernel-class-name` (along with the spec
 the `kernel.json` file's `argv` stanza. Gateway Provisioner's Python launcher will import that class and pass it as
 a parameter to `IPKernelApp.initialize()`.
 
+````{tip}
+When generating kernel specfiications via the CLI tooling, this option is available via the
+`--ipykernel-subclass-name` parameter.
+
+For example, to generate the equivalent of the JSON below, enter:
+```bash
+jupyter ssh-spec install --ipykernel-subclass-name echo_kernel.kernel.EchoKernel --kernel-name echo --display-name Echo
+```
+````
+
 Here's an example `kernel.json` file that launches the "echo" kernel using the `DistributedProvisioner`:
 
 ```JSON
 {
-  "display_name": "Echo",
-  "language": "text",
-  "metadata": {
-    "kernel_provisioner": {
-      "provisioner_name": "distributed-provisioner"
-    }
-  },
   "argv": [
     "python",
     "/usr/local/share/jupyter/kernels/echo/scripts/launch_ipykernel.py",
-    "--RemoteProcessProxy.kernel-id",
+    "--kernel-id",
     "{kernel_id}",
+    "--port-range",
+    "{port_range}",
     "--response-address",
     "{response_address}",
     "--public-key",
     "{public_key}",
-    "--spark-context-initialization-mode",
-    "none",
     "--kernel-class-name",
     "echo_kernel.kernel.EchoKernel"
-  ]
+  ],
+  "env": {},
+  "display_name": "Echo",
+  "language": "python",
+  "interrupt_mode": "signal",
+  "metadata": {
+    "debugger": true,
+    "kernel_provisioner": {
+      "provisioner_name": "distributed-provisioner",
+      "config": {
+        "launch_timeout": 30
+      }
+    }
+  }
 }
 ```
 
@@ -110,19 +129,26 @@ provisioner will run.
 The last task that must be performed by a kernel launcher is to listen on the communication port for work. There are
 currently two requests sent on the port, a signal event and a shutdown request.
 
+### Signal Event
+
 The signal event is of the form `{"signum": n}` where the string `'signum'` indicates a signal event and `'n'` is
 an integer specifying the signal number to send to the kernel. Typically, the value of 'n' is `2` representing
 `SIGINT` and used to interrupt any current processing. As more kernels adopt a message-based interrupt approach,
 this will not be as common. Gateway Provisioners also use this event to perform its `poll()` implementation by
 sending `{"signum": 0}`. Raising a signal of 0 to a process is a common way to determine the process is still alive.
 
+### Shutdown Request
+
 A shutdown request is sent when the Gateway Provisioners has typically terminated the kernel, and it's just performing
 its final cleanup. The form of this request is `{"shutdown": 1}`. This is what instructs the launcher to abandon
 listening on the communication socket and to exit.
 
+Here's an example from the Python (and R) server listener code of
+[handling host-initiated requests](https://github.com/gateway-experiments/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L231-L245).
+
 ## Other Parameters
 
 Besides `--port-range`, `--public-key`, and `--response-address`, the kernel launcher needs to support
-`--kernel-id` that indicates the kernel's ID as known to the host server. It should also tolerate the
-existence of `--spark-context-initialization-mode` but, unless applicable for Spark environments, should only
-support values of `"none"` for this option.
+`--kernel-id` that indicates the kernel's ID as known to the host server (mostly for log reconciliation). It
+should also tolerate the existence of `--spark-context-initialization-mode` but, unless applicable for Spark
+environments, should only support values of `"none"` for this option.
