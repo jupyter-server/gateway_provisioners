@@ -13,6 +13,7 @@ from typing import Any
 
 from jupyter_client.kernelspec import KernelSpec, KernelSpecManager
 from jupyter_core.application import JupyterApp, base_aliases, base_flags
+from jupyter_core.paths import SYSTEM_JUPYTER_PATH, jupyter_data_dir
 from overrides import overrides
 from traitlets import Bool, Instance, TraitError, Unicode, default, validate
 
@@ -267,6 +268,12 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
         "installed in PREFIX/share/jupyter/kernels/",
     )
 
+    replace = Bool(
+        False,
+        config=True,
+        help="If a kernel specification already exists in the destination, allow for its replacement.",
+    )
+
     aliases = {
         "prefix": "BaseSpecApp.prefix",
         "kernel-name": "BaseSpecApp.kernel_name",
@@ -284,6 +291,10 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
         "user": (
             {"BaseSpecApp": {"user": True}},
             "Install to the per-user kernel registry",
+        ),
+        "replace": (
+            {"BaseSpecApp": {"replace": True}},
+            "Allow replacement of existing kernel specification",
         ),
         "sys-prefix": (
             {"BaseSpecApp": {"prefix": sys.prefix}},
@@ -331,34 +342,50 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
     def install_files(self):
         """Assembles kernel-specs, launchers and resources into staging directory, then installs as kernel-spec."""
 
+        # Before setting up staging area, check if kernel spec already exists and no replacement has been requested
+        dest_dir, temp_dir = self._replace_existing()
+
         # create staging dir
         staging_dir = self._create_staging_directory()
 
         # copy appropriate resource files
         self._copy_kernel_spec_files(staging_dir)
 
-        # install to destination
-        self.log.info(f"Installing kernel specification for '{self.display_name}'")
-        self.install_dir = self.kernel_spec_manager.install_kernel_spec(
-            staging_dir,
-            kernel_name=self.kernel_name,
-            user=self.user,
-            prefix=self.prefix,
-        )
-        self._delete_directory(staging_dir)
-        # If we're installing a scala kernel and don't have the toree jar file, issue
-        # a warning indicating that the scala kernel needs that file in its kernelspec
-        # directory hierarchy.
-        if self.launcher_dir_name in [SCALA] and not self.toree_jar_path:
-            kspec_toree_jar_location = os.path.join(self.install_dir, "lib")
-            self.log.warning(
-                "The Apache Toree kernel is either not installed or it's jar file cannot be determined. "
-                f"Please ensure that the Toree jar file is placed into '{kspec_toree_jar_location}' "
-                f"prior to using the kernel."
+        try:
+            # install to destination
+            self.log.info(f"Installing kernel specification for '{self.display_name}'")
+            self.install_dir = self.kernel_spec_manager.install_kernel_spec(
+                staging_dir,
+                kernel_name=self.kernel_name,
+                user=self.user,
+                prefix=self.prefix,
             )
+            self._delete_directory(staging_dir)
+            # If we're installing a scala kernel and don't have the toree jar file, issue
+            # a warning indicating that the scala kernel needs that file in its kernelspec
+            # directory hierarchy.
+            if self.launcher_dir_name in [SCALA] and not self.toree_jar_path:
+                kspec_toree_jar_location = os.path.join(self.install_dir, "lib")
+                self.log.warning(
+                    "The Apache Toree kernel is either not installed or it's jar file cannot be determined. "
+                    f"Please ensure that the Toree jar file is placed into '{kspec_toree_jar_location}' "
+                    f"prior to using the kernel."
+                )
+            # Apply substitutions to kernel.json file
+            self._finalize_kernel_json()
 
-        # Apply substitutions to kernel.json file
-        self._finalize_kernel_json()
+        except Exception as ex:
+            # We encountered an exception.  If we're in replace mode, revert temp directory back to destination
+            if temp_dir:
+                shutil.rmtree(dest_dir)
+                shutil.copytree(src=temp_dir, dst=dest_dir, dirs_exist_ok=True)
+                self.log.warning(
+                    f"An exception was encountered while finalizing the kernel specification and "
+                    f"the previous contents have been restored. The exception was: {ex}"
+                )
+        finally:
+            if temp_dir:
+                shutil.rmtree(temp_dir)
 
     def _copy_kernel_spec_files(self, staging_dir: str):
         """Copies the launcher, resource and kernel-spec files to the staging directory."""
@@ -465,6 +492,33 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
         substitutions["language"] = LANGUAGE_SUBSTITUTIONS[self.language.lower()]
         substitutions["ipykernel_subclass_name"] = self.ipykernel_subclass_name
         return substitutions
+
+    def _replace_existing(self) -> tuple[str, str]:
+        temp_dir = ""
+        destination_dir = self._get_destination_dir()
+        kernel_json = os.path.join(destination_dir, "kernel.json")
+        if os.path.exists(kernel_json):
+            if not self.replace:
+                err_msg = (
+                    f"A kernel specification exists at '{destination_dir}' and '--replace' "
+                    f"has not been specified.  Terminating."
+                )
+                raise SystemExit(err_msg)
+            else:
+                temp_dir = tempfile.mkdtemp()
+                shutil.copytree(src=destination_dir, dst=temp_dir, dirs_exist_ok=True)
+        return destination_dir, temp_dir
+
+    def _get_destination_dir(self) -> str:
+        """This method is essentially oa copy of `_get_destination_dir` from jupyter_client/kernelspec.py"""
+        if self.user:
+            return os.path.join(jupyter_data_dir(), "kernels", self.kernel_name)
+        elif self.prefix:
+            return os.path.join(
+                os.path.abspath(self.prefix), "share", "jupyter", "kernels", self.kernel_name
+            )
+        else:
+            return os.path.join(SYSTEM_JUPYTER_PATH[0], "kernels", self.kernel_name)
 
 
 class BaseSpecSparkApp(BaseSpecApp):
