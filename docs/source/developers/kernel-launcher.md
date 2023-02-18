@@ -119,9 +119,9 @@ Here's an example `kernel.json` file that launches the "echo" kernel using the `
 }
 ```
 
-```{admonition} Important!
-The referenced `kernel-class-name` package must first be properly installed on all nodes where the associated
-provisioner will run.
+```{attention}
+The referenced `kernel-class-name` package must be properly installed on all nodes/images where the associated
+kernel will run.
 ```
 
 ## Listening for Interrupt and Shutdown Requests

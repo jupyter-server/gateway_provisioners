@@ -48,7 +48,7 @@ Gateway Provisioners provides the `jupyter-ssh-spec` to generate kernel specific
 
 ```{admonition} Important!
 :class: warning
-All the kernel *specifications* configured to use the `DistributedProvisioner` must be on all
+All kernel *specifications* configured to use the `DistributedProvisioner` must reside on all
 nodes to which there's a reference in the remote hosts configuration and located in the same location
 as they appear on the primary node!  As a result, it is recommended they first be generated on the primary
 node, then copied (in their entirety) to each applicable node of the cluster.

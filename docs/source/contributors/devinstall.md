@@ -1,24 +1,30 @@
 # Development Workflow
 
-Here are instructions for setting up a development environment for the \[Gateway Provisioners\]https://github.com/gateway-experiments/gateway_provisioners)
+Here are instructions for setting up a development environment for the
+[Gateway Provisioners](https://github.com/gateway-experiments/gateway_provisioners)
 project. It also includes common steps in the developer workflow such as building Gateway Provisioners,
-running tests, building docs, packaging kernel specifications, etc.
+running tests, building docs, etc.
 
 ## Prerequisites
+
+There are a couple of globally-scoped commands that are necessary to build Gateway Provisioners, `make` and `sbt`.
 
 ### `make`
 
 Our build framework is based on `make` so please ensure that [GNU make](https://www.gnu.org/software/make/) is
-installed on your system.  Note: if you use the typical `python -m build --wheel` command, it will bypass
-the build of the Scala launcher (see next item).
+installed on your system.
+
+```{admonition} Important!
+:class: warning
+If you use the typical `python -m build --wheel` or `hatch run build` commands, the Scala Launcher build (see next item)
+will not occur!  Always use `make dist` to build the distribution.
+```
 
 ### `sbt`
 
 Our Scala launcher is built using `sbt`
 ([Scala Build Tool](https://www.scala-sbt.org/index.html)).  Please check
 [here](https://www.scala-sbt.org/1.x/docs/Setup.html) for installation instructions for your platform.
-Our `make build-dependencies` target will check that `sbt` is in your path and issue a warning
-if it can't find such a file, but continues with the build.
 
 ## Clone the repo
 
@@ -27,7 +33,7 @@ Clone this repository into a local directory.
 ```bash
 # make a directory under your HOME directory to put the source code
 mkdir -p ~/projects
-cd !$
+cd ~/projects
 
 # clone this repo
 git clone https://github.com/gateway-experiments/gateway_provisioners.git
@@ -56,18 +62,32 @@ test                           Run tests with the currently active Python versio
 
 A typical sequence of commands might include the following:
 
-```bash
-# clean the environment
-make clean
+- Clean the current build environment
+  ```bash
+  make clean
+  ```
+- Apply changes and ensure updates pass lint
+  ```bash
+  make lint
+  ```
+- If lint-related errors are present, they can usually be fixed using `lint-fix`
+  ```bash
+  make lint-fix
+  ```
+- Build the distribution
+  ```bash
+  make dist
+  ```
+- Run tests via Makefile (`pytest -v`)
+  ```bash
+  make test
+  ```
+- Build the images
+  ```bash
+  make images
+  ```
 
-# apply changes and ensure updates pass lint
-make lint
-
-# build and install changes
-make install
-
-# run tests via Makefile (and manually)
-make test
-
-# checkin and push commits as necessary
+```{seealso}
+See [Kernel-image Dockerfiles](operators/installing-kernels-container.md#kernel-image-dockerfiles) in our
+Operators Guide for additional information regarding image Dockerfiles, build arguments, etc.
 ```

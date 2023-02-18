@@ -6,11 +6,10 @@ These pages target people who are interested in contributing directly to the Gat
 .. admonition:: Use cases
 
     - *As a contributor, I want to learn more about kernel management within the Jupyter ecosystem.*
-    - *As a contributor, I want to make Enterprise Gateway a more stable service for my organization and the community as a whole.*
-    - *As a contributor, I'm interested in adding the ability for Enterprise Gateway to be highly available and fault tolerant.*
+    - *As a contributor, I want to make Gateway Provisioners more stable for my organization and the community as a whole.*
 
 .. note::
-   As a *contributor*, we encourage you to be familiar with all of the guides (Users, Developers, Operators) to best support Enterprise Gateway.  This guide provides an overview of Enterprise Gateway along with instructions on how to get set up.
+   As a *contributor*, we encourage you to be familiar with all of the guides (`Users <../users/index.html>`_, `Developers <../developers/index.html>`_, `Operators <../operators/index.html>`_) to best support Gateway Provisioners.  This guide provides an overview of Gateway Provisioners along with instructions on how to get set up.
 
 
 .. toctree::
@@ -18,9 +17,7 @@ These pages target people who are interested in contributing directly to the Gat
    :name: contributors
 
    contrib
-   system-architecture
-   docker
    devinstall
+   system-architecture
    sequence-diagrams
-   API Docs <../api/modules>
-   debug
+   related-resources
