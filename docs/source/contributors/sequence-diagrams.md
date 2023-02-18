@@ -3,45 +3,47 @@
 The following consists of various sequence diagrams you might find helpful. We plan to add
 diagrams based on demand and contributions.
 
-## Kernel launch: Jupyter Lab to Enterprise Gateway
+## Kernel Launch: Web Application to Kernel
 
 This diagram depicts the interactions between components when a kernel start request
-is submitted from Jupyter Lab running against [Jupyter Server configured to use
-Enterprise Gateway](../users/connecting-to-a-gateway.md). The diagram also includes the
-retrieval of kernel specifications (kernelspecs) prior to the kernel's initialization.
+is submitted from a Web application running against a host application in which Gateway
+Provisioners has been configured.
 
-```{mermaid}
-    sequenceDiagram
-        participant JupyterLab
-        participant JupyterServer
-        participant EnterpriseGateway
-        participant Provisioner
-        participant Kernel
-        participant ResourceManager
-        Note left of JupyterLab: fetch kernelspecs
-        JupyterLab->>JupyterServer: https GET api/kernelspecs
-        JupyterServer->>EnterpriseGateway: https GET api/kernelspecs
-        EnterpriseGateway-->>JupyterServer: api/kernelspecs response
-        JupyterServer-->>JupyterLab: api/kernelspecs response
+```{seqdiag}
+   :align: "center"
+   :caption: "Kernel Launch: Web Application to Kernel"
 
-        Note left of JupyterLab: kernel initialization
-        JupyterLab->>JupyterServer: https POST api/sessions
-        JupyterServer->>EnterpriseGateway: https POST api/kernels
-        EnterpriseGateway->>Provisioner: launch_process()
-        Provisioner->>Kernel: launch kernel
-        Provisioner->>ResourceManager: confirm startup
-        Kernel-->>Provisioner: connection info
-        ResourceManager-->>Provisioner: state & host info
-        Provisioner-->>EnterpriseGateway: complete connection info
-        EnterpriseGateway->>Kernel: TCP socket requests
-        Kernel-->>EnterpriseGateway: TCP socket handshakes
-        EnterpriseGateway-->>JupyterServer: api/kernels response
-        JupyterServer-->>JupyterLab: api/sessions response
+seqdiag {
+   edge_length = 180;
+   span_height = 15;
+   WebApplication  [label = "Web Application"];
+   HostApplication  [label = "Host Application"];
+   KernelManager  [label = "Kernel Manager"];
+   Provisioner;
+   Kernel;
+   ResourceManager  [label = "Resource Manager"];
 
-        JupyterLab->>JupyterServer: ws GET api/kernels
-        JupyterServer->>EnterpriseGateway: ws GET api/kernels
-        EnterpriseGateway->>Kernel: kernel_info_request message
-        Kernel-->>EnterpriseGateway: kernel_info_reply message
-        EnterpriseGateway-->>JupyterServer: websocket upgrade response
-        JupyterServer-->>JupyterLab: websocket upgrade response
+  === Kernel Launch ===
+
+  WebApplication -> HostApplication [label = "https POST api/kernels "];
+  HostApplication -> KernelManager [label = "start_kernel() "];
+  KernelManager -> Provisioner [label = "launch_process() "];
+
+  Provisioner -> Kernel [label = "launch kernel"];
+  Provisioner -> ResourceManager [label = "confirm startup"];
+  Kernel --> Provisioner [label = "connection info"];
+  ResourceManager --> Provisioner [label = "state & host info"];
+  Provisioner --> KernelManager [label = "complete connection info"];
+  KernelManager -> Kernel [label = "TCP socket requests"];
+  Kernel --> KernelManager [label = "TCP socket handshakes"];
+  KernelManager --> HostApplication [label = "kernel-id"];
+  HostApplication --> WebApplication [label = "api/kernels response"];
+
+  === Websocket Negotiation ===
+
+  WebApplication -> HostApplication [label = "ws GET api/kernels"];
+  HostApplication -> Kernel [label = "kernel_info_request message"];
+  Kernel --> HostApplication [label = "kernel_info_reply message"];
+  HostApplication --> WebApplication [label = "websocket upgrade response"];
+}
 ```

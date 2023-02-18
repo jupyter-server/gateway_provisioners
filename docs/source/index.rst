@@ -47,4 +47,3 @@ Table of Contents
    Operators <operators/index>
    Developers <developers/index>
    Contributors <contributors/index>
-   Other <other/index>

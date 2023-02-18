@@ -3,7 +3,7 @@
 These instructions are relative to the host application _server_.  For _container-based_ installations, see
 [Installing Gateway Provisioners (Containers)](installing-gp-container.md).
 
-```{admonition} Important!
+```{attention}
 Gateway Provisioners require `jupyter_client >= 7.0`. Attempts to install Gateway Provisioners into existing environments
 with older versions of `jupyter_client` will be met with resolution warnings and no kernel provisioners
 (remote or local) will be used.

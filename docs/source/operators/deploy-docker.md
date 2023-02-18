@@ -16,7 +16,7 @@ that _extends_ an existing image.  However, some may choose to `docker exec` int
 the necessary configuration, then use `docker commit` to generate a new image.  That said, the following will assume a
 Dockerfile approach.
 
-```{admonition} Important!
+```{attention}
 For Docker Swarm deployments, be sure to include the `--swarm` flag.  This adds the appropriate provisioner reference
 to the generated `kernel.json` file.
 ```
