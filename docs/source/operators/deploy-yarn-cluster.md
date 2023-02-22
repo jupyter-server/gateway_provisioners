@@ -30,15 +30,15 @@ to facilitate the integration between Apache Spark and Hadoop YARN components:
 
 - `SPARK_HOME` must point to the Apache Spark installation path
 
-```
-SPARK_HOME:/usr/hdp/current/spark2-client  # For HDP distribution
+```bash
+export SPARK_HOME=/usr/hdp/current/spark2-client  # For HDP distribution
 ```
 
 - GP_YARN_ENDPOINT: Must point to the YARN resource manager endpoint if the host application is
   remote from the YARN cluster
 
-```
-GP_YARN_ENDPOINT=http://${YARN_RESOURCE_MANAGER_FQDN}:8088/ws/v1/cluster
+```bash
+export GP_YARN_ENDPOINT=http://${YARN_RESOURCE_MANAGER_FQDN}:8088/ws/v1/cluster
 ```
 
 ```{note}
@@ -51,8 +51,8 @@ YARN cluster is configured for high availability.
 If server is remote from the YARN cluster (i.e., no `HADOOP_CONF_DIR`) and the YARN cluster is
 configured for high availability, then the alternate endpoint should also be specified...
 
-```
-GP_ALT_YARN_ENDPOINT=http://${ALT_YARN_RESOURCE_MANAGER_FQDN}:8088/ws/v1/cluster #Common to YARN deployment
+```bash
+export GP_ALT_YARN_ENDPOINT=http://${ALT_YARN_RESOURCE_MANAGER_FQDN}:8088/ws/v1/cluster #Common to YARN deployment
 ```
 
 ## Generating Kernel Specifications
@@ -67,14 +67,14 @@ jupyter yarn-spec install
 
 which produces the following output...
 
-```
+```text
 [I 2023-02-08 09:48:48.685 YarnSpecInstaller] Installing kernel specification for 'Spark Python (YARN Cluster)'
 [I 2023-02-08 09:48:49.048 YarnSpecInstaller] Installed kernelspec yarn_spark_python in /usr/local/share/jupyter/kernels/yarn_spark_python
 ```
 
 and the following set of files and directories:
 
-```
+```text
 /usr/local/share/jupyter/kernels/yarn_spark_python
 kernel.json logo-64x64.png
 
@@ -112,11 +112,11 @@ toree kernel (`toree-assembly-TOREE_VERSION.jar`)
 ```
 
 ```{tip}
-For shared environments (typical in Gateway server deploymetns) we recommend installing kernel specifications
+For shared environments (typical in Gateway server deployments) we recommend installing kernel specifications
 into a shared folder like `/usr/local/share/jupyter/kernels` (which is the default).  This is the location in
 which they reside within container images and where many of the document references assume they'll be located.
 
-Alternate locatiions can be specified via option `--user` (which places the set of files within the invoking user's
+Alternate locations can be specified via option `--user` (which places the set of files within the invoking user's
 home directory structure) or option `--sys-prefix` (which places the set of files within the active python
 environment's directory structure).
 ```

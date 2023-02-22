@@ -2,7 +2,7 @@
 
 A new implementation for a [_kernel launcher_](../contributors/system-architecture.md#kernel-launchers) becomes
 necessary when you want to introduce another kind of kernel to an existing configuration. Out of the box, Gateway
-Provisioners provides [kernel launchers](https://github.com/gateway-experiments/gateway_provisioners/tree/main/gateway_provisioners/kernel-launchers)
+Provisioners provides [kernel launchers](https://github.com/jupyter-server/gateway_provisioners/tree/main/gateway_provisioners/kernel-launchers)
 that support the IPython kernel ([and subclasses thereof](#invoking-subclasses-of-ipykernelkernelbasekernel)), the
 Apache Toree scala kernel, and the R kernel - IRKernel. There are other "language-agnostic kernel launchers"
 provided by Remote Provisioners, but those are used in container environments to start the container or pod where
@@ -27,7 +27,7 @@ The four tasks of a kernel launcher are:
 If your target kernel exists, then there is probably support for creating ZeroMQ ports. If this proves difficult,
 you may be able to take a _hybrid approach_ where the connection information, encryption and listener portion of
 things is implemented in Python, while invocation takes place in the native language. This is how the
-[R kernel-launcher](https://github.com/gateway-experiments/gateway_provisioners/tree/main/gateway_provisioners/kernel-launchers/R/scripts)
+[R kernel-launcher](https://github.com/jupyter-server/gateway_provisioners/tree/main/gateway_provisioners/kernel-launchers/R/scripts)
 support is implemented.
 
 When creating the connection information, your kernel launcher should handle the possibility that the `--port-range`
@@ -37,7 +37,7 @@ The port used between the host application and the kernel launcher, known as the
 adhere to the port range. It is not required that this port be ZeroMQ (and is not a ZMQ port in existing
 implementations).
 
-Here's where the Python (and R) [ports are selected](https://github.com/gateway-experiments/gateway_provisioners/blob/main/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L163-L180),
+Here's where the Python (and R) [ports are selected](https://github.com/jupyter-server/gateway_provisioners/blob/main/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L163-L180),
 adhering to any port range restrictions.
 
 ## Encrypting the Connection Information
@@ -47,18 +47,18 @@ this, the connection information, including the communication port, is encrypted
 16-byte key. The AES key is then encrypted using the public key specified in the `public_key` parameter. These
 two fields (the AES-encrypted payload and the public-key-encrypted AES key) are then included into a JSON
 structure that also include the launcher's version information and base64 encoded. Here's such an example
-from the [Python (and R) kernel launchers](https://github.com/gateway-experiments/gateway_provisioners/blob/main/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L77-L100).
+from the [Python (and R) kernel launchers](https://github.com/jupyter-server/gateway_provisioners/blob/main/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L77-L100).
 
-The payload is then [sent back on a socket](https://github.com/gateway-experiments/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L102-L139)
+The payload is then [sent back on a socket](https://github.com/jupyter-server/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L102-L139)
 identified by the `--response-address` option.
 
 ## Invoking the Target Kernel
 
-For the R kernel launcher, the kernel is started using [`IRKernel::main()`](https://github.com/gateway-experiments/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/kernel-launchers/R/scripts/launch_IRkernel.R#L232)
+For the R kernel launcher, the kernel is started using [`IRKernel::main()`](https://github.com/jupyter-server/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/kernel-launchers/R/scripts/launch_IRkernel.R#L232)
 after the `SparkContext` is initialized based on the `spark-context-initialization-mode` parameter.
 
 The scala kernel launcher works similarly in that the Apache Toree kernel provides an
-["entrypoint" to start the kernel](https://github.com/gateway-experiments/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/kernel-launchers/scala/toree-launcher/src/main/scala/launcher/ToreeLauncher.scala#L312),
+["entrypoint" to start the kernel](https://github.com/jupyter-server/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/kernel-launchers/scala/toree-launcher/src/main/scala/launcher/ToreeLauncher.scala#L312),
 however, because the Toree kernel initializes a `SparkContext` itself, the need to do so is conveyed directly to the kernel.
 
 For the Python kernel launcher, it creates a namespace instance that contains the `SparkContext` information, if
@@ -144,7 +144,7 @@ its final cleanup. The form of this request is `{"shutdown": 1}`. This is what i
 listening on the communication socket and to exit.
 
 Here's an example from the Python (and R) server listener code of
-[handling host-initiated requests](https://github.com/gateway-experiments/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L231-L245).
+[handling host-initiated requests](https://github.com/jupyter-server/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L231-L245).
 
 ## Other Parameters
 

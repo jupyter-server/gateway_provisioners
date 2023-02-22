@@ -11,7 +11,7 @@ in the applicable sections for [Kubernetes](deploy-kubernetes.md) and [Docker/Do
 follows are instructions for how to build the kernel-based image.
 
 ```{tip}
-Gateway Provisioners provides a [Makefile](https://github.com/gateway-experiments/gateway_provisioners/blob/main/Makefile)
+Gateway Provisioners provides a [Makefile](https://github.com/jupyter-server/gateway_provisioners/blob/main/Makefile)
 for building the various kernel images.  The instructions that follow will reference `make` targets to accomplish
 these tasks.
 ```
@@ -25,8 +25,8 @@ from which the target image is derived.
 ### Spark Base Image
 
 Spark-based images will be built upon the `elyra/gp-spark-base` image, whose
-[`Dockerfile`](https://github.com/gateway-experiments/gateway_provisioners/tree/main/gateway_provisioners/docker/gp-spark-base/Dockerfile) is located in
-[`gateway_provisioners/docker/gp-spark-base`](https://github.com/gateway-experiments/gateway_provisioners/tree/main/gateway_provisioners/docker/gp-spark-base).
+[`Dockerfile`](https://github.com/jupyter-server/gateway_provisioners/tree/main/gateway_provisioners/docker/gp-spark-base/Dockerfile) is located in
+[`gateway_provisioners/docker/gp-spark-base`](https://github.com/jupyter-server/gateway_provisioners/tree/main/gateway_provisioners/docker/gp-spark-base).
 This image builds on `jupyter/docker-stacks-foundation:2022-11-15` by installing Spark.  However, that base can also be
 substituted via the build argument `BASE_CONTAINER`.
 
@@ -53,9 +53,9 @@ As with `DOCKER_ORG` and `TAG`, each of the above build arguments can be specifi
 
 ### Kernel Images
 
-The [`Dockerfile`](https://github.com/gateway-experiments/gateway_provisioners/blob/main/gateway_provisioners/docker/kernel-image/Dockerfile)
+The [`Dockerfile`](https://github.com/jupyter-server/gateway_provisioners/blob/main/gateway_provisioners/docker/kernel-image/Dockerfile)
 used to create a kernel image representing any of the supported kernels is located in
-[`gateway_provisioners/docker/kernel-image`](https://github.com/gateway-experiments/gateway_provisioners/tree/main/gateway_provisioners/docker/kernel-image).
+[`gateway_provisioners/docker/kernel-image`](https://github.com/jupyter-server/gateway_provisioners/tree/main/gateway_provisioners/docker/kernel-image).
 
 This is a [_multi-stage build_](https://docs.docker.com/build/building/multi-stage/) Dockerfile whose build options are
 driven by [`docker build` arguments](https://docs.docker.com/engine/reference/builder/#arg).  There are three primary

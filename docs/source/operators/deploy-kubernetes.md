@@ -21,14 +21,14 @@ RUN jupyter k8s-spec install
 
 which produces the following output...
 
-```
+```text
 [I 2023-02-16 10:39:37.538 K8sSpecInstaller] Installing kernel specification for 'Kubernetes Python'
 [I 2023-02-16 10:39:37.948 K8sSpecInstaller] Installed kernelspec k8s_python in /usr/local/share/jupyter/kernels/k8s_python
 ```
 
 and the following set of files and directories:
 
-```
+```text
 /usr/local/share/jupyter/kernels/docker_python
 kernel.json logo-64x64.png
 

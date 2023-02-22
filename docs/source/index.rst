@@ -28,13 +28,7 @@ becoming familiar with the roles in which you are most impacted.  These roles ar
 4. `Contributors <contributors/index.html>`_: people contributing directly to the Gateway Provisioners project.
 
 If you find gaps in our documentation, please open an issue (or better yet, a pull request) on the
-Gateway Provisioners `Github repo <https://github.com/gateway-experiments/gateway_provisioners>`_.
-
-.. note::
-   The following pages are still in transition from the `Jupyter Enterprise Gateway repository
-   <https://github.com/jupyter-server/enterprise_gateway>`_.  As a result, you will find information that pertains
-   to Enterprise Gateway, but really has no application relative to Gateway Provisioners.
-   Please bear with us in these busy (and exciting) times!
+Gateway Provisioners `Github repo <https://github.com/jupyter-server/gateway_provisioners>`_.
 
 
 Table of Contents

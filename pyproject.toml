@@ -41,8 +41,8 @@ file = "LICENSE.md"
 [project.urls]
 Homepage = "https://jupyter.org"
 Documentation = "https://gateway-provisioners.readthedocs.io/"
-Source = "https://github.com/gateway-experiments/gateway_provisioners"
-Tracker = "https://github.com/gateway-experiments/gateway_provisioners/issues"
+Source = "https://github.com/jupyter-server/gateway_provisioners"
+Tracker = "https://github.com/jupyter-server/gateway_provisioners/issues"
 
 [project.optional-dependencies]
 test = [

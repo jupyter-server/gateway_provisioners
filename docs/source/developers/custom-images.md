@@ -38,7 +38,7 @@ needs to support.
 
 #### Bootstrap-kernel.sh
 
-Gateway Provisioners provides a single [bootstrap-kernel.sh](https://github.com/gateway-experiments/gateway_provisioners/blob/main/gateway_provisioners/kernel-launchers/bootstrap/bootstrap-kernel.sh)
+Gateway Provisioners provides a single [bootstrap-kernel.sh](https://github.com/jupyter-server/gateway_provisioners/blob/main/gateway_provisioners/kernel-launchers/bootstrap/bootstrap-kernel.sh)
 script that handles the three kernel languages supported out of the box - Python, R, and Scala. When a kernel image
 is started by Gateway Provisioners, parameters used within the bootstrap-kernel.sh script are conveyed via environment
 variables. The bootstrap script is then responsible for validating and converting those parameters to meaningful
@@ -46,7 +46,7 @@ arguments to the appropriate launcher.
 
 #### Kernel Launcher
 
-The kernel launcher, as discussed [here](kernel-launcher.md) does a number of things. In particular, it creates
+The kernel launcher, as discussed [here](kernel-launcher.md), does a number of things. In particular, it creates
 the connection ports and conveys that connection information back to the host application via the socket identified
 by the response address parameter. Although not a requirement for container-based usage, it is recommended that the
 launcher be written in the same language as the kernel. (This is more of a requirement when used in applications
@@ -96,7 +96,7 @@ during the build of the docker image.
 ```{tip}
 All kernel images produced by Gateway Provisioners derive from `jupyter/docker-stacks-foundation` - which is the root
 image for all docker-stacks images.  You can see how our kernel images are built looking at
-[`kernel-image/Dockerfile`](https://github.com/gateway-experiments/gateway_provisioners/blob/main/gateway_provisioners/docker/kernel-image/Dockerfile).
+[`kernel-image/Dockerfile`](https://github.com/jupyter-server/gateway_provisioners/blob/main/gateway_provisioners/docker/kernel-image/Dockerfile).
 ```
 
 ## Deploying Your Custom Kernel Image
@@ -112,7 +112,7 @@ respectively.  Invoke the appropriate script by adding the `--image-name` parame
 custom kernel image.  For example, if your custom image is named `acme/data-sci-py:2.0` and you are targeting
 Kubernetes, issue:
 
-```bash
+```dockerfile
 RUN jupyter k8s-spec install --image-name acme/data-sci-py:2.0 --kernel-name data_sci_py --display-name 'Data Science 2.0'
 ```
 
