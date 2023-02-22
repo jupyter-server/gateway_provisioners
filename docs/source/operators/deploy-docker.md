@@ -29,14 +29,14 @@ RUN jupyter docker-spec install
 
 which produces the following output...
 
-```
+```text
 [I 2023-02-15 14:10:16.892 DockerSpecInstaller] Installing kernel specification for 'Docker Python'
 [I 2023-02-15 14:10:17.306 DockerSpecInstaller] Installed kernelspec docker_python in /usr/local/share/jupyter/kernels/docker_python
 ```
 
 and the following set of files and directories:
 
-```
+```text
 /usr/local/share/jupyter/kernels/docker_python
 kernel.json logo-64x64.png
 

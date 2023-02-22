@@ -52,7 +52,7 @@ authorization list the failure was generated.
 Failures stemming from _inclusion_ in the `unauthorized_users` list will include text similar to
 the following:
 
-```
+```text
 User 'bob' is not authorized to start kernel 'Spark - Python (YARN Mode)'. Ensure
 KERNEL_USERNAME is set to an appropriate value and retry the request.
 ```
@@ -60,7 +60,7 @@ KERNEL_USERNAME is set to an appropriate value and retry the request.
 Failures stemming from _exclusion_ from a non-empty `authorized_users` list will include text
 similar to the following:
 
-```
+```text
 User 'bob' is not in the set of users authorized to start kernel 'Spark - Python (YARN Mode)'. Ensure
 KERNEL_USERNAME is set to an appropriate value and retry the request.
 ```

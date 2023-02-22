@@ -26,7 +26,7 @@ configured.
 
 - `SPARK_HOME` must point to the Apache Spark installation path
 
-```
+```text
 SPARK_HOME:/usr/hdp/current/spark2-client  # For HDP distribution
 ```
 
@@ -70,14 +70,14 @@ jupyter ssh-spec install
 
 which produces the following output...
 
-```
+```text
 [I 2023-02-08 16:21:50.254 SshSpecInstaller] Installing kernel specification for 'Python SSH'
 [I 2023-02-08 16:21:50.485 SshSpecInstaller] Installed kernelspec ssh_python in /usr/local/share/jupyter/kernels/ssh_python
 ```
 
 and the following set of files and directories:
 
-```
+```text
 /usr/local/share/jupyter/kernels/ssh_python
 kernel.json logo-64x64.png
 
@@ -121,7 +121,7 @@ For shared environments (typical in Gateway server deployments) we recommend ins
 into a shared folder like `/usr/local/share/jupyter/kernels` (which is the default).  This is the location in
 which they reside within container images and where many of the document references assume they'll be located.
 
-Alternate locatiions can be specified via option `--user` (which places the set of files within the invoking user's
+Alternate locations can be specified via option `--user` (which places the set of files within the invoking user's
 home directory structure) or option `--sys-prefix` (which places the set of files within the active python
 environment's directory structure).
 ```
@@ -164,7 +164,6 @@ following (this one is relative to the Python kernel using defaulted parameters)
     }
   }
 }
-
 ```
 
 The `metadata` and `argv` entries for each kernel specification should be nearly identical and
@@ -178,7 +177,7 @@ You should also check the same kinds of environment and path settings in the cor
 
 The following is produced using `juptyer ssh-spec install --help` and displays the complete set of command-line options.
 
-```
+```text
 Creates a Jupyter kernel specification for use within a cluster of hosts via
 SSH.
 

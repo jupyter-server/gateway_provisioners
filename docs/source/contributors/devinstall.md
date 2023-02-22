@@ -1,7 +1,7 @@
 # Development Workflow
 
 Here are instructions for setting up a development environment for the
-[Gateway Provisioners](https://github.com/gateway-experiments/gateway_provisioners)
+[Gateway Provisioners](https://github.com/jupyter-server/gateway_provisioners)
 project. It also includes common steps in the developer workflow such as building Gateway Provisioners,
 running tests, building docs, etc.
 
@@ -36,13 +36,13 @@ mkdir -p ~/projects
 cd ~/projects
 
 # clone this repo
-git clone https://github.com/gateway-experiments/gateway_provisioners.git
+git clone https://github.com/jupyter-server/gateway_provisioners.git
 ```
 
 ## Make
 
 Gateway Provisioner's build environment is centered around `make` and the
-corresponding [`Makefile`](https://github.com/gateway-experiments/gateway_provisioners/blob/main/Makefile).
+corresponding [`Makefile`](https://github.com/jupyter-server/gateway_provisioners/blob/main/Makefile).
 
 Entering `make` with no parameters yields the following:
 
@@ -63,27 +63,44 @@ test                           Run tests with the currently active Python versio
 A typical sequence of commands might include the following:
 
 - Clean the current build environment
-  ```bash
+
+  ```text
   make clean
   ```
+
 - Apply changes and ensure updates pass lint
-  ```bash
+
+  ```text
   make lint
   ```
+
 - If lint-related errors are present, they can usually be fixed using `lint-fix`
-  ```bash
+
+  ```text
   make lint-fix
   ```
+
 - Build the distribution
-  ```bash
+
+  ```text
   make dist
   ```
+
 - Run tests via Makefile (`pytest -v`)
-  ```bash
+
+  ```text
   make test
   ```
+
+- Build the docs
+
+  ```text
+  make docs
+  ```
+
 - Build the images
-  ```bash
+
+  ```text
   make images
   ```
 

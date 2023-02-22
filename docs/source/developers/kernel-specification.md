@@ -56,7 +56,7 @@ Here's an example from a generated kernel specification for Spark running in a H
 }
 ```
 
-where [`run.sh`](https://github.com/gateway-experiments/gateway_provisioners/blob/main/gateway_provisioners/kernel-specs/yarn_spark_python/bin/run.sh)
+where [`run.sh`](https://github.com/jupyter-server/gateway_provisioners/blob/main/gateway_provisioners/kernel-specs/yarn_spark_python/bin/run.sh)
 issues `spark-submit` specifying the kernel launcher as the "application":
 
 ```bash
@@ -70,7 +70,7 @@ eval exec \
 ```
 
 For container-based environments, the `argv` may instead reference a script that is meant to create the container pod
-(for Kubernetes). For these, we use a [template file](https://github.com/gateway-experiments/gateway_provisioners/blob/main/gateway_provisioners/kernel-launchers/kubernetes/scripts/kernel-pod.yaml.j2)
+(for Kubernetes). For these, we use a [template file](https://github.com/jupyter-server/gateway_provisioners/blob/main/gateway_provisioners/kernel-launchers/kubernetes/scripts/kernel-pod.yaml.j2)
 that operators can adjust to meet the needs of their environment. Here's how that `kernel.json` looks:
 
 ```json

@@ -42,11 +42,11 @@ You will likely need to provide implementations for `launch_process()`, `poll()`
 reused.
 
 For example, if your provisioner is going to service remote kernels, you should consider deriving your implementation
-from the [`RemoteProvisionerBase` class](https://github.com/gateway-experiments/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/remote_provisioner.py#L75).
+from the [`RemoteProvisionerBase` class](https://github.com/jupyter-server/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/remote_provisioner.py#L75).
 If this is the case, then you'll need to implement `confirm_remote_startup()`.
 
 Likewise, if your process proxy is based on containers, you should consider deriving your implementation from
-the [`ContainerProvisionerBase` class](https://github.com/gateway-experiments/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/container.py#L32).
+the [`ContainerProvisionerBase` class](https://github.com/jupyter-server/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/container.py#L32).
 If this is the case, then you'll need to implement `get_container_status()` and `terminate_container_resources()`
 rather than `confirm_remote_startup()`, etc.
 
