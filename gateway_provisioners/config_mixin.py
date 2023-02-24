@@ -16,7 +16,6 @@ ssh_port = int(os.getenv("GP_SSH_PORT", "22"))
 
 
 class RemoteProvisionerConfigMixin(Configurable):
-
     _log_formatter_cls = LogFormatter  # traitlet default is LevelFormatter
 
     @default("log_format")

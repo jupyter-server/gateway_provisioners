@@ -143,7 +143,7 @@ def launch_kubernetes_kernel(
             with open(spark_opts_out, "w+") as soo_fd:
                 soo_fd.write(additional_spark_opts)
         else:  # If no spark_opts_out was specified, print to stdout in case this is an old caller
-            print(additional_spark_opts)  # noqa: T201
+            print(additional_spark_opts)
 
 
 def _get_spark_resources(pod_template: dict) -> str:

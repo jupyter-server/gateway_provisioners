@@ -7,10 +7,11 @@ help:
 # http://marmelab.com/blog/2016/02/29/auto-documented-makefile.html
 	@grep -E '^[a-zA-Z0-9_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
-# extract version from gateway_provisioners/_version.py - override using `make VERSION=foo target`
-VERSION?=$(shell grep ^__version__ gateway_provisioners/_version.py | awk '{print $$3}' | sed s'/"//g')
+# extract version from gateway_provisioners/_version.py - don't allow override since python -m build
+# only uses value stored in _version.py
+VERSION=$(shell grep ^__version__ gateway_provisioners/_version.py | awk '{print $$3}' | sed s'/"//g')
 
-# When building images, where to get the remote-provisioners package: "local" (wheel) or "release" (pip)
+# When building images, where to get the gateway-provisioners package: "local" (wheel) or "release" (pip)
 PACKAGE_SOURCE?=local
 
 # Docker attributes - hub organization and tag.  Modify accordingly
@@ -104,8 +105,8 @@ wheel: gateway_provisioners/kernel-launchers/scala/lib $(WHEEL_FILE)
 $(WHEEL_FILE): $(WHEEL_FILES)
 	python -m build --wheel
 
-install: clean wheel ## Install the package to the active Python's site-packages
-	pip uninstall -y remote-provisioners
+install:  ## Install the built package to the active Python's site-packages
+	pip uninstall -y gateway-provisioners
 	pip install dist/gateway_provisioners-*.whl
 
 gateway_provisioners/kernel-launchers/scala/lib: $(TOREE_LAUNCHER_FILES)

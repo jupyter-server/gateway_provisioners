@@ -11,7 +11,6 @@ from validators import TEST_USER, K8sValidator
 
 @pytest.mark.parametrize("seed_env", [{"KERNEL_USERNAME": TEST_USER}])
 async def test_lifecycle(init_api_mocks, response_manager, get_provisioner, seed_env):
-
     name = "kubernetes"
     kernel_id = str(uuid4())
     validator = K8sValidator.create_instance(

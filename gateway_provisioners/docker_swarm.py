@@ -225,7 +225,6 @@ class DockerProvisioner(ContainerProvisionerBase):
             try:
                 container.remove(force=True)  # Container still exists, attempt forced removal
             except Exception as err:
-
                 self.log.debug(
                     f"Container termination for container: {container.name} raised exception: {err}"
                 )

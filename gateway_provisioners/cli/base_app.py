@@ -522,7 +522,6 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
 
 
 class BaseSpecSparkApp(BaseSpecApp):
-
     spark_home = Unicode(
         os.getenv("SPARK_HOME", "/opt/spark"),
         config=True,
