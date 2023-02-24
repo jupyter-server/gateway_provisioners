@@ -61,7 +61,6 @@ class ServerListener:
         self.comm_socket: socket | None = None
 
     def build_connection_file(self) -> None:
-
         ports: list = self._select_ports(5)
         write_connection_file(
             fname=self.conn_filename,

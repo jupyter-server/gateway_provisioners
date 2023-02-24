@@ -17,7 +17,6 @@ YARN_SEED_ENV = {
 
 @pytest.mark.parametrize("seed_env", [YARN_SEED_ENV])
 async def test_lifecycle(init_api_mocks, response_manager, get_provisioner, seed_env):
-
     name = "yarn"
     kernel_id = str(uuid4())
     validator = YarnValidator.create_instance(

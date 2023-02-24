@@ -86,7 +86,6 @@ jupyter-image-bootstrap install --languages=Python --languages=Scala
 
     @overrides
     def detect_missing_extras(self):
-
         for lang in self.languages:
             if lang.lower() == SCALA:
                 self._detect_missing_toree_jar()

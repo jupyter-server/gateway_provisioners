@@ -39,7 +39,6 @@ class MockResponse:
 
 
 class MockResourceManager:
-
     CLUSTER_CONTAINER_MEMORY = 1024 * 1024 * 1024  # 1GB
 
     def __init__(self, **kwargs):

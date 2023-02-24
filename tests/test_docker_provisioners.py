@@ -14,7 +14,6 @@ from validators import TEST_USER, ValidatorBase
     [("docker", {"KERNEL_USERNAME": TEST_USER}), ("docker-swarm", {"KERNEL_USERNAME": TEST_USER})],
 )
 async def test_lifecycle(init_api_mocks, response_manager, get_provisioner, name, seed_env):
-
     kernel_id = str(uuid4())
     validator = ValidatorBase.create_instance(
         name, seed_env, kernel_id=kernel_id, response_manager=response_manager

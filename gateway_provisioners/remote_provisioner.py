@@ -145,7 +145,6 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
     @overrides
     async def launch_kernel(self, cmd: List[str], **kwargs: Any) -> KernelConnectionInfo:
-
         launch_kwargs = RemoteProvisionerBase._scrub_kwargs(kwargs)
         self.local_proc = gp_launch_kernel(cmd, **launch_kwargs)
         self.pid = self.local_proc.pid
@@ -251,7 +250,6 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
     @overrides
     def _finalize_env(self, env: Dict[str, str]) -> None:
-
         # add the applicable kernel_id and language to the env dict
         env["KERNEL_ID"] = self.kernel_id
 
@@ -351,7 +349,6 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         # active, even after the kernel has terminated, leading to less than graceful terminations.
 
         if self.comm_port > 0:
-
             try:
                 await self._send_listener_request({"shutdown": 1}, shutdown_socket=True)
                 self.log.debug("Shutdown request sent to listener via gateway communication port.")
