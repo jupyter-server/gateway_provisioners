@@ -1,0 +1,87 @@
+{{- if .Values.kip.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kernel-image-puller
+  namespace: {{ .Release.Namespace }}
+  labels:
+    gateway-selector: enterprise-gateway
+    app: enterprise-gateway
+    component: kernel-image-puller
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  {{- range $key, $val := .Values.global.commonLabels }}
+    {{ $key }}: "{{ $val }}"
+  {{- end }}
+spec:
+  selector:
+    matchLabels:
+      name: kernel-image-puller
+  template:
+    metadata:
+      labels:
+        name: kernel-image-puller
+        app: enterprise-gateway
+        component: kernel-image-puller
+        chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+        release: {{ .Release.Name }}
+        heritage: {{ .Release.Service }}
+      {{- range $key, $val := .Values.global.commonLabels }}
+        {{ $key }}: "{{ $val }}"
+      {{- end }}
+    spec:
+      serviceAccountName: {{ .Values.kip.serviceAccountName }}
+      containers:
+      - name: kernel-image-puller
+        image: {{ .Values.kip.image }}
+        imagePullPolicy: {{ .Values.kip.imagePullPolicy }}
+        env:
+        - name: KIP_LOG_LEVEL
+          value: {{ .Values.logLevel }}
+        - name: KIP_GATEWAY_HOST
+          value: "{{ .Values.kip.server.protocol }}://{{ .Values.kip.serviceName }}.{{ .Release.Namespace }}:{{ .Values.kip.server.port }}"
+        - name: KIP_VALIDATE_CERT
+          value: {{ .Values.kip.server.validate_cert | quote }}
+        - name: KIP_INTERVAL
+          value: !!str {{ .Values.kip.interval }}
+        - name: KIP_PULL_POLICY
+          value: {{ .Values.kip.pullPolicy }}
+        - name: KIP_CRI_ENDPOINT
+          value: "unix://{{ .Values.kip.criSocket }}"
+        {{- if .Values.kip.defaultContainerRegistry }}
+        - name: KIP_DEFAULT_CONTAINER_REGISTRY
+          value: {{ .Values.kip.defaultContainerRegistry }}
+        {{- end }}
+        # Optional authorization token passed in all requests (should match EG_AUTH_TOKEN)
+        {{- if .Values.authToken }}
+        - name: KIP_AUTH_TOKEN
+          value: {{ .Values.authToken }}
+        {{- end }}
+        {{- if .Values.kip.resources }}
+        resources:
+          {{- toYaml .Values.kip.resources | nindent 10 }}
+        {{- end }}
+
+        volumeMounts:
+        - name: cri-socket
+          mountPath: !!str {{ .Values.kip.criSocket }}  # see env KIP_CRI_ENDPOINT
+          readOnly: true
+      volumes:
+      - name: cri-socket
+        hostPath:
+          path: {{ .Values.kip.criSocket }}
+
+  {{- if .Values.kip.tolerations }}
+      tolerations:
+        {{- toYaml .Values.kip.tolerations | nindent 8 }}
+  {{- end }}
+  {{- if .Values.kip.nodeSelector }}
+      nodeSelector:
+        {{- toYaml .Values.kip.nodeSelector | nindent 8 }}
+  {{- end }}
+  {{- if .Values.kip.affinity }}
+      affinity:
+        {{- toYaml .Values.kip.affinity | nindent 8 }}
+  {{- end }}
+{{- end }}

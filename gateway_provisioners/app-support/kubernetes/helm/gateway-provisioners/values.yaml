@@ -1,0 +1,181 @@
+global:
+  # Create RBAC resources
+  rbac: true
+  # ImagePullSecrets for a ServiceAccount, list of secrets in the same namespace
+  # to use for pulling any images in pods that reference this ServiceAccount.
+  # Must be set for any cluster configured with private docker registry.
+  imagePullSecrets: []
+    # - private-registry-key
+  commonLabels: {}
+    # app.kubernetes.io/name: [your app name]
+
+# You can optionally create imagePull Secrets
+imagePullSecretsCreate:
+  enabled: false
+  annotations: {}
+    # this annotatoin allows to keep secret even if helm release is deleted
+    # "helm.sh/resource-policy": "keep"
+  secrets: []
+    # - name: "private"
+    # # base64 encoded value
+    #   --set imagePullSecretsCreate.secrets[0].data="UHJvZCBTZWNyZXQgSW5mb3JtYXRpb24K"
+    # - name: "private2"
+    #   --set imagePullSecretsCreate.secrets[1].data="UHJvZCBTZWNyZXQgSW5mb3JtYXRpb24K"
+
+# Enterprise Gateway image name and tag to use.
+image: elyra/enterprise-gateway:dev
+# Enterprise Gateway image pull policy.
+imagePullPolicy: IfNotPresent
+# K8s Enterprise Gateway Service
+service:
+  type: "NodePort"
+  externalIPs:
+    # Master public IP on which to expose EG.
+    k8sMasterPublicIP: ''
+  ports:
+    # The primary port on which Enterprise Gateway is servicing requests.
+    - name: "http"
+      port: 8888
+      targetPort: 8888
+      # nodePort: 32652 # optional nodePort
+    # The  port on which Enterprise Gateway will receive kernel connection info responses.
+    - name: "http-response"
+      port: 8877
+      targetPort: 8877
+      # nodePort: 30481 # optional nodePort
+
+deployment:
+  enabled: true
+  serviceAccountName: 'enterprise-gateway-sa'
+  terminationGracePeriodSeconds: 30
+  annotations: {}
+  resources: {}
+  # resources:
+  #   limits:
+  #     cpu: 2
+  #     memory: 10Gi
+  #   requests:
+  #     cpu: 1
+  #     memory: 2Gi
+  # Update to deploy multiple replicas of EG.
+  replicas: 1
+  tolerations: []
+  affinity: {}
+  nodeSelector: {}
+  extraEnv: {
+    # SOME_ENV_VAR_WITH_SIMPLE_VALUE: "example"
+    # SOME_ENV_VAR_WITH_LONG_VALUE: >
+    #   'this example',
+    #   'will not preserve',
+    #   'line breaks',
+    # SOME_ENV_VAR_WITH_MULTILINE_VALUE: |
+    #   this example
+    #   will preserve
+    #   line breaks
+    EG_INHERITED_ENVS: "PATH"
+  }
+
+# Log output level.
+logLevel: DEBUG
+# Whether to mirror working directories.
+mirrorWorkingDirs: false
+# Optional authorization token passed in all requests (see --EnterpriseGatewayApp.auth_token)
+authToken:
+
+kernel:
+  # Kernel cluster role created by this chart.
+  clusterRole: kernel-controller
+  # Will start kernels in the same namespace as EG if True.
+  shareGatewayNamespace: false
+  # Timeout for kernel launching in seconds.
+  launchTimeout: 60
+  # Timeout for an idle kernel before its culled in seconds. Default is 1 hour.
+  cullIdleTimeout: 3600
+  # Whether to cull idle kernels with connecting clients
+  cullConnected: false
+  # List of kernel names that are available for use. To allow additional kernelspecs without
+  # requiring redeployment (and assuming kernelspecs are mounted or otherwise accessible
+  # outside the pod), comment out (or remove) the entries, leaving only `allowedKernels:`.
+  allowedKernels:
+    - r_kubernetes
+    - python_kubernetes
+    - python_tf_kubernetes
+    - python_tf_gpu_kubernetes
+    - scala_kubernetes
+    - spark_r_kubernetes
+    - spark_python_kubernetes
+    - spark_scala_kubernetes
+    - spark_python_operator
+  # Default kernel name should be something from the allowedKernels
+  defaultKernelName: python_kubernetes
+
+kernelspecs:
+  # Optional custom data image containing kernelspecs to use.
+  image:
+  # Kernelspecs image pull policy.
+  imagePullPolicy: Always
+
+nfs:
+  enabled: false
+  # IP address of NFS server. Required if enabled.
+  internalServerIPAddress:
+
+kernelspecsPvc:
+  enabled: false
+  # PVC name. Required if want mount kernelspecs without nfs. PVC should create in the same namespace before EG deployed.
+  name:
+
+ingress:
+  ingressClassName: # available since k8s 1.18. Depending on the ingress controller, you can use annotation as alternative
+  enabled: false
+  hostName: "" # Ingress resource host
+  pathType: "Prefix"
+  path: "/"
+  annotations: {}
+  # Optional TLS section
+  # tls:
+  #   - secretName: "mysecret-name-tls"
+  #     hosts:
+  #       - myhost.example.com
+
+
+# Kernel Image Puller (daemonset)
+kip:
+  enabled: true
+  serviceAccountName: 'kernel-image-puller-sa'
+  serviceName: enterprise-gateway
+  server: # EG server properties.
+    protocol: http
+    port: 8888
+    validate_cert: false
+  podSecurityPolicy:
+    # Note: PodSecurityPolicy is deprecated as of 1.21 and removed in 1.25.
+    # Operators deploying into k8s clusters >= 1.25 that require PSP equivalency will need to
+    # look into alternatives like Gatekeeper (https://github.com/open-policy-agent/gatekeeper).
+    # Creation of PSP in KIP is disabled by default.
+    create: false
+    annotations: {}
+  # Kernel Image Puller image name and tag to use.
+  image: elyra/kernel-image-puller:dev
+  # Kernel Image Puller image pull policy.
+  imagePullPolicy: IfNotPresent
+  # Determines whether the Kernel Image Puller will pull kernel images it has previously pulled
+  pullPolicy: IfNotPresent
+  # The interval (in seconds) at which the Kernel Image Puller fetches kernelspecs to pull kernel images.
+  interval: 300
+  # The container runtime interface socket, use /run/containerd/containerd.sock for containerd installations
+  criSocket: /var/run/docker.sock
+  # Prefix to use if a registry is not already specified on image name (e.g., quay.io/elyra/kernel-py:2.5.0)
+  defaultContainerRegistry: docker.io
+  annotations: {}
+  tolerations: []
+  affinity: {}
+  nodeSelector: {}
+  resources: {}
+  # resources:
+  #   limits:
+  #     cpu: 1
+  #     memory: 1Gi
+  #   requests:
+  #     cpu: 1
+  #     memory: 1Gi
