@@ -46,6 +46,14 @@ TOREE_LAUNCHER_FILES:=$(shell find gateway_provisioners/kernel-launchers/scala/t
 
 WHICH_SBT:=which sbt >> /dev/null
 
+HELM_DESIRED_VERSION:=v3.8.2  # Pin the version of helm to use (v3.8.2 is latest as of 4/21/22)
+HELM_CHART_VERSION:=$(shell grep version: gateway_provisioners/app-support/kubernetes/helm/gateway-provisioners/Chart.yaml | sed 's/version: //')
+HELM_CHART_PACKAGE:=dist/gateway-provisioners-$(HELM_CHART_VERSION).tgz
+HELM_CHART:=dist/gateway_provisioners_helm-$(VERSION).tar.gz
+HELM_CHART_DIR:=gateway_provisioners/app-support/kubernetes/helm/gateway-provisioners
+HELM_CHART_FILES:=$(shell find $(HELM_CHART_DIR) -type f ! -name .DS_Store)
+HELM_INSTALL_DIR?=/usr/local/bin
+
 echo-version:
 	@echo $(VERSION)
 
@@ -113,6 +121,27 @@ gateway_provisioners/kernel-launchers/scala/lib: $(TOREE_LAUNCHER_FILES)
 	-rm -rf gateway_provisioners/kernel-launchers/scala/lib
 	mkdir -p gateway_provisioners/kernel-launchers/scala/lib
 	@(cd gateway_provisioners/kernel-launchers/scala/toree-launcher; sbt -Dversion=$(VERSION) package; cp target/scala-2.12/*.jar ../lib)
+
+helm-chart: helm-install $(HELM_CHART) ## Make helm chart distribution
+
+helm-install: $(HELM_INSTALL_DIR)/helm
+
+$(HELM_INSTALL_DIR)/helm: # Download and install helm
+	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 -o /tmp/get_helm.sh \
+	&& chmod +x /tmp/get_helm.sh \
+	&& DESIRED_VERSION=$(HELM_DESIRED_VERSION) /tmp/get_helm.sh \
+	&& rm -f /tmp/get_helm.sh
+
+helm-lint: helm-clean
+	helm lint $(HELM_CHART_DIR)
+
+helm-clean: # Remove any .DS_Store files that might wind up in the package
+	$(shell find etc/kubernetes/helm -type f -name '.DS_Store' -exec rm -f {} \;)
+
+$(HELM_CHART): $(HELM_CHART_FILES)
+	make helm-lint
+	helm package $(HELM_CHART_DIR) -d dist
+	mv $(HELM_CHART_PACKAGE) $(HELM_CHART)  # Rename output to match other assets
 
 BASE_IMAGES := gp-spark-base
 KERNEL_IMAGES := gp-kernel-py gp-kernel-spark-py gp-kernel-r gp-kernel-spark-r gp-kernel-scala
