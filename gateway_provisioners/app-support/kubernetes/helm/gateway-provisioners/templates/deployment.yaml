@@ -2,12 +2,11 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: enterprise-gateway
+  name: gateway-provisioners
   namespace: {{ .Release.Namespace }}
   labels:
-    gateway-selector: enterprise-gateway
-    app: enterprise-gateway
-    component: enterprise-gateway
+    gateway-selector: gateway-provisioners
+    component: gateway-provisioners
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -18,13 +17,12 @@ spec:
   replicas: {{ .Values.deployment.replicas }}
   selector:
     matchLabels:
-      gateway-selector: enterprise-gateway
+      gateway-selector: gateway-provisioners
   template:
     metadata:
       labels:
-        gateway-selector: enterprise-gateway
-        app: enterprise-gateway
-        component: enterprise-gateway
+        gateway-selector: gateway-provisioners
+        component: gateway-provisioners
       {{- range $key, $val := .Values.global.commonLabels }}
         {{ $key }}: "{{ $val }}"
       {{- end }}
@@ -43,42 +41,42 @@ spec:
           mountPath: "/usr/local/share/jupyter/kernels"
   {{- end }}
       containers:
-      - name: enterprise-gateway
+      - name: gateway-provisioners
         image: {{ .Values.image }}
         imagePullPolicy: {{ .Values.imagePullPolicy }}
         env:
-        - name: EG_PORT
+        - name: GP_PORT
           {{ with index .Values.service.ports 0 }}
           value: !!str {{ .port }}
           {{- end }}
-        - name: EG_RESPONSE_PORT
+        - name: GP_RESPONSE_PORT
           {{ with index .Values.service.ports 1 }}
           value: !!str {{ .port }}
           {{- end }}
-        - name: EG_NAMESPACE
+        - name: GP_NAMESPACE
           value: {{ .Release.Namespace }}
-        - name: EG_KERNEL_CLUSTER_ROLE
-          value: {{ .Values.kernel.clusterRole }}
-        - name: EG_SHARED_NAMESPACE
-          value: {{ if .Values.kernel.shareGatewayNamespace }}"True"{{ else }}"False"{{ end }}
-        - name: EG_MIRROR_WORKING_DIRS
-          value: {{ if .Values.mirrorWorkingDirs }}"True"{{ else }}"False"{{ end }}
-        - name: EG_CULL_IDLE_TIMEOUT
-          value: !!str {{ .Values.kernel.cullIdleTimeout }}
-        - name: EG_CULL_CONNECTED
-          value: {{ if .Values.kernel.cullConnected }}"True"{{ else }}"False"{{ end }}
-        - name: EG_LOG_LEVEL
-          value: {{ .Values.logLevel }}
-        - name: EG_KERNEL_LAUNCH_TIMEOUT
-          value: !!str {{ .Values.kernel.launchTimeout }}
-        - name: EG_ALLOWED_KERNELS
-          value: {{ toJson .Values.kernel.allowedKernels | squote }}
-        - name: EG_DEFAULT_KERNEL_NAME
-          value: {{ .Values.kernel.defaultKernelName }}
+        - name: GP_KERNEL_CLUSTER_ROLE
+          value: {{ .Values.provisioner.clusterRole }}
+        - name: GP_SHARED_NAMESPACE
+          value: {{ if .Values.provisioner.shareNamespace }}"True"{{ else }}"False"{{ end }}
+        - name: GP_KERNEL_LAUNCH_TIMEOUT
+          value: !!str {{ .Values.provisioner.launchTimeout }}
+        - name: GP_MIRROR_WORKING_DIRS
+          value: {{ if .Values.provisioner.mirrorWorkingDirs }}"True"{{ else }}"False"{{ end }}
+        - name: APP_CULL_IDLE_TIMEOUT
+          value: !!str {{ .Values.application.cullIdleTimeout }}
+        - name: APP_CULL_CONNECTED
+          value: {{ if .Values.application.cullConnected }}"True"{{ else }}"False"{{ end }}
+        - name: APP_LOG_LEVEL
+          value: {{ .Values.application.logLevel }}
+        - name: APP_ALLOWED_KERNELS
+          value: {{ toJson .Values.application.allowedKernels | squote }}
+        - name: APP_DEFAULT_KERNEL_NAME
+          value: {{ .Values.application.defaultKernelName }}
         # Optional authorization token passed in all requests
-        {{- if .Values.authToken }}
-        - name: EG_AUTH_TOKEN
-          value: {{ .Values.authToken }}
+        {{- if .Values.application.authToken }}
+        - name: APP_AUTH_TOKEN
+          value: {{ .Values.application.authToken }}
         {{- end }}
         {{- if .Values.deployment.extraEnv }}
         {{- range $key, $val := .Values.deployment.extraEnv }}

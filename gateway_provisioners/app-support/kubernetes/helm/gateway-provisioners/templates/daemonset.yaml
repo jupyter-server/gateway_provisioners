@@ -5,8 +5,7 @@ metadata:
   name: kernel-image-puller
   namespace: {{ .Release.Namespace }}
   labels:
-    gateway-selector: enterprise-gateway
-    app: enterprise-gateway
+    gateway-selector: gateway-provisioners
     component: kernel-image-puller
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
@@ -22,7 +21,6 @@ spec:
     metadata:
       labels:
         name: kernel-image-puller
-        app: enterprise-gateway
         component: kernel-image-puller
         chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
         release: {{ .Release.Name }}
@@ -38,7 +36,7 @@ spec:
         imagePullPolicy: {{ .Values.kip.imagePullPolicy }}
         env:
         - name: KIP_LOG_LEVEL
-          value: {{ .Values.logLevel }}
+          value: {{ .Values.kip.logLevel }}
         - name: KIP_GATEWAY_HOST
           value: "{{ .Values.kip.server.protocol }}://{{ .Values.kip.serviceName }}.{{ .Release.Namespace }}:{{ .Values.kip.server.port }}"
         - name: KIP_VALIDATE_CERT
@@ -53,7 +51,7 @@ spec:
         - name: KIP_DEFAULT_CONTAINER_REGISTRY
           value: {{ .Values.kip.defaultContainerRegistry }}
         {{- end }}
-        # Optional authorization token passed in all requests (should match EG_AUTH_TOKEN)
+        # Optional authorization token passed in all requests (should match APP_AUTH_TOKEN)
         {{- if .Values.authToken }}
         - name: KIP_AUTH_TOKEN
           value: {{ .Values.authToken }}

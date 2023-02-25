@@ -6,8 +6,10 @@ global:
   # Must be set for any cluster configured with private docker registry.
   imagePullSecrets: []
     # - private-registry-key
-  commonLabels: {}
+  commonLabels: {
+    app: gateway-provisioners
     # app.kubernetes.io/name: [your app name]
+  }
 
 # You can optionally create imagePull Secrets
 imagePullSecretsCreate:
@@ -22,23 +24,24 @@ imagePullSecretsCreate:
     # - name: "private2"
     #   --set imagePullSecretsCreate.secrets[1].data="UHJvZCBTZWNyZXQgSW5mb3JtYXRpb24K"
 
-# Enterprise Gateway image name and tag to use.
-image: elyra/enterprise-gateway:dev
-# Enterprise Gateway image pull policy.
+# Application image name and tag to use - this image should have Gateway Provisioners
+# installed and kernelspecs configured.
+image: elyra/kernel-gateway:dev
+# Application image pull policy.
 imagePullPolicy: IfNotPresent
-# K8s Enterprise Gateway Service
+# K8s Application Service
 service:
   type: "NodePort"
   externalIPs:
-    # Master public IP on which to expose EG.
+    # Master public IP on which to expose the application.
     k8sMasterPublicIP: ''
   ports:
-    # The primary port on which Enterprise Gateway is servicing requests.
+    # The primary port on which the application is servicing requests.
     - name: "http"
       port: 8888
       targetPort: 8888
       # nodePort: 32652 # optional nodePort
-    # The  port on which Enterprise Gateway will receive kernel connection info responses.
+    # The  port on which Gateway Provisioners will receive kernel connection info responses.
     - name: "http-response"
       port: 8877
       targetPort: 8877
@@ -46,7 +49,7 @@ service:
 
 deployment:
   enabled: true
-  serviceAccountName: 'enterprise-gateway-sa'
+  serviceAccountName: 'gateway-provisioners-sa'
   terminationGracePeriodSeconds: 30
   annotations: {}
   resources: {}
@@ -57,7 +60,7 @@ deployment:
   #   requests:
   #     cpu: 1
   #     memory: 2Gi
-  # Update to deploy multiple replicas of EG.
+  # Update to deploy multiple replicas of the application.
   replicas: 1
   tolerations: []
   affinity: {}
@@ -72,23 +75,19 @@ deployment:
     #   this example
     #   will preserve
     #   line breaks
-    EG_INHERITED_ENVS: "PATH"
+    GP_INHERITED_ENVS: "PATH"
   }
 
-# Log output level.
-logLevel: DEBUG
-# Whether to mirror working directories.
-mirrorWorkingDirs: false
-# Optional authorization token passed in all requests (see --EnterpriseGatewayApp.auth_token)
-authToken:
+# Application-specific settings go here. The image start script is responsible for converting
+# these to their application-specific values.
+application:
+  # Log output level.
+  logLevel: DEBUG
 
-kernel:
-  # Kernel cluster role created by this chart.
-  clusterRole: kernel-controller
-  # Will start kernels in the same namespace as EG if True.
-  shareGatewayNamespace: false
-  # Timeout for kernel launching in seconds.
-  launchTimeout: 60
+  # Optional authorization token passed in all requests - application specific.  For
+  # Gateway applications see --KernelGatewayApp.auth_token or EnterpriseGatewayApp.auth_token.
+  authToken:
+
   # Timeout for an idle kernel before its culled in seconds. Default is 1 hour.
   cullIdleTimeout: 3600
   # Whether to cull idle kernels with connecting clients
@@ -109,21 +108,32 @@ kernel:
   # Default kernel name should be something from the allowedKernels
   defaultKernelName: python_kubernetes
 
+# These values are used by Gateway Provisioners
+provisioner:
+  # Kernel cluster role created by this chart.
+  clusterRole: kernel-controller
+  # Will start kernels in the same namespace as the application if True.
+  shareNamespace: false
+  # Timeout for kernel launching in seconds.
+  launchTimeout: 60
+  # Whether to mirror working directories.
+  mirrorWorkingDirs: false
+
 kernelspecs:
   # Optional custom data image containing kernelspecs to use.
   image:
   # Kernelspecs image pull policy.
   imagePullPolicy: Always
 
+kernelspecsPvc:
+  enabled: false
+  # PVC name. Required if want mount kernelspecs without nfs. PVC should create in the same namespace before the application deployed.
+  name:
+
 nfs:
   enabled: false
   # IP address of NFS server. Required if enabled.
   internalServerIPAddress:
-
-kernelspecsPvc:
-  enabled: false
-  # PVC name. Required if want mount kernelspecs without nfs. PVC should create in the same namespace before EG deployed.
-  name:
 
 ingress:
   ingressClassName: # available since k8s 1.18. Depending on the ingress controller, you can use annotation as alternative
@@ -143,8 +153,8 @@ ingress:
 kip:
   enabled: true
   serviceAccountName: 'kernel-image-puller-sa'
-  serviceName: enterprise-gateway
-  server: # EG server properties.
+  serviceName: gateway-provisioners
+  server: # KIP properties.
     protocol: http
     port: 8888
     validate_cert: false
@@ -155,6 +165,8 @@ kip:
     # Creation of PSP in KIP is disabled by default.
     create: false
     annotations: {}
+  # Log output level.
+  logLevel: DEBUG
   # Kernel Image Puller image name and tag to use.
   image: elyra/kernel-image-puller:dev
   # Kernel Image Puller image pull policy.

@@ -3,8 +3,7 @@ apiVersion: v1
 kind: Service
 metadata:
   labels:
-    app: enterprise-gateway
-    component: enterprise-gateway
+    component: gateway-provisioners
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -12,7 +11,7 @@ metadata:
     {{ $key }}: "{{ $val }}"
   {{- end }}
 
-  name: enterprise-gateway
+  name: gateway-provisioners
   namespace: {{ .Release.Namespace }}
 spec:
   ports:
@@ -23,7 +22,7 @@ spec:
       {{- end }}
     {{- end }}
   selector:
-    gateway-selector: enterprise-gateway
+    gateway-selector: gateway-provisioners
   sessionAffinity: ClientIP
   type: {{ .Values.service.type }}
   {{- if .Values.service.externalIPs.k8sMasterPublicIP }}

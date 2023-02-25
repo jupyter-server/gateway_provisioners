@@ -10,7 +10,7 @@ apiVersion: extensions/v1beta1
 kind: Ingress
 metadata:
   namespace: {{ .Release.Namespace }}
-  name: enterprise-gateway-ingress
+  name: gateway-provisioners-ingress
 {{- if .Values.ingress.annotations }}
   annotations:
 {{ toYaml .Values.ingress.annotations | indent 4}}
@@ -30,13 +30,13 @@ spec:
             backend:
             {{- if semverCompare ">=1.19-0" $.Capabilities.KubeVersion.GitVersion }}
               service:
-                name: "enterprise-gateway"
+                name: "gateway-provisioners"
                 port:
                 {{ with index .Values.service.ports 0 }}
                   number: {{ .port }}
                 {{ end }}
               {{- else }}
-              serviceName: "enterprise-gateway"
+              serviceName: "gateway-provisioners"
               {{ with index .Values.service.ports 0 }}
               servicePort: {{ .port }}
               {{- end }}

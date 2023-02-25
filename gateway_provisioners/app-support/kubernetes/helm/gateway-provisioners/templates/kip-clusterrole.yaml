@@ -5,7 +5,6 @@ kind: ClusterRole
 metadata:
   name: kip-controller
   labels:
-    app: enterprise-gateway
     component: kernel-image-puller
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}

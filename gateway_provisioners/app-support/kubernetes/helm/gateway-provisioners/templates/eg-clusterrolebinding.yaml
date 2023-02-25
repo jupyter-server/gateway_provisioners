@@ -3,10 +3,9 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: enterprise-gateway-controller
+  name: gateway-provisioners-controller
   labels:
-    app: enterprise-gateway
-    component: enterprise-gateway
+    component: gateway-provisioners
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
@@ -19,6 +18,6 @@ subjects:
     namespace: {{ .Release.Namespace }}
 roleRef:
   kind: ClusterRole
-  name: enterprise-gateway-controller
+  name: gateway-provisioners-controller
   apiGroup: rbac.authorization.k8s.io
 {{- end }}
