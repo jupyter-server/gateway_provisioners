@@ -24,11 +24,6 @@ imagePullSecretsCreate:
     # - name: "private2"
     #   --set imagePullSecretsCreate.secrets[1].data="UHJvZCBTZWNyZXQgSW5mb3JtYXRpb24K"
 
-# Application image name and tag to use - this image should have Gateway Provisioners
-# installed and kernelspecs configured.
-image: elyra/kernel-gateway:dev
-# Application image pull policy.
-imagePullPolicy: IfNotPresent
 # K8s Application Service
 service:
   type: "NodePort"
@@ -81,6 +76,17 @@ deployment:
 # Application-specific settings go here. The image start script is responsible for converting
 # these to their application-specific values.
 application:
+  # Application image name and tag to use - this image should have Gateway Provisioners
+  # installed and kernelspecs configured (FIXME - add docs reference)
+  image: elyra/gp-jkg:dev
+  # Application image pull policy.
+  imagePullPolicy: IfNotPresent
+
+  # Application name and command.  These are set into the environment and used by the
+  # image's startup command.
+  name: 'Jupyter Kernel Gateway'
+  cmd: jupyter-kernelgateway
+
   # Log output level.
   logLevel: DEBUG
 
@@ -96,17 +102,15 @@ application:
   # requiring redeployment (and assuming kernelspecs are mounted or otherwise accessible
   # outside the pod), comment out (or remove) the entries, leaving only `allowedKernels:`.
   allowedKernels:
-    - r_kubernetes
-    - python_kubernetes
-    - python_tf_kubernetes
-    - python_tf_gpu_kubernetes
-    - scala_kubernetes
-    - spark_r_kubernetes
-    - spark_python_kubernetes
-    - spark_scala_kubernetes
-    - spark_python_operator
+    - k8s_r
+    - k8s_python
+    - k8s_scala
+    - k8s_r_spark
+    - k8s_python_spark
+    - k8s_scala_spark
+
   # Default kernel name should be something from the allowedKernels
-  defaultKernelName: python_kubernetes
+  defaultKernelName: k8s_python
 
 # These values are used by Gateway Provisioners
 provisioner:

@@ -42,8 +42,8 @@ spec:
   {{- end }}
       containers:
       - name: gateway-provisioners
-        image: {{ .Values.image }}
-        imagePullPolicy: {{ .Values.imagePullPolicy }}
+        image: {{ .Values.application.image }}
+        imagePullPolicy: {{ .Values.application.imagePullPolicy }}
         env:
         - name: GP_PORT
           {{ with index .Values.service.ports 0 }}
@@ -63,6 +63,10 @@ spec:
           value: !!str {{ .Values.provisioner.launchTimeout }}
         - name: GP_MIRROR_WORKING_DIRS
           value: {{ if .Values.provisioner.mirrorWorkingDirs }}"True"{{ else }}"False"{{ end }}
+        - name: APP_NAME
+          value: {{ .Values.application.name }}
+        - name: APP_CMD
+          value: {{ .Values.application.cmd }}
         - name: APP_CULL_IDLE_TIMEOUT
           value: !!str {{ .Values.application.cullIdleTimeout }}
         - name: APP_CULL_CONNECTED

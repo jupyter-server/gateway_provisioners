@@ -29,7 +29,6 @@ metadata:
   # Referenced by GP_KERNEL_CLUSTER_ROLE in the Deployment
   name: kernel-controller
   labels:
-    app: enterprise-gateway
     component: kernel
     chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
     release: {{ .Release.Name }}

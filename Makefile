@@ -24,6 +24,11 @@ else
     TAG:=$(VERSION)
 endif
 
+KERNEL_BASE_CONTAINER?=jupyter/docker-stacks-foundation:2022-11-15
+SPARK_KERNEL_BASE_CONTAINER?=${DOCKER_ORG}/gp-spark-base:$(TAG)
+JKG_BASE_CONTAINER?=${DOCKER_ORG}/gp-spark-base:$(TAG)
+LAB_BASE_CONTAINER?=${DOCKER_ORG}/gp-spark-base:$(TAG)
+
 # Set NO_CACHE=--no-cache to force docker build to not use cached layers
 NO_CACHE?=
 
@@ -145,17 +150,21 @@ $(HELM_CHART): $(HELM_CHART_FILES)
 
 BASE_IMAGES := gp-spark-base
 KERNEL_IMAGES := gp-kernel-py gp-kernel-spark-py gp-kernel-r gp-kernel-spark-r gp-kernel-scala
-DOCKER_IMAGES := $(BASE_IMAGES) $(KERNEL_IMAGES)
+APP_IMAGES := gp-jkg gp-lab
+DOCKER_IMAGES := $(BASE_IMAGES) $(KERNEL_IMAGES) $(APP_IMAGES)
 
 base-images: $(BASE_IMAGES)
 kernel-images: $(KERNEL_IMAGES)
-images: $(DOCKER_IMAGES)  ## Build all docker images.  Targets base-images and kernel-images can also be used.
+app-images: $(APP_IMAGES)
+images: $(DOCKER_IMAGES)  ## Build all docker images.  Targets base-images, kernel-images, and app-images can also be used.
 clean-base-images: clean-gp-spark-base
 clean-kernel-images: clean-gp-kernel-py clean-gp-kernel-spark-py clean-gp-kernel-r clean-gp-kernel-spark-r clean-gp-kernel-scala
-clean-images: clean-base-images clean-kernel-images  ## Remove all docker images.  Targets clean-base-images and clean-kernel-images can also be used.
+clean-app-images: clean-gp-jkg clean-gp-lab
+clean-images: clean-base-images clean-kernel-images  clean-app-images ## Remove all docker images.  Targets clean-base-images, clean-kernel-images, and clean-app-images can also be used.
 push-base-images: push-gp-spark-base
 push-kernel-images: push-gp-kernel-py push-gp-kernel-spark-py push-gp-kernel-r push-gp-kernel-spark-r push-gp-kernel-scala
-push-images: push-base-images push-kernel-images  ## Push all docker images.  Targets push-base-images and push-kernel-images can also be used.
+push-app-images: push-gp-jkg push-gp-lab
+push-images: push-base-images push-kernel-images push-app-images ## Push all docker images.  Targets push-base-images, push-kernel-images, push-app-images can also be used.
 
 # Location to find docker files used in build
 DOCKER_gp-spark-base := gateway_provisioners/docker/gp-spark-base
@@ -164,16 +173,20 @@ DOCKER_gp-kernel-spark-py := gateway_provisioners/docker/kernel-image
 DOCKER_gp-kernel-r := gateway_provisioners/docker/kernel-image
 DOCKER_gp-kernel-spark-r := gateway_provisioners/docker/kernel-image
 DOCKER_gp-kernel-scala := gateway_provisioners/docker/kernel-image
+DOCKER_gp-jkg := gateway_provisioners/app-support/docker
+DOCKER_gp-lab := gateway_provisioners/app-support/docker
 
 #
 BUILD_ARGS_gp-spark-base := --build-arg SPARK_VERSION=${SPARK_VERSION} --build-arg HADOOP_VERSION=${HADOOP_VERSION} \
 	--build-arg SCALA_VERSION=${SCALA_VERSION} --build-arg OPENJDK_VERSION=${OPENJDK_VERSION} \
 	--build-arg SPARK_CHECKSUM=${SPARK_CHECKSUM}
-BUILD_ARGS_gp-kernel-py := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=python
-BUILD_ARGS_gp-kernel-spark-py := ${BUILD_ARGS_gp-kernel-py} --build-arg BASE_CONTAINER=${DOCKER_ORG}/gp-spark-base:$(TAG)
-BUILD_ARGS_gp-kernel-r := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=r
-BUILD_ARGS_gp-kernel-spark-r := ${BUILD_ARGS_gp-kernel-r} --build-arg BASE_CONTAINER=${DOCKER_ORG}/gp-spark-base:$(TAG)
-BUILD_ARGS_gp-kernel-scala := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=scala --build-arg BASE_CONTAINER=${DOCKER_ORG}/gp-spark-base:$(TAG)
+BUILD_ARGS_gp-kernel-py := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=python --build-arg BASE_CONTAINER=${KERNEL_BASE_CONTAINER}
+BUILD_ARGS_gp-kernel-spark-py := ${BUILD_ARGS_gp-kernel-py} --build-arg BASE_CONTAINER=${SPARK_KERNEL_BASE_CONTAINER}
+BUILD_ARGS_gp-kernel-r := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=r --build-arg BASE_CONTAINER=${KERNEL_BASE_CONTAINER}
+BUILD_ARGS_gp-kernel-spark-r := ${BUILD_ARGS_gp-kernel-r} --build-arg BASE_CONTAINER=${SPARK_KERNEL_BASE_CONTAINER}
+BUILD_ARGS_gp-kernel-scala := --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg KERNEL_LANG=scala --build-arg BASE_CONTAINER=${SPARK_KERNEL_BASE_CONTAINER}
+BUILD_ARGS_gp-jkg := --build-arg SERVER_APP=jkg --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg BASE_CONTAINER=${JKG_BASE_CONTAINER}
+BUILD_ARGS_gp-lab := --build-arg SERVER_APP=lab --build-arg PACKAGE_SOURCE=${PACKAGE_SOURCE} --build-arg BASE_CONTAINER=${LAB_BASE_CONTAINER}
 
 # Extra (besides docker files) dependencies for each docker image...
 DEPENDS_gp-spark-base :=
@@ -182,11 +195,13 @@ DEPENDS_gp-kernel-spark-py := $(WHEEL_FILE)
 DEPENDS_gp-kernel-r := $(WHEEL_FILE)
 DEPENDS_gp-kernel-spark-r := $(WHEEL_FILE)
 DEPENDS_gp-kernel-scala := $(WHEEL_FILE)
+DEPENDS_gp-jkg := $(WHEEL_FILE)
+DEPENDS_gp-lab := $(WHEEL_FILE)
 
 # Extra targets for each image
 TARGETS_gp-spark-base:
 TARGETS_gp-kernel-py TARGETS_gp-kernel-py TARGETS_gp-kernel-spark-py TARGETS_gp-kernel-r \
-	TARGETS_gp-kernel-spark-r TARGETS_gp-kernel-scala: wheel $(BASE_IMAGES)
+	TARGETS_gp-kernel-spark-r TARGETS_gp-kernel-scala TARGETS_gp-jkg TARGETS_gp-lab: wheel $(BASE_IMAGES)
 
 # Generate image creation targets for each entry in $(DOCKER_IMAGES).  Switch 'eval' to 'info' to see what is produced.
 define BUILD_IMAGE
