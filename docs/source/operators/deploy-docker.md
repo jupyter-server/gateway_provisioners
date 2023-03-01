@@ -10,7 +10,7 @@ _scheduling_ across a set of hosts, whereas Docker is just about containers runn
 
 ```{tip}
 The following provides information for the kinds of tasks that should be considered when deploying applications
-that use Gateway Provisioners on Docker.  See our [_Application Support_ page](https://github.com/jupyter-server/gateway_provisioners/tree/main/README.md)
+that use Gateway Provisioners on Docker.  See our [_Application Support_ page](https://github.com/jupyter-server/gateway_provisioners/tree/main/gateway_provisioners/app-support/README.md)
 for examples of how to configure and deploy such applications.
 ```
 
