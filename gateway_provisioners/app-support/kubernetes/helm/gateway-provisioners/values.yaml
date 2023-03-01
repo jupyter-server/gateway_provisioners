@@ -78,7 +78,7 @@ deployment:
 application:
   # Application image name and tag to use - this image should have Gateway Provisioners
   # installed and kernelspecs configured.
-  # See https://github.com/jupyter-server/gateway_provisioners/tree/main/gateway_provisioners/app-support/README.md
+  # See https://github.com/jupyter-server/gateway_provisioners/tree/main/gateway_provisioners/README.md
   image: elyra/gp-jkg:dev
   # Application image pull policy.
   imagePullPolicy: IfNotPresent
