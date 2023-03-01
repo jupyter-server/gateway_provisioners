@@ -8,6 +8,12 @@ present in the host application.
 With respect to Docker vs. Docker Swarm, Docker Swarm is more _service and cluster oriented_ and provides a better element of
 _scheduling_ across a set of hosts, whereas Docker is just about containers running locally on the same host.
 
+```{tip}
+The following provides information for the kinds of tasks that should be considered when deploying applications
+that use Gateway Provisioners on Docker.  See our [_Application Support_ page](https://github.com/jupyter-server/gateway_provisioners/tree/main/gateway_provisioners/app-support/README.md)
+for examples of how to configure and deploy such applications.
+```
+
 ## Generating Kernel Specifications
 
 Kernelspec generation for Docker and Docker Swarm deployments is performed using the `jupyter-docker-spec` command.  Because
