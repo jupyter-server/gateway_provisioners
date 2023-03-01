@@ -1,6 +1,6 @@
 Welcome to Gateway Provisioners!
 ================================
-Gateway Provisioners provides a pluggable framework for remote kernels leveraging
+`Gateway Provisioners <https://github.com/jupyter-server/gateway_provisioners>`_ provides a pluggable framework for remote kernels leveraging
 `Kernel Provisioners <https://jupyter-client.readthedocs.io/en/latest/provisioning.html>`_ introduced
 in recent versions of Jupyter Client (7.0+).  Many of the Kernel Provisioners provided by
 Gateway Provisioners are
@@ -28,7 +28,7 @@ becoming familiar with the roles in which you are most impacted.  These roles ar
 4. `Contributors <contributors/index.html>`_: people contributing directly to the Gateway Provisioners project.
 
 If you find gaps in our documentation, please open an issue (or better yet, a pull request) on the
-Gateway Provisioners `Github repo <https://github.com/jupyter-server/gateway_provisioners>`_.
+`Gateway Provisioners GitHub repo <https://github.com/jupyter-server/gateway_provisioners>`_.
 
 
 Table of Contents

@@ -47,17 +47,18 @@ corresponding [`Makefile`](https://github.com/jupyter-server/gateway_provisioner
 Entering `make` with no parameters yields the following:
 
 ```text
-clean-images                   Remove all docker images.  Targets clean-base-images and clean-kernel-images can also be used.
-clean                          Remove all build, test, coverage, and Python artifacts
-dist                           Build wheel and source distributions
-docs                           Generate Sphinx HTML documentation, including API docs
-images                         Build all docker images.  Targets base-images and kernel-images can also be used.
-install                        Install the package to the active Python's site-packages
-lint-fix                       Run lint with updates enabled
-lint                           Check style and linting
-push-images                    Push all docker images.  Targets push-base-images and push-kernel-images can also be used.
-release                        Package and upload a release using twine
-test                           Run tests with the currently active Python version
+clean-images         Remove all docker images.  Targets clean-base-images, clean-kernel-images, and clean-app-images can also be used.
+clean                Remove all build, test, coverage, and Python artifacts
+dist                 Build wheel and source distributions
+docs                 Generate Sphinx HTML documentation, including API docs
+helm-chart           Make helm chart distribution
+images               Build all docker images.  Targets base-images, kernel-images, and app-images can also be used.
+install              Install the built package to the active Python's site-packages
+lint-fix             Run lint with updates enabled
+lint                 Check style and linting
+push-images          Push all docker images.  Targets push-base-images, push-kernel-images, push-app-images can also be used.
+release              Package and upload a release using twine
+test                 Run tests with the currently active Python version
 ```
 
 A typical sequence of commands might include the following:

@@ -1,0 +1,144 @@
+{{- if .Values.deployment.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-provisioners
+  namespace: {{ .Release.Namespace }}
+  labels:
+    gateway-selector: gateway-provisioners
+    component: gateway-provisioners
+    chart: {{ .Chart.Name }}-{{ .Chart.Version | replace "+" "_" }}
+    release: {{ .Release.Name }}
+    heritage: {{ .Release.Service }}
+  {{- range $key, $val := .Values.global.commonLabels }}
+    {{ $key }}: "{{ $val }}"
+  {{- end }}
+spec:
+  replicas: {{ .Values.deployment.replicas }}
+  selector:
+    matchLabels:
+      gateway-selector: gateway-provisioners
+  template:
+    metadata:
+      labels:
+        gateway-selector: gateway-provisioners
+        component: gateway-provisioners
+      {{- range $key, $val := .Values.global.commonLabels }}
+        {{ $key }}: "{{ $val }}"
+      {{- end }}
+    spec:
+      # Created by this chart.
+      serviceAccountName: {{ .Values.deployment.serviceAccountName }}
+      terminationGracePeriodSeconds: {{ .Values.deployment.terminationGracePeriodSeconds }}
+  {{- if .Values.kernelspecs.image }}
+      initContainers:
+      - name: kernelspecs
+        image: {{ .Values.kernelspecs.image }}
+        imagePullPolicy: {{ .Values.kernelspecs.imagePullPolicy }}
+        args: ["cp", "-r", "/kernels", "/usr/local/share/jupyter"]
+        volumeMounts:
+        - name: image-kernelspecs
+          mountPath: "/usr/local/share/jupyter/kernels"
+  {{- end }}
+      containers:
+      - name: gateway-provisioners
+        image: {{ .Values.application.image }}
+        imagePullPolicy: {{ .Values.application.imagePullPolicy }}
+        env:
+        - name: GP_PORT
+          {{ with index .Values.service.ports 0 }}
+          value: !!str {{ .port }}
+          {{- end }}
+        - name: GP_RESPONSE_PORT
+          {{ with index .Values.service.ports 1 }}
+          value: !!str {{ .port }}
+          {{- end }}
+        - name: GP_NAMESPACE
+          value: {{ .Release.Namespace }}
+        - name: GP_KERNEL_CLUSTER_ROLE
+          value: {{ .Values.provisioner.clusterRole }}
+        - name: GP_SHARED_NAMESPACE
+          value: {{ if .Values.provisioner.shareNamespace }}"True"{{ else }}"False"{{ end }}
+        - name: GP_KERNEL_LAUNCH_TIMEOUT
+          value: !!str {{ .Values.provisioner.launchTimeout }}
+        - name: GP_MIRROR_WORKING_DIRS
+          value: {{ if .Values.provisioner.mirrorWorkingDirs }}"True"{{ else }}"False"{{ end }}
+        - name: APP_NAME
+          value: {{ .Values.application.name }}
+        - name: APP_CMD
+          value: {{ .Values.application.cmd }}
+        - name: APP_CULL_IDLE_TIMEOUT
+          value: !!str {{ .Values.application.cullIdleTimeout }}
+        - name: APP_CULL_CONNECTED
+          value: {{ if .Values.application.cullConnected }}"True"{{ else }}"False"{{ end }}
+        - name: APP_LOG_LEVEL
+          value: {{ .Values.application.logLevel }}
+        - name: APP_ALLOWED_KERNELS
+          value: {{ toJson .Values.application.allowedKernels | squote }}
+        - name: APP_DEFAULT_KERNEL_NAME
+          value: {{ .Values.application.defaultKernelName }}
+        # Optional authorization token passed in all requests
+        {{- if .Values.application.authToken }}
+        - name: APP_AUTH_TOKEN
+          value: {{ .Values.application.authToken }}
+        {{- end }}
+        {{- if .Values.deployment.extraEnv }}
+        {{- range $key, $val := .Values.deployment.extraEnv }}
+        - name: {{ $key }}
+          value: |-
+{{ $val | indent 12 }}
+        {{- end }}
+        {{- end }}
+        ports:
+        {{ with index .Values.service.ports 0 }}
+        - containerPort: {{ .port }}
+        {{- end }}
+        {{ with index .Values.service.ports 1 }}
+        - containerPort: {{ .port }}
+        {{- end }}
+        {{- if .Values.deployment.resources }}
+        resources:
+          {{- toYaml .Values.deployment.resources | nindent 10 }}
+        {{- end }}
+
+  {{- if .Values.nfs.enabled }}
+        volumeMounts:
+        - name: nfs-kernelspecs
+          mountPath: "/usr/local/share/jupyter/kernels"
+      volumes:
+      - name: nfs-kernelspecs
+        nfs:
+          server: {{ .Values.nfs.internalServerIPAddress }}
+          path: "/usr/local/share/jupyter/kernels"
+  {{- else if .Values.kernelspecsPvc.enabled }}
+        volumeMounts:
+        - name: pvc-kernelspecs
+          mountPath: "/usr/local/share/jupyter/kernels"
+      volumes:
+      - name: pvc-kernelspecs
+        persistentVolumeClaim:
+          claimName: {{ .Values.kernelspecsPvc.name }}
+  {{- else if .Values.kernelspecs.image }}
+        volumeMounts:
+        - name: image-kernelspecs
+          mountPath: "/usr/local/share/jupyter/kernels"
+      volumes:
+      - name: image-kernelspecs
+        emptyDir:
+          medium: Memory
+
+  {{- if .Values.deployment.tolerations }}
+      tolerations:
+      {{- toYaml .Values.deployment.tolerations | nindent 8 }}
+  {{- end }}
+  {{- if .Values.deployment.nodeSelector }}
+      nodeSelector:
+      {{- toYaml .Values.deployment.nodeSelector | nindent 8 }}
+  {{- end }}
+  {{- if .Values.deployment.affinity }}
+      affinity:
+      {{- toYaml .Values.deployment.affinity | nindent 8 }}
+  {{- end }}
+
+  {{- end }}
+{{- end }}

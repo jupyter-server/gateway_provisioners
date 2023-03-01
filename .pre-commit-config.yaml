@@ -15,6 +15,7 @@ repos:
       - id: check-json
       - id: check-toml
       - id: check-yaml
+        exclude: gateway_provisioners/app-support/kubernetes/.*.yaml
       - id: debug-statements
       - id: end-of-file-fixer
       - id: trailing-whitespace
