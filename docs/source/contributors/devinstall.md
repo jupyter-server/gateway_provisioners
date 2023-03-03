@@ -106,6 +106,6 @@ A typical sequence of commands might include the following:
   ```
 
 ```{seealso}
-See [Kernel-image Dockerfiles](operators/installing-kernels-container.md#kernel-image-dockerfiles) in our
+See [Kernel-image Dockerfiles](../operators/installing-kernels-container.md#kernel-image-dockerfiles) in our
 Operators Guide for additional information regarding image Dockerfiles, build arguments, etc.
 ```
