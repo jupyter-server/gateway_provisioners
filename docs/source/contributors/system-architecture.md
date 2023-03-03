@@ -218,7 +218,7 @@ For a current enumeration of which system-level configuration values can be over
 see [Per-kernel overrides](../operators/config-kernel-override.md).
 
 ```{seealso}
-For an overview of all configuration options see [Configuration Options](operators/config-file.md#configuration-options)
+For an overview of all configuration options see [Configuration Options](../operators/config-file.md#configuration-options)
 in our Operators Guide.
 ```
 
