@@ -27,7 +27,7 @@ configuration capabilities and the fact that this capability has been supported 
 
 ### Command line
 
-To instruct the server to connect to an Enterprise Gateway instance running on host `<GATEWAY_HOST_IP>` on port `<GATEWAY_PORT>`, the following command line options can be used:
+To instruct the server to connect to a Gateway instance running on host `<GATEWAY_HOST_IP>` on port `<GATEWAY_PORT>`, the following command line options can be used:
 
 ```bash
 jupyter lab --gateway-url=http://<GATEWAY_HOST_IP>:<GATEWAY_PORT> --GatewayClient.http_user=guest --GatewayClient.http_pwd=guest-password
@@ -37,7 +37,7 @@ jupyter lab --gateway-url=http://<GATEWAY_HOST_IP>:<GATEWAY_PORT> --GatewayClien
 
 If command line options are not appropriate for your environment, the Jupyter server configuration file
 can be used to express Gateway server options. Note however, that command line options always override
-configuration file options:
+configuration file options.
 
 In your `jupyter_server_config.py` file add the following for the equivalent options:
 
@@ -49,7 +49,7 @@ c.GatewayClient.http_pwd = "guest-password"
 
 ### Docker image
 
-All GatewayClient options have corresponding environment variable support, so if you have Jupyter Lab or
+All GatewayClient options have corresponding environment variable support, so if your Jupyter Lab or
 Notebook installation is already in a docker image, a corresponding docker invocation would look something
 like this:
 
@@ -94,8 +94,9 @@ kernel startup can take a while (sometimes upwards of minutes). This is particul
 clusters that perform scheduling like Hadoop YARN or Kubernetes. In these configurations it is important
 to configure both the connection and request timeout values.
 
-These options are handled by the `GatewayClient.connect_timeout` (env: `JUPYTER_GATEWAY_CONNECT_TIMEOUT`)
-and `GatewayClient.request_timeout` (env: `JUPYTER_GATEWAY_REQUEST_TIMEOUT`) options and default to 40 seconds.
+The options `GatewayClient.connect_timeout` (env: `JUPYTER_GATEWAY_CONNECT_TIMEOUT`)
+and `GatewayClient.request_timeout` (env: `JUPYTER_GATEWAY_REQUEST_TIMEOUT`) default to 40 seconds, but
+can be configured as necessary.
 
 The `KERNEL_LAUNCH_TIMEOUT` environment variable will be set from these values or vice versa (whichever is
 greater). This value is used by Gateway Provisioners to determine when it should give up on waiting for

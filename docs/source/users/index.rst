@@ -24,7 +24,7 @@ following:
 
 .. admonition:: Use cases
 
-    - *As a data scientist, I want to run my notebook remotely on my local cluster so that I can free up resources on my own laptop and perform compute-intensive operations on the other, more performant, nodes of my cluster.*
+    - *As a data scientist, I want to run my notebook remotely on my local cluster so that I can free up resources on my own laptop and perform compute-intensive operations on the other, more performant nodes of my cluster.*
 
     - *As a student, my Data Science 101 course is leveraging GPUs in our experiments.  Since GPUs are expensive, we must share resources within the university's compute cluster and configure our Notebooks to leverage the department's Gateway server, which can then spawn container-based kernels that have access to a GPU on Kubernetes.*
 
