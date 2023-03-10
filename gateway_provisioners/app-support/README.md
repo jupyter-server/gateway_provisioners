@@ -18,7 +18,7 @@ Deployment into Docker environments requires the application be configured into 
 The Dockerfile located in docker/Dockerfile contains a multi-stage build that:
 
 1. Determines from where the gateway_provisioners package will be derived (release or local)
-1. Includes the desire application (Kernel Gateway or Lab)
+1. Includes the desired application (Kernel Gateway or Lab)
 1. Generates the applicable kernel specifications for Docker, DockerSwarm,and Kubernetes environments
 1. Filters the allowed kernel specifications to only the Docker-based kernel specifications
    (See next section for filtering Kubernetes-specific kernel specifications)
@@ -88,11 +88,11 @@ actual version value if the there is no `devN` suffix.
 ## Deployment into Kubernetes Environments
 
 Deployment into Kubernetes environments first requires the application reside within a docker image (see above).
-Once an image exists, deployment consists or updated the `values.yaml` file and deploying the helm chart.
+Once an image exists, deployment consists of updating the `values.yaml` file and deploying the helm chart.
 
 Much of the information (like environment variables) in the docker image can be overridden
 in the helm chart.  For example, the list of allowed kernelspecs is specified in the `Dockerfile`
-via the `APP_ALLOWED_KERNELS` environment variable and reflect the _docker-based_ kernel specifications.
+via the `APP_ALLOWED_KERNELS` environment variable and reflects the _docker-based_ kernel specifications.
 However, the `APP_ALLOWED_KERNELS` in the helm charts will be overridden to reflect the _kubernetes-based_
 kernel specifications.
 
@@ -101,7 +101,7 @@ that applies to application-specific information is in the `application` stanza.
 like the application name, command, and image can be specified, in addition to the allowed
 kernels and culling intervals, etc.
 
-Other values that are more application to the _application_ rather than the _kernel_ are located
+Other values that are more applicable to the _application_ rather than the _kernel_ are located
 in the `provisioner` stanza.  These are values that are used by Gateway Provisioners _within_
 the application.
 
