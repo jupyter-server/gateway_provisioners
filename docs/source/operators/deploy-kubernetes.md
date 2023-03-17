@@ -1,8 +1,8 @@
 # Kubernetes deployments
 
 Because Gateway Provisioners is a _library package_ and not an _application_, deployment into Kubernetes
-configurations consists of ensuring the _host application image_ has the appropriate kernel specifications in place
-along with any necessary configuration items (typically environment variables in containerized deployments) are
+configurations consists of ensuring that the _host application image_ has the appropriate kernel specifications in place
+and that necessary configuration items (typically environment variables in containerized deployments) are
 present in the host application.
 
 ```{tip}
@@ -43,9 +43,9 @@ launch_kubernetes.py
 kernel-pod.yaml.j2
 ```
 
-where each provides the following function...
+where each provides the following function:
 
-- `kernel.json` - the primary file as it is what the host application uses to discover a given kernel's availability.
+- `kernel.json` - the primary file that the host application uses to discover a given kernel's availability.
   This file contains _stanzas_ that describe the kernel's argument vector (`argv`), its runtime environment (`env`),
   its display name (`display_name`) and language (`language`), as
   well as its kernel provisioner's configuration (`metadata.kernel_provisioner`) - which, in this case, will reflect the
@@ -57,7 +57,7 @@ where each provides the following function...
 - `scripts/kernel-pod.yaml.j2` - the Jinja template describing the to-be-launched kernel pod corresponding to the
   kernel image identified by the `metadata.kernel_provisioner.config.image_name` entry.  This file can be modified to
   include instructions for volume mounts, etc., for establishing the pod's configuration.
-- `bin/ruh.sh` - This file will be present only when `--spark` is specified.  The first entry in the `kernel.json`'s
+- `bin/run.sh` - This file will be present only when `--spark` is specified.  The first entry in the `kernel.json`'s
   `argv` stanza will be a reference to `bin/run.sh`. This script sets up and invokes the `spark-submit` command that
   is responsible for interacting with the Spark-on-Kubernetes resource manager.  With the introduction of Spark Pod
   Templates, we can leverage the same templating behavior in Spark-based environments.  As a result, both the driver
@@ -118,13 +118,13 @@ identified by `GP_NAMESPACE`.  No attempt is made to alter the configuration of 
 
 #### `GP_NAMESPACE`
 
-This environment variable identifies to the namespace in which the host application is running.  It defaults to the
+This environment variable identifies the namespace in which the host application is running.  It defaults to the
 namespace named `default`, but its recommended that host application deployment configure its own namespace and this
 environment variable be set to that value.
 
 ### Bring-Your-Own Namespace
 
-Users can specify their own namespace be used but setting `GP_SHARED_NAMESPACE` = `False` and specifying the
+Users can specify their own namespace be used by setting `GP_SHARED_NAMESPACE` = `False` and specifying the
 `KERNEL_NAMESPACE` environment variable in the `env` stanza of the kernel's start request (e.g., `POST /api/kernels`).
 This namespace model is preferred in multi-tenant configurations, particularly when a Gateway server is the host
 application or, for example, in JupyterHub situations where Hub launches notebook servers into user-oriented namespaces.
@@ -327,7 +327,7 @@ configurations are `GP_NAMESPACE` and `GP_PROHIBITED_UIDS`.
 
 ````{seealso}
 ```{eval-rst}
-See :ref:`configuring-gp`, with a focus on kubernetes-specific options, for
+See :ref:`configuring-gp`, with a focus on Kubernetes-specific options, for
 additional configuration options within the host application.
 ```
 ````

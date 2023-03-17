@@ -12,7 +12,7 @@ with older versions of `jupyter_client` will be met with resolution warnings and
 
 Gateway Provisioners provides the _ability_ to configure kernel specifications for any of its
 kernel provisioner implementations. However, because these instructions are relative to containers that are typically
-built for specific environments in mind, it's important to include the desired optional dependency for either
+built with specific environments in mind, it's important to include the desired optional dependency for either
 Kubernetes or Docker environments.
 
 ```{note}

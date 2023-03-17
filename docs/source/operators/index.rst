@@ -25,7 +25,7 @@ If, on the other hand, your users already run within a Kubernetes cluster via Ju
 then the deployment and configuration of Gateway Provisioners would take place within the Jupyter Lab container
 image that is launched on behalf of each user.
 
-Regardless of _which_ host application to update, Gateway Provisioners are deployed and configured wherever the
+Regardless of *which* host application to update, Gateway Provisioners are deployed and configured wherever the
 kernel process is ultimately launched. In any case, the host application is using `jupyter_client` to launch kernels.
 
 Container-based deployments

@@ -65,7 +65,7 @@ arguments that drive a kernel's image build, `BASE_CONTAINER`, `KERNEL_LANG`, an
 
 Using a `BASE_CONTAINER` build argument (e.g., `--build-arg BASE_CONTAINER=xxx`) controls from which image the kernel
 image will be derived.  By default, _vanilla_ kernel images are derived from `jupyter/docker-stacks-foundation:2022-11-15`
-while _spark-based_ kernel images should specify a `BASE_CONTAINER` of either `elyra/gp-spark-base:dev` or applicable.
+while _spark-based_ kernel images should specify a `BASE_CONTAINER` of either `elyra/gp-spark-base:dev` or another applicable image.
 
 Gateway Provisioner's `Makefile` supports targets for three spark-based images: `gp-kernel-spark-py`,
 `gp-kernel-spark-r`, and `gp-kernel-scala`, and two _vanilla_ kernel images: `gp-kernel-py` and `gp-kernel-r`.

@@ -8,7 +8,7 @@ The following environment variables may be useful for troubleshooting:
     value can be adjusted in situations where docker troubleshooting may be warranted.
 
   GP_KUBERNETES_LOG_LEVEL=WARNING
-    By default, the kubernetes client library is too verbose for its logging.  This
+    By default, the Kubernetes client library is too verbose for its logging.  This
     value can be adjusted in situations where kubernetes troubleshooting may be
     warranted.
 

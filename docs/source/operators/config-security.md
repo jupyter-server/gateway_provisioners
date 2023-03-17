@@ -88,7 +88,7 @@ tell YARN to launch the kernel in a container used by the provided username.
 ```{admonition} Important!
 :class: warning
 When using kerberos in a YARN managed cluster, the server's user needs to be set up as a
-`proxyuser` superuser in hadoop configuration. Please refer to the
+`proxyuser` superuser in Hadoop configuration. Please refer to the
 [Hadoop documentation](https://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-common/Superusers.html)
 regarding the proper configuration steps.
 ```
@@ -96,7 +96,7 @@ regarding the proper configuration steps.
 ### SPNEGO Authentication to YARN APIs
 
 When kerberos is enabled in a YARN managed cluster, the administration UIs can be configured to
-require authentication/authorization via SPENEGO. When running kernels in an environment configured
+require authentication/authorization via SPNEGO. When running kernels in an environment configured
 this way, we need to convey an extra configuration to enable the proper authorization when
 communicating with YARN via the YARN APIs.
 

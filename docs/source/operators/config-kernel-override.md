@@ -40,7 +40,7 @@ Unless noted otherwise, these values only apply to provisioners derived from `Re
   `c.RemoteProvisionerConfigMixin.yarn_endpoint`.
   Any values specified in the config dictionary override the globally defined values. These
   apply to all `YarnProvisioner` kernels. Note that you'll likely be required to specify a
-  different `HADOOP_CONF_DIR` setting in the kernel.json's `env` stanza in order of the
+  different `HADOOP_CONF_DIR` setting in the kernel.json's `env` stanza in order for the
   `spark-submit` command to target the appropriate YARN cluster.
 
 ## Per-kernel environment overrides
