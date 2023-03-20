@@ -85,9 +85,9 @@ kernel.json logo-64x64.png
 launch_ipykernel.py server_listener.py
 ```
 
-where each provides the following function...
+where each provides the following function:
 
-- `kernel.json` - the primary file as it is what the host application uses to discover a given kernel's availability.
+- `kernel.json` - the primary file that the host application uses to discover a given kernel's availability.
   This file contains _stanzas_ that describe the kernel's argument vector (`argv`), its runtime environment (`env`),
   its display name (`display_name`) and language (`language`), as
   well as its kernel provisioner's configuration (`metadata.kernel_provisioner`) - which, in this case, will reflect the
@@ -95,7 +95,7 @@ where each provides the following function...
 - `logo-64x64.png` - the icon resource corresponding to this kernel specification.  Icon resource files must be start
   with the `logo-` prefix to be included in the kernel specification.
 - `scripts/launch_ipykernel.py` - the "launcher" for the IPyKernel kernel (or subclasses thereof).  This file is typically
-  implemented in the language of the kernel and is responsible to creating the local connection information, asynchronously
+  implemented in the language of the kernel and is responsible for creating the local connection information, asynchronously
   starting a SparkContext (if asked), spawning a listener process to receive interrupts and shutdown requests, and starting
   the IPyKernel itself.
 - `scripts/server_listener.py` - utilized by both Python and R kernels, this file is responsible for encrypting the
@@ -104,7 +104,7 @@ where each provides the following function...
 ```{note}
 If generating the kernel specification for use with Spark "client mode" (by specifying the `'--spark'` option), you'll
 also have:
-- `bin/ruh.sh` - this script sets up and invokes the `spark-submit`
+- `bin/run.sh` - this script sets up and invokes the `spark-submit`
 command that is responsible for interacting with the Spark cluster.  When `'--spark'` is specified `run.sh` will be the
 first entry in the `kernel.json`'s `argv` stanza,
 ```

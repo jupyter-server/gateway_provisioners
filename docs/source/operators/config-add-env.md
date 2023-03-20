@@ -11,9 +11,9 @@ also be used to influence functionality:
 
   GP_DOCKER_NETWORK=bridge
     Docker and Docker Swarm Provisioners only. Used by the docker deployment and launch
-    scripts, this indicates the name of the docker network docker network to use.  The
-    docker kernel launcher (launch_docker.py) defaults this value to 'bridge' only in
-    cases where it wasn't previously set by the deployment script.
+    scripts, this indicates the name of the docker network to use.  The docker kernel
+    launcher (launch_docker.py) defaults this value to 'bridge' only in cases where it
+    wasn't previously set by the deployment script.
 
   GP_ENABLE_TUNNELING=False
     Indicates whether tunneling (via ssh) of the kernel and communication ports

@@ -1,7 +1,7 @@
 # Hadoop YARN deployments
 
 Hadoop YARN deployments will utilize the `YarnProvisioner` to launch kernels across the cluster via
-the YARN resource manager.  The follow assumes a Hadoop Yarn cluster has already been provisioned.
+the YARN resource manager.  The following assumes a Hadoop Yarn cluster has already been provisioned.
 
 ```{note}
 In some cases, where a Spark "client mode" is desired, use of the `DistributedProvisioner`
@@ -34,7 +34,7 @@ to facilitate the integration between Apache Spark and Hadoop YARN components:
 export SPARK_HOME=/usr/hdp/current/spark2-client  # For HDP distribution
 ```
 
-- GP_YARN_ENDPOINT: Must point to the YARN resource manager endpoint if the host application is
+- `GP_YARN_ENDPOINT` must point to the YARN resource manager endpoint if the host application is
   remote from the YARN cluster
 
 ```bash
@@ -48,7 +48,7 @@ the appropriate resource manager from the configuration.  This is also true in c
 YARN cluster is configured for high availability.
 ```
 
-If server is remote from the YARN cluster (i.e., no `HADOOP_CONF_DIR`) and the YARN cluster is
+If the server is remote from the YARN cluster (i.e., no `HADOOP_CONF_DIR`) and the YARN cluster is
 configured for high availability, then the alternate endpoint should also be specified...
 
 ```bash
@@ -85,20 +85,20 @@ run.sh
 launch_ipykernel.py server_listener.py
 ```
 
-where each provides the following function...
+where each provides the following function:
 
-- `kernel.json` - the primary file as it is what the host application uses to discover a given kernel's availability.
+- `kernel.json` - the primary file that the host application uses to discover a given kernel's availability.
   This file contains _stanzas_ that describe the kernel's argument vector (`argv`), its runtime environment (`env`),
   its display name (`display_name`) and language (`language`), as
   well as its kernel provisioner's configuration (`metadata.kernel_provisioner`) - which, in this case, will reflect the
   `YarnProvisioner`.
 - `logo-64x64.png` - the icon resource corresponding to this kernel specification.  Icon resource files must be start
   with the `logo-` prefix to be included in the kernel specification.
-- `bin/ruh.sh` - the first entry in the `kernel.json`'s `argv` stanza, this script sets up and invokes the `spark-submit`
+- `bin/run.sh` - the first entry in the `kernel.json`'s `argv` stanza, this script sets up and invokes the `spark-submit`
   command that is responsible for interacting with the Hadoop Yarn Resource Manager.  The `YarnProvisioner` then
   _discovers_ the location of where the kernel (Spark driver) was scheduled to run to complete the kernel's startup.
 - `scripts/launch_ipykernel.py` - the "launcher" for the IPyKernel kernel (or subclasses thereof).  This file is typically
-  implemented in the language of the kernel and is responsible to creating the local connection information, asynchronously
+  implemented in the language of the kernel and is responsible for creating the local connection information, asynchronously
   starting a SparkContext (if asked), spawning a listener process to receive interrupts and shutdown requests, and starting
   the IPyKernel itself.
 - `scripts/server_listener.py` - utilized by both Python and R kernels, this file is responsible for encrypting the

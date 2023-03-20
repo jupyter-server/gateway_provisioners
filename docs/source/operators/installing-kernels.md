@@ -11,7 +11,7 @@ steps should be performed on each applicable node of the cluster, unless noted o
 
 ```{admonition} Important!
 :class: warning
-For proper operation across the _non-containerized clusters_, the IpyKernel and IRkernel packages (not the
+For proper operation across the _non-containerized clusters_, the IPyKernel and IRkernel packages (not the
 kernel specification) must be installed on every node of the cluster available to Gateway Provisioners.
 For example, run `pip install ipykernel` on each applicable node.
 

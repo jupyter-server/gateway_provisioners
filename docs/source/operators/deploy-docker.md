@@ -1,11 +1,11 @@
 # Docker and Docker Swarm deployments
 
 Because Gateway Provisioners is a _library package_ and not an _application_, deployment into Docker and Docker Swarm
-configurations consists of ensuring the _host application image_ has the appropriate kernel specifications in place
-along with any necessary configuration items (typically environment variables in containerized deployments) are
+configurations consists of ensuring that the _host application image_ has the appropriate kernel specifications in place
+and that necessary configuration items (typically environment variables in containerized deployments) are
 present in the host application.
 
-With respect to Docker vs. Docker Swarm, Docker Swarm is more _service and cluster oriented_ and provides a better element of
+With respect to Docker vs. Docker Swarm, Docker Swarm is more _service- and cluster-oriented_ and provides a better element of
 _scheduling_ across a set of hosts, whereas Docker is just about containers running locally on the same host.
 
 ```{tip}
@@ -50,9 +50,9 @@ kernel.json logo-64x64.png
 launch_docker.py
 ```
 
-where each provides the following function...
+where each provides the following function:
 
-- `kernel.json` - the primary file as it is what the host application uses to discover a given kernel's availability.
+- `kernel.json` - the primary file that the host application uses to discover a given kernel's availability.
   This file contains _stanzas_ that describe the kernel's argument vector (`argv`), its runtime environment (`env`),
   its display name (`display_name`) and language (`language`), as
   well as its kernel provisioner's configuration (`metadata.kernel_provisioner`) - which, in this case, will reflect the
