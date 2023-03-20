@@ -122,7 +122,8 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
                 warnings.warn(
                     "Both `GP_REMOTE_GSS_SSH` and one of `GP_REMOTE_PWD` or `GP_REMOTE_USER` is set. "
                     "Those options are mutually exclusive, you configuration may be incorrect. "
-                    "GP_REMOTE_GSS_SSH will take priority."
+                    "GP_REMOTE_GSS_SSH will take priority.",
+                    stacklevel=2,
                 )
             self.remote_user = None
         else:
