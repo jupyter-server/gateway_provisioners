@@ -253,6 +253,7 @@ unfixable = [
 [tool.ruff.per-file-ignores]
 # T201 `print` found
 "gateway_provisioners/cli/*" = ["T201"]
+"gateway_provisioners/kernel-launchers/*" = ["T201"]
 # N802 Function name should be lowercase
 "tests/mocks/k8s_client.py" = ["N802"]
 
