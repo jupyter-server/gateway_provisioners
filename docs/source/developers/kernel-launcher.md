@@ -33,7 +33,7 @@ support is implemented.
 When creating the connection information, your kernel launcher should handle the possibility that the `--port-range`
 option has been specified such that each port should reside within the specified range.
 
-The port used between the host application and the kernel launcher, known as the _communication port_ should also
+The port used between the host application and the kernel launcher, known as the _communication port_, should also
 adhere to the port range. It is not required that this port be ZeroMQ (and is not a ZMQ port in existing
 implementations).
 
@@ -46,7 +46,7 @@ The next task of the kernel launcher is sending the connection information back 
 this, the connection information, including the communication port, is encrypted using AES encryption and a
 16-byte key. The AES key is then encrypted using the public key specified in the `public_key` parameter. These
 two fields (the AES-encrypted payload and the public-key-encrypted AES key) are then included into a JSON
-structure that also include the launcher's version information and base64 encoded. Here's such an example
+structure that also include the launcher's version information and base64-encoded. Here's such an example
 from the [Python (and R) kernel launchers](https://github.com/jupyter-server/gateway_provisioners/blob/main/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L77-L100).
 
 The payload is then [sent back on a socket](https://github.com/jupyter-server/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L102-L139)
@@ -131,8 +131,8 @@ currently two requests sent on the port, a signal event and a shutdown request.
 
 ### Signal Event
 
-The signal event is of the form `{"signum": n}` where the string `'signum'` indicates a signal event and `'n'` is
-an integer specifying the signal number to send to the kernel. Typically, the value of 'n' is `2` representing
+The signal event is of the form `{"signum": n}` where the string `'signum'` indicates a signal event and `n` is
+an integer specifying the signal number to send to the kernel. Typically, the value of `n` is `2` representing
 `SIGINT` and used to interrupt any current processing. As more kernels adopt a message-based interrupt approach,
 this will not be as common. Gateway Provisioners also use this event to perform its `poll()` implementation by
 sending `{"signum": 0}`. Raising a signal of 0 to a process is a common way to determine the process is still alive.

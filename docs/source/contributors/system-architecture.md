@@ -16,7 +16,7 @@ the base class of all Gateway Provisioners' provisioners.
 a `process_proxy` stanza will use `LocalProvisioner`.
 
 `RemoteProvisionerBase` is an abstract base class representing remote kernel processes. Currently, there are five
-built-in subclasses of `RemoteProvisionerBase` ...
+built-in subclasses of `RemoteProvisionerBase`:
 
 - [`DistributedProvisioner`](https://github.com/jupyter-server/gateway_provisioners/blob/d400f6f48de61823c596e4f774a42b01b17e6887/gateway_provisioners/distributed.py#L65) -
   largely a proof of concept class, `DistributedProvisioner` is responsible for the launch
@@ -145,7 +145,7 @@ It should be noted that spark-based kernels launched with `DistributedProvisione
 so their resources (within the kernel process itself) are not managed by the Hadoop YARN resource manager.
 
 Like the yarn endpoint parameter the `remote_hosts` parameter can be specified within the
-kernel provisioner configuration to override the global value - enabling finer-grained kernel distributions.
+kernel provisioner configuration to override the global value, enabling finer-grained kernel distributions.
 
 ```{seealso}
 [Distributed deployments](../operators/deploy-distributed.md) in the Operators Guide for details.
@@ -218,8 +218,7 @@ For a current enumeration of which system-level configuration values can be over
 see [Per-kernel overrides](../operators/config-kernel-override.md).
 
 ```{seealso}
-For an overview of all configuration options see [Configuration Options](../operators/config-file.md#configuration-options)
-in our Operators Guide.
+[Configuration Options](../operators/config-file.md#configuration-options) in our Operators Guide for an overview of all options.
 ```
 
 ## Kernel Launchers
@@ -241,10 +240,10 @@ There are four primary tasks of a kernel launcher:
 1. Listen for interrupt and shutdown requests from the Gateway Provisioner's server and carry out the action when appropriate
 
 Kernel launchers are minimally invoked with three parameters (all of which are conveyed by the `argv` stanza of the
-corresponding `kernel.json` file) - the kernel's ID as created by the server and conveyed via the
+corresponding `kernel.json` file): the kernel's ID as created by the server and conveyed via the
 placeholder `{kernel_id}`, a response address consisting of the Gateway Provisioner's server's IP and port on
 which to return the connection information similarly represented by the placeholder `{response_address}`, and a
-public-key used by the launcher to encrypt an AES key that encrypts the kernel's connection information back to the
+public-key used by the launcher to encrypt an AES key that, in turn, encrypts the kernel's connection information back to the
 server and represented by the placeholder `{public_key}`.
 
 The kernel's ID is identified by the parameter `--kernel-id`. Its value (`{kernel_id}`) is essentially used to build
@@ -299,13 +298,9 @@ Here's a `kernel.json` file illustrating these parameters...
 
 Other options supported by launchers include:
 
-- `--port-range {port_range}` - passes configured port-range to launcher where launcher applies that range to kernel
+- `--port-range {port_range}` - passes configured port-range to launcher where launcher applies that range to kernel ports. The port-range may be configured globally or on a per-kernel specification basis, as previously described.
 
-- ports. The port-range may be configured globally or on a per-kernel specification basis, as previously described.
-
-- `--spark-context-initialization-mode [lazy|eager|none]` - indicates the _timeframe_ in which the spark context
-
-- will be created.
+- `--spark-context-initialization-mode [lazy|eager|none]` - indicates the _timeframe_ in which the spark context will be created.
 
   - `lazy` (default) attempts to defer initialization as late as possible - although this can vary depending on the
     underlying kernel and launcher implementation.
@@ -313,13 +308,13 @@ Other options supported by launchers include:
   - `none` skips spark context creation altogether.
 
   Note that some launchers may not be able to support all modes. For example, the scala launcher uses the Apache Toree
-  kernel - which currently assumes a spark context will exist. As a result, a mode of `none` doesn't apply.
+  kernel, which currently assumes a spark context will exist. As a result, a mode of `none` doesn't apply.
   Similarly, the `lazy` and `eager` modes in the Python launcher are essentially the same, with the spark context
   creation occurring immediately, but in the background thereby minimizing the kernel's startup time.
 
-`kernel.json` files also include a `LAUNCH_OPTS:` section in the `env` stanza to allow for custom
+The `kernel.json` files also include a `LAUNCH_OPTS` section in the `env` stanza to allow for custom
 parameters to be conveyed in the launcher's environment. `LAUNCH_OPTS` are then referenced in
-the `run.sh` script (for spark-based kernels) as the initial arguments to the launcher...
+the `run.sh` script (for spark-based kernels) as the initial arguments to the launcher:
 
 ```bash
 eval exec \

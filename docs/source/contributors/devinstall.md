@@ -7,7 +7,7 @@ running tests, building docs, etc.
 
 ## Prerequisites
 
-There are a couple of globally-scoped commands that are necessary to build Gateway Provisioners, `make` and `sbt`.
+There are a couple of globally-scoped commands that are necessary to build Gateway Provisioners: `make` and `sbt`.
 
 ### `make`
 
