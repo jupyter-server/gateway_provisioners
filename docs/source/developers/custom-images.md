@@ -7,8 +7,8 @@ image with additional supporting libraries or an image that encapsulates a diffe
 ## Extending Existing Kernel Images
 
 A common form of customization occurs when the existing kernel image is serving the fundamentals but
-the user wishes to extend the image with additional libraries to prevent the need to import them within
-the Notebook interactions. Since the image already meets the
+the user wishes to extend the image with additional libraries to prevent the need to install them during
+the Notebook's execution. Since the image already meets the
 [basic requirements](#requirements-for-custom-kernel-images), this is really just a matter of referencing the
 existing image in the `FROM` statement and installing additional libraries. Because the kernel images
 produced by Gateway Provisioners do not run as the `root` user, you may need to switch users to perform the update.
