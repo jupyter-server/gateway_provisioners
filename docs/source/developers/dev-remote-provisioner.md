@@ -5,7 +5,7 @@ currently supported or extend some existing behaviors. Examples of resource mana
 include [Slurm Workload Manager](https://slurm.schedmd.com/documentation.html) and
 [Apache Mesos](https://mesos.apache.org/), for example. In the end, it's really a matter of having access to
 an API and the ability to apply "tags" or "labels" in order to _discover_ where the kernel is running within
-the managed cluster. Once you have that information, then it becomes of matter of implementing the appropriate
+the managed cluster. Once you have that information, then it becomes a matter of implementing the appropriate
 methods to control the kernel's lifecycle.
 
 ## General Approach

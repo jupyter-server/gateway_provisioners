@@ -7,7 +7,7 @@ image with additional supporting libraries or an image that encapsulates a diffe
 ## Extending Existing Kernel Images
 
 A common form of customization occurs when the existing kernel image is serving the fundamentals but
-the user wishes it is extended with additional libraries to prevent the need of their imports within
+the user wishes to extend the image with additional libraries to prevent the need to import them within
 the Notebook interactions. Since the image already meets the
 [basic requirements](#requirements-for-custom-kernel-images), this is really just a matter of referencing the
 existing image in the `FROM` statement and installing additional libraries. Because the kernel images
@@ -40,7 +40,7 @@ needs to support.
 
 Gateway Provisioners provides a single [bootstrap-kernel.sh](https://github.com/jupyter-server/gateway_provisioners/blob/main/gateway_provisioners/kernel-launchers/bootstrap/bootstrap-kernel.sh)
 script that handles the three kernel languages supported out of the box - Python, R, and Scala. When a kernel image
-is started by Gateway Provisioners, parameters used within the bootstrap-kernel.sh script are conveyed via environment
+is started by Gateway Provisioners, parameters used within the `bootstrap-kernel.sh` script are conveyed via environment
 variables. The bootstrap script is then responsible for validating and converting those parameters to meaningful
 arguments to the appropriate launcher.
 
@@ -88,7 +88,7 @@ All images produced from the docker-stacks repository come with a certain user c
 The various startup scripts and commands typically reside in `/usr/local/bin` and we recommend trying to
 adhere to that policy.
 
-The base jupyter image, upon which most all images from docker-stacks are built, also contains a `fix-permissions`
+The base Jupyter image, upon which most all images from docker-stacks are built, also contains a `fix-permissions`
 script that is responsible for _gracefully_ adjusting permissions based on its given parameters. By only changing
 the necessary permissions, use of this script minimizes the size of the docker layer in which that command is invoked
 during the build of the docker image.
