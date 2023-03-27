@@ -213,34 +213,36 @@ select = [
   "UP", "W", "YTT",
 ]
 ignore = [
-  # Allow non-abstract empty methods in abstract base classes
-  "B027",
-  # Ignore McCabe complexity
-  "C901",
-  # Allow boolean positional values in function calls, like `dict.get(... True)`
-  "FBT003",
-  # Use of `assert` detected
-  "S101",
-  # Line too long
-  "E501",
-  # Relative imports are banned
-  "TID252",
-  # Boolean ... in function definition
-  "FBT001",
-  "FBT002",
-  # Module level import not at top of file
-  "E402",
   # A001/A002/A003 .. is shadowing a python builtin
   "A001",
   "A002",
   "A003",
-  # Possible hardcoded password
-  "S105",
-  "S106",
+  # Allow non-abstract empty methods in abstract base classes
+  "B027",
+  # Ignore McCabe complexity
+  "C901",
+  # Module level import not at top of file
+  "E402",
+  # Line too long
+  "E501",
+  # Boolean ... in function definition
+  "FBT001",
+  "FBT002",
+  # Allow boolean positional values in function calls, like `dict.get(... True)`
+  "FBT003",
   # Variable `xxx` in function should be lowercase
   "N806",
   # Exception name `KernelSessionRecordConflict` should be named with an Error suffix
   "N818",
+  # Use of `assert` detected
+  "S101",
+  # Possible hardcoded password
+  "S105",
+  "S106",
+  # Standard pseudo-random generators are not suitable for security/cryptographic purposes. (Used for port selection)
+  "S311",
+  # Relative imports are banned
+  "TID252",
 ]
 unfixable = [
   # Don't touch print statements
