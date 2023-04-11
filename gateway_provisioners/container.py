@@ -216,7 +216,12 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
 
     @abstractmethod
     def get_initial_states(self) -> Set[str]:
-        """Return list of states indicating container is starting (includes running)."""
+        """Return list of states (in lowercase) indicating container is starting (includes running)."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_error_states(self) -> Set[str]:
+        """Returns the list of error states (in lowercase)."""
         raise NotImplementedError
 
     @abstractmethod

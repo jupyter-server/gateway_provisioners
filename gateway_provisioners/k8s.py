@@ -101,7 +101,11 @@ class KubernetesProvisioner(ContainerProvisionerBase):
 
     @overrides
     def get_initial_states(self) -> Set[str]:
-        return {"Pending", "Running"}
+        return {"pending", "running"}
+
+    @overrides
+    def get_error_states(self) -> Set[str]:
+        return {"failed"}
 
     @overrides
     async def get_container_status(self, iteration: Optional[str]) -> str:
@@ -149,8 +153,8 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         self.restarting = restart
 
         # Delete the pod then, if applicable, the namespace
+        object_name = "pod"
         try:
-            object_name = "pod"
             status = None
             termination_stati = ["Succeeded", "Failed", "Terminating"]
 
@@ -233,7 +237,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
 
         # Rewrite pod_name to be compatible with DNS name convention
         # And put back into env since kernel needs this
-        pod_name = re.sub("[^0-9a-z]+", "-", pod_name.lower())
+        pod_name = re.sub(r"[^\da-z]+", "-", pod_name.lower())
         while pod_name.startswith("-"):
             pod_name = pod_name[1:]
         while pod_name.endswith("-"):
