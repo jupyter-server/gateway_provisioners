@@ -55,7 +55,7 @@ def extend_operator_env(op_def: dict, sub_spec: str) -> dict:
 
 
 def launch_custom_resource_kernel(
-    kernel_id, port_range, response_addr, public_key, spark_context_init_mode
+    kernel_id, port_range, response_addr, public_key, spark_context_init_mode, kernel_class_name
 ):
     config.load_incluster_config()
 
@@ -67,6 +67,7 @@ def launch_custom_resource_kernel(
     keywords["kernel_id"] = kernel_id
     keywords["kernel_name"] = os.path.basename(os.path.dirname(os.path.dirname(__file__)))
     keywords["spark_context_initialization_mode"] = spark_context_init_mode
+    keywords["kernel_class_name"] = kernel_class_name
 
     for name, value in os.environ.items():
         if name.startswith("KERNEL_"):
@@ -137,14 +138,20 @@ if __name__ == "__main__":
         help="Indicates whether or how a spark context should be created",
         default="none",
     )
-
+    parser.add_argument(
+        "--kernel-class-name",
+        dest="kernel_class_name",
+        nargs="?",
+        help="Indicates the name of the kernel class to use.  Must be a subclass of 'ipykernel.kernelbase.Kernel'.",
+    )
     arguments = vars(parser.parse_args())
     kernel_id = arguments["kernel_id"]
     port_range = arguments["port_range"]
     response_addr = arguments["response_address"]
     public_key = arguments["public_key"]
     spark_context_init_mode = arguments["spark_context_init_mode"]
+    kernel_class_name = arguments["kernel_class_name"]
 
     launch_custom_resource_kernel(
-        kernel_id, port_range, response_addr, public_key, spark_context_init_mode
+        kernel_id, port_range, response_addr, public_key, spark_context_init_mode, kernel_class_name
     )

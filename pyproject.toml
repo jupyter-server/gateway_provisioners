@@ -112,6 +112,7 @@ jupyter-image-bootstrap = "gateway_provisioners.cli.image_bootstrapapp:ImageBoot
 yarn-provisioner = "gateway_provisioners.yarn:YarnProvisioner"
 distributed-provisioner = "gateway_provisioners.distributed:DistributedProvisioner"
 kubernetes-provisioner = "gateway_provisioners.k8s:KubernetesProvisioner"
+spark-operator-provisioner = "gateway_provisioners.spark_operator:SparkOperatorProvisioner"
 docker-provisioner = "gateway_provisioners.docker_swarm:DockerProvisioner"
 docker-swarm-provisioner = "gateway_provisioners.docker_swarm:DockerSwarmProvisioner"
 

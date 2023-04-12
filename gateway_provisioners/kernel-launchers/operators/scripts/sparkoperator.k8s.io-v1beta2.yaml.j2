@@ -21,6 +21,8 @@ spec:
     - "{{ port_range }}"
     - "--public-key"
     - "{{ public_key }}"
+    - "-kernel-class-name"
+    - "{{ kernel_class_name }}"
   driver:
     annotations:
       cluster-autoscaler.kubernetes.io/safe-to-evict: "false"
