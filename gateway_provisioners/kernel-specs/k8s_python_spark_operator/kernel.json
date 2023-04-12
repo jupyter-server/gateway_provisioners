@@ -4,13 +4,14 @@
   "metadata": {
     "debugger": true,
     "kernel_provisioner": {
-      "provisioner_name": "spark-operator-provisioner",
+      "provisioner_name": "${provisioner_name}",
       "config": {
         "image_name": "${image_name}",
         "executor_image_name": "${executor_image_name}"
       }
     }
   },
+  "env": {},
   "argv": [
     "python",
     "${install_dir}/scripts/${launcher_name}",

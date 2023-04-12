@@ -8,7 +8,9 @@ from overrides import overrides
 from traitlets import Bool, Unicode, default
 
 from .._version import __version__
-from .base_app import DASK, DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecSparkApp, R
+from .base_app import DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecSparkApp, R
+
+DASK = "dask"
 
 DEFAULT_KERNEL_NAMES = {
     PYTHON: "yarn_spark_python",
@@ -133,15 +135,15 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
     flags = {
         "dask": (
             {"YarnSpecInstaller": {"dask": True}},
-            "Install kernelspec for Dask in Yarn cluster.",
+            dask.help,
         ),
         "yarn-endpoint-security-enabled": (
             {"YarnSpecInstaller": {"yarn_endpoint_security_enabled": True}},
-            "Install kernelspec where Yarn API endpoint has security enabled.",
+            yarn_endpoint_security_enabled.help,
         ),
         "impersonation-enabled": (
             {"YarnSpecInstaller": {"impersonation_enabled": True}},
-            "Install kernelspec to impersonate user (requires root privileges).",
+            impersonation_enabled.help,
         ),
     }
     flags.update(BaseSpecSparkApp.flags)

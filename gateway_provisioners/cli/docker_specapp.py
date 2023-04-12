@@ -78,7 +78,7 @@ enabled for Spark usage, this image will be the driver image. (GP_IMAGE_NAME env
     flags = {
         "swarm": (
             {"DockerSpecInstaller": {"swarm": True}},
-            "Install kernel for use within a Docker Swarm cluster.",
+            swarm.help,
         ),
     }
     flags.update(BaseSpecApp.flags)

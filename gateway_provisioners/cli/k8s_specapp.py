@@ -9,16 +9,25 @@ from traitlets import Bool, Unicode, default
 from .._version import __version__
 from .base_app import DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecSparkApp, R
 
-DEFAULT_KERNEL_NAMES = {PYTHON: "k8s_python", SCALA: "k8s_scala", R: "k8s_r"}
+SPARK_OP = "spark_operator"
+
 KERNEL_SPEC_TEMPLATE_NAMES = {
     PYTHON: "container_python",
     SCALA: "container_scala",
     R: "container_r",
+    SPARK_OP: "k8s_python_spark_operator",
+}
+DEFAULT_KERNEL_NAMES = {
+    PYTHON: "k8s_python",
+    SCALA: "k8s_scala",
+    R: "k8s_r",
+    SPARK_OP: "k8s_python_spark_operator",
 }
 DEFAULT_DISPLAY_NAMES = {
     PYTHON: "Kubernetes Python",
     SCALA: "Kubernetes Scala",
     R: "Kubernetes R",
+    SPARK_OP: "Kubernetes Spark Operator",
 }
 DEFAULT_IMAGE_NAMES = {
     PYTHON: "elyra/kernel-py",
@@ -35,7 +44,9 @@ SPARK_SUFFIX = "_spark"
 SPARK_DISPLAY_NAME_SUFFIX = " (with Spark)"
 
 PROVISIONER_NAME = "kubernetes-provisioner"
+SPARK_OP_PROVISIONER_NAME = "spark-operator-provisioner"
 LAUNCHER_NAME = "launch_kubernetes.py"
+SPARK_OP_LAUNCHER_NAME = "launch_custom_resource.py"
 
 
 class K8sSpecInstaller(BaseSpecSparkApp):
@@ -89,6 +100,9 @@ Spark-enabled kernel specifications.  (GP_EXECUTOR_IMAGE_NAME env var)""",
 
     # Flags
     tensorflow = Bool(False, config=True, help="""Install kernel for use with Tensorflow.""")
+    crd = Bool(
+        False, config=True, help="""Install kernel for use with Custom Resource Definition."""
+    )
 
     provisioner_name = Unicode(PROVISIONER_NAME, config=False)
     launcher_name = Unicode(LAUNCHER_NAME, config=False)
@@ -99,7 +113,16 @@ Spark-enabled kernel specifications.  (GP_EXECUTOR_IMAGE_NAME env var)""",
     }
     aliases.update(BaseSpecSparkApp.aliases)
 
-    flags = {}
+    flags = {
+        "tensorflow": (
+            {"K8sSpecInstaller": {"tensorflow": True}},
+            tensorflow.help,
+        ),
+        "crd": (
+            {"K8sSpecInstaller": {"crd": True}},
+            crd.help,
+        ),
+    }
     flags.update(BaseSpecSparkApp.flags)
 
     @overrides
@@ -119,11 +142,44 @@ Spark-enabled kernel specifications.  (GP_EXECUTOR_IMAGE_NAME env var)""",
     def validate_parameters(self):
         super().validate_parameters()
 
+        entered_language = self.language
         self.language = self.language.lower()
         self.launcher_dir_name = "kubernetes"
         self.resource_dir_name = self.language
 
-        if self.spark is True:
+        if self.crd is True:
+            if self.spark is False:
+                self.log.warning(
+                    "--spark has not been specified and --crd currently requires Spark - auto-enabling Spark."
+                )
+                self.spark = True
+            if self.language != PYTHON:
+                self.log.warning(
+                    "CRD support only works with Python, changing language from {} to Python.".format(
+                        entered_language
+                    )
+                )
+                self.language = PYTHON
+            # if kernel and display names are still defaulted, silently convert to lang default and append spark suffix
+            if self.kernel_name == DEFAULT_KERNEL_NAMES[DEFAULT_LANGUAGE]:
+                self.kernel_name = DEFAULT_KERNEL_NAMES[SPARK_OP]
+            if self.display_name == DEFAULT_DISPLAY_NAMES[DEFAULT_LANGUAGE]:
+                self.display_name = DEFAULT_DISPLAY_NAMES[SPARK_OP]
+
+            self.kernel_spec_dir_name = KERNEL_SPEC_TEMPLATE_NAMES[SPARK_OP]
+
+            if self.image_name is None:
+                self.image_name = f"{DEFAULT_SPARK_IMAGE_NAMES[self.language]}:{self._get_tag()}"
+            if self.executor_image_name is None:
+                self.executor_image_name = self.image_name
+
+            # Spark operators use different provisioners and launchers
+            if self.provisioner_name == PROVISIONER_NAME:
+                self.provisioner_name = SPARK_OP_PROVISIONER_NAME
+            if self.launcher_name == LAUNCHER_NAME:
+                self.launcher_name = SPARK_OP_LAUNCHER_NAME
+            self.launcher_dir_name = "operators"
+        elif self.spark is True:
             # if kernel and display names are still defaulted, silently convert to lang default and append spark suffix
             if self.kernel_name == DEFAULT_KERNEL_NAMES[DEFAULT_LANGUAGE]:
                 self.kernel_name = DEFAULT_KERNEL_NAMES[self.language] + SPARK_SUFFIX
@@ -173,8 +229,9 @@ class K8sProvisionerApp(JupyterApp):
 
     version = __version__
     name = "jupyter k8s-spec"
-    description = """Application used to create kernel specifications for use on Kubernetes clusters
-    via the KubernetesProvisioner kernel provisioner."""
+    description = (
+        """Application used to create kernel specifications for use on Kubernetes clusters."""
+    )
     subcommands = dict(
         {
             "install": (K8sSpecInstaller, K8sSpecInstaller.description.splitlines()[0]),
