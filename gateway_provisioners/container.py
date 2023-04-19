@@ -130,7 +130,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
         """
         result = 0
 
-        container_status = await self.get_container_status(None)
+        container_status = self.get_container_status(None)
         # Do not check whether container_status is None
         # EG couldn't restart kernels although connections exists.
         # See https://github.com/jupyter/enterprise_gateway/issues/827
@@ -157,7 +157,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
         result = None
 
         if self.container_name:  # We only have something to terminate if we have a name
-            result = await self.terminate_container_resources(restart=restart)
+            result = self.terminate_container_resources(restart=restart)
 
         return result
 
@@ -174,11 +174,12 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
     async def shutdown_listener(self, restart: bool) -> None:
         await super().shutdown_listener(restart)
         if self.container_name:  # We only have something to terminate if we have a name
-            await self.terminate_container_resources(restart)
+            self.terminate_container_resources(restart)
 
     @overrides
     async def confirm_remote_startup(self):
         """Confirms the container has started and returned necessary connection information."""
+        self.log.debug("Trying to confirm kernel container startup status")
         self.start_time = RemoteProvisionerBase.get_current_time()
         i = 0
         ready_to_connect = False  # we're ready to connect when we have a connection file to use
@@ -186,14 +187,18 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
             i += 1
             await self.handle_launch_timeout()
 
-            container_status = await self.get_container_status(str(i))
+            container_status = self.get_container_status(str(i))
             if container_status:
-                if self.assigned_host != "":
-                    ready_to_connect = await self.receive_connection_info()
-                    self.pid = (
-                        0  # We won't send the process signals from container-based provisioners
-                    )
-                    self.pgid = 0
+                if container_status in self.get_error_states():
+                    reason = f"Error starting kernel container; status: '{container_status}'.  Check server logs."
+                    self.log_and_raise(RuntimeError(reason))
+                else:
+                    if self.assigned_host != "":
+                        ready_to_connect = await self.receive_connection_info()
+                        self.pid = (
+                            0  # We won't send the process signals from container-based provisioners
+                        )
+                        self.pgid = 0
             else:
                 self.detect_launch_failure()
 
@@ -225,11 +230,11 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
         raise NotImplementedError
 
     @abstractmethod
-    async def get_container_status(self, iteration: Optional[str]) -> str:
+    def get_container_status(self, iteration: Optional[str]) -> str:
         """Return current container state."""
         raise NotImplementedError
 
     @abstractmethod
-    async def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
+    def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
         """Terminate any artifacts created on behalf of the container's lifetime."""
         raise NotImplementedError

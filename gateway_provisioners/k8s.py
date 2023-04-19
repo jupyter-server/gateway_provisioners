@@ -56,6 +56,12 @@ if (
 class KubernetesProvisioner(ContainerProvisionerBase):
     """Kernel lifecycle management for Kubernetes kernels."""
 
+    # Identifies the kind of object being managed by this provisioner.
+    # For these values we will prefer the values found in the 'kind' field
+    # of the object's metadata.  This attribute is strictly used to provide
+    # context to log messages.
+    object_kind = "Pod"
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -69,17 +75,18 @@ class KubernetesProvisioner(ContainerProvisionerBase):
 
     @overrides
     async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
-        # Set env before superclass call so we see these in the debug output
+        # Set env before superclass call, so we can see these in the debug output
 
-        # Kubernetes relies on many internal env variables.  Since we're running in a k8s pod, we will
-        # transfer its env to each launched kernel.
-        kwargs["env"] = dict(os.environ, **kwargs.get("env", {}))
+        # Kubernetes relies on internal env variables to determine its configuration.  When
+        # running within a K8s cluster, these start with KUBERNETES_SERVICE, otherwise look
+        # for envs prefixed with KUBECONFIG.
+        for key in os.environ:
+            if key.startswith("KUBECONFIG") or key.startswith("KUBERNETES_SERVICE"):
+                kwargs["env"][key] = os.environ[key]
         kwargs = await super().pre_launch(**kwargs)
-        # These must follow call to super() so that kernel_username is established
+        # Determine pod name and namespace - creating the latter if necessary
         self.kernel_pod_name = self._determine_kernel_pod_name(**kwargs)
-        self.kernel_namespace = self._determine_kernel_namespace(
-            **kwargs
-        )  # will create namespace if not provided
+        self.kernel_namespace = self._determine_kernel_namespace(**kwargs)
         return kwargs
 
     @overrides
@@ -108,11 +115,11 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         return {"failed"}
 
     @overrides
-    async def get_container_status(self, iteration: Optional[str]) -> str:
+    def get_container_status(self, iteration: Optional[str]) -> str:
         # Locates the kernel pod using the kernel_id selector.  Note that we also include 'component=kernel'
         # in the selector so that executor pods (when Spark is in use) are not considered.
         # If the phase indicates Running, the pod's IP is used for the assigned_ip.
-        pod_status = None
+        pod_status = ""
         kernel_label_selector = f"kernel_id={self.kernel_id},component=kernel"
         ret = client.CoreV1Api().list_namespaced_pod(
             namespace=self.kernel_namespace, label_selector=kernel_label_selector
@@ -121,8 +128,8 @@ class KubernetesProvisioner(ContainerProvisionerBase):
             pod_info = ret.items[0]
             self.container_name = pod_info.metadata.name
             if pod_info.status:
-                pod_status = pod_info.status.phase
-                if pod_status == "Running" and not self.assigned_host:
+                pod_status = pod_info.status.phase.lower()
+                if pod_status == "running" and not self.assigned_host:
                     # Pod is running, capture IP
                     self.assigned_ip = pod_info.status.pod_ip
                     self.assigned_host = self.container_name
@@ -138,91 +145,106 @@ class KubernetesProvisioner(ContainerProvisionerBase):
 
         return pod_status
 
-    @overrides
-    async def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
-        # Kubernetes objects don't go away on their own - so we need to tear down the namespace
-        # or pod associated with the kernel.  If we created the namespace, and we're not in the
-        # process of restarting the kernel, then that's our target, else just delete the pod.
+    def delete_managed_object(self, termination_stati: list[str]) -> bool:
+        """Deletes the object managed by this provisioner
 
-        result = False
+        A return value of True indicates the object is considered deleted,
+        otherwise a False or None value is returned.
+
+        Note: the caller is responsible for handling exceptions.
+        """
         body = client.V1DeleteOptions(grace_period_seconds=0, propagation_policy="Background")
 
-        # If this termination is due to a restart, record that fact, so we can tolerate
-        # things like the existence of pre-existing namespaces (when auto-creation is
-        # in play), etc.
+        # Deleting a Pod will return a v1.Pod if found and its status will be a PodStatus containing
+        # a phase string property
+        # https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#podstatus-v1-core
+        v1_pod = client.CoreV1Api().delete_namespaced_pod(
+            namespace=self.kernel_namespace, body=body, name=self.container_name
+        )
+        status = None
+        if v1_pod and v1_pod.status:
+            status = v1_pod.status.phase
+
+        result = status in termination_stati
+
+        return result
+
+    @overrides
+    def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
+        # Kubernetes objects don't go away on their own - so we need to tear down the namespace
+        # and/or pod associated with the kernel.  We'll always target the pod first so that shutdown
+        # is perceived as happening more rapidly.  Then, if we created the namespace, and we're not
+        # in the process of restarting the kernel, we'll delete the namespace.
+        # After deleting the pod we check the container status, rather than the status returned
+        # from the pod deletion API, since it's not necessarily reflective of the actual status.
+
         self.restarting = restart
+        result = False
+        termination_stati = ["Succeeded", "Failed", "Terminating", "Success"]
 
-        # Delete the pod then, if applicable, the namespace
-        object_name = "pod"
+        # Delete the managed object then, if applicable, the namespace
+        object_type = self.object_kind
         try:
-            status = None
-            termination_stati = ["Succeeded", "Failed", "Terminating"]
-
-            # Deleting a Pod will return a v1.Pod if found and its status will be a PodStatus containing
-            # a phase string property
-            # https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#podstatus-v1-core
-            v1_pod = client.CoreV1Api().delete_namespaced_pod(
-                namespace=self.kernel_namespace, body=body, name=self.container_name
-            )
-            if v1_pod and v1_pod.status:
-                status = v1_pod.status.phase
-
-            if status in termination_stati:
-                result = True
-
+            result = self.delete_managed_object(termination_stati)
             if not result:
-                # If the status indicates the pod is not terminated, capture its current status.
+                # If the status indicates the object is not terminated, capture its current status.
                 # If None, update the result to True, else issue warning that it is not YET deleted
                 # since we still have the hard termination sequence to occur.
-                cur_status = await self.get_container_status(None)
+                cur_status = self.get_container_status(None)
                 if cur_status is None:
                     result = True
                 else:
                     self.log.warning(
-                        f"Pod {self.kernel_namespace}.{self.container_name} is not yet deleted.  "
-                        f"Current status is '{cur_status}'."
+                        f"{object_type} '{self.kernel_namespace}.{self.container_name}'"
+                        f" is not yet deleted.  Current status is '{cur_status}'."
                     )
 
-            if self.delete_kernel_namespace and not self.restarting:
-                object_name = "namespace"
+            if self.delete_kernel_namespace and restart is False:
+                object_type = "Namespace"
                 # Status is a return value for calls that don't return other objects.
                 # https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#status-v1-meta
+                body = client.V1DeleteOptions(
+                    grace_period_seconds=0, propagation_policy="Background"
+                )
                 v1_status = client.CoreV1Api().delete_namespace(
                     name=self.kernel_namespace, body=body
                 )
+                status = None
                 if v1_status:
                     status = v1_status.status
 
-                if status:
-                    if any(s in status for s in termination_stati):
-                        result = True
+                if status and any(s in status for s in termination_stati):
+                    result = True
 
                 if not result:
                     self.log.warning(
                         f"Namespace {self.kernel_namespace} is not yet deleted.  "
                         f"Current status is '{status}'."
                     )
+
         except Exception as err:
             if isinstance(err, client.rest.ApiException) and err.status == 404:
                 result = True  # okay if it's not found
             else:
-                self.log.warning(f"Error occurred deleting {object_name}: {err}")
+                self.log.warning(f"Error occurred deleting {object_type.lower()}: {err}")
 
         if result:
             self.log.debug(
-                f"KubernetesProvisioner.terminate_container_resources, pod: {self.kernel_namespace}."
-                f"{self.container_name}, kernel ID: {self.kernel_id} has been terminated."
+                f"KubernetesProcessProxy.terminate_container_resources, "
+                f"{self.object_kind}: {self.kernel_namespace}.{self.container_name}, "
+                f"kernel ID: {self.kernel_id} has been terminated."
             )
             self.container_name = None
             result = None  # maintain jupyter contract
         else:
             self.log.warning(
-                f"KubernetesProvisioner.terminate_container_resources, pod: {self.kernel_namespace}."
-                f"{self.container_name}, kernel ID: {self.kernel_id} has not been terminated."
+                "KubernetesProcessProxy.terminate_container_resources, "
+                f"{self.object_kind}: {self.kernel_namespace}.{self.container_name}, "
+                f"kernel ID: {self.kernel_id} has not been terminated."
             )
 
         # Check if there's a kernel pod template file for this kernel and silently delete it.
-        kpt_file = f"{kpt_dir}/kpt_{self.kernel_id}"
+        kpt_file = kpt_dir + "/kpt_" + self.kernel_id
         try:
             os.remove(kpt_file)
         except OSError:

@@ -5,7 +5,7 @@
 import logging
 import re
 from contextlib import suppress
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, Set
 
 from overrides import overrides
 
@@ -49,15 +49,15 @@ class CustomResourceProvisioner(KubernetesProvisioner):
         return kwargs
 
     @overrides
-    def get_container_status(self, iteration: Optional[int]) -> str:
+    def get_container_status(self, iteration: Optional[str]) -> str:
         """Determines submitted CRD application status
 
         Submitting a new kernel application CRD will take a while to
-        reach the Running state and the submission can also fail due
+        reach the running state and the submission can also fail due
         to malformation or other issues which will prevent the application
-        pod to reach the desired Running state.
+        pod to reach the desired running state.
 
-        This function check the CRD submission state and in case of
+        This function checks the CRD submission state and in case of
         success it then delegates to parent to check if the application
         pod is running.
 
@@ -91,7 +91,7 @@ class CustomResourceProvisioner(KubernetesProvisioner):
                     )
                     self.log.debug(error_message)
                 elif application_state == "running" and not self.assigned_host:
-                    super().get_container_status(iteration)
+                    application_state = super().get_container_status(iteration)
 
         # only log if iteration is not None (otherwise poll() is too noisy)
         # check for running state to avoid double logging with superclass
@@ -104,8 +104,9 @@ class CustomResourceProvisioner(KubernetesProvisioner):
 
         return application_state
 
+    @overrides
     def delete_managed_object(self, termination_stati: list[str]) -> bool:
-        """Deletes the object managed by this process-proxy
+        """Deletes the object managed by this provisioner
 
         A return value of True indicates the object is considered deleted,
         otherwise a False or None value is returned.
@@ -127,7 +128,7 @@ class CustomResourceProvisioner(KubernetesProvisioner):
         return result
 
     @overrides
-    def get_initial_states(self) -> set:
+    def get_initial_states(self) -> Set[str]:
         """Return list of states in lowercase indicating container is starting (includes running)."""
         return {"submitted", "pending", "running"}
 
