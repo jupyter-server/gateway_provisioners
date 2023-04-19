@@ -87,7 +87,7 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         return task_state
 
     @overrides
-    async def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
+    def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
         # Remove the docker service.
 
         result = True  # We'll be optimistic
