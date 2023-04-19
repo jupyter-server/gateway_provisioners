@@ -548,7 +548,7 @@ class BaseSpecSparkApp(BaseSpecApp):
 
     extra_spark_opts = Unicode("", config=True, help="Specify additional Spark options.")
 
-    spark = Bool(False, config=True, help="Install kernel for use with Spark.")
+    spark = Bool(False, config=True, help="Install kernelspec for use with Spark.")
 
     aliases = {
         "spark-home": "BaseSpecSparkApp.spark_home",

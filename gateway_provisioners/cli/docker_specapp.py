@@ -65,7 +65,9 @@ enabled for Spark usage, this image will be the driver image. (GP_IMAGE_NAME env
         return os.getenv(self.image_name_env)
 
     # Flags
-    swarm = Bool(False, config=True, help="Install kernel for use within a Docker Swarm cluster.")
+    swarm = Bool(
+        False, config=True, help="Install kernelspec for use within a Docker Swarm cluster."
+    )
 
     provisioner_name = Unicode(DOCKER_PROVISIONER_NAME, config=False)
     launcher_name = Unicode(LAUNCHER_NAME, config=False)

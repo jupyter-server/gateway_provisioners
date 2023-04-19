@@ -59,8 +59,9 @@ class K8sSpecInstaller(BaseSpecSparkApp):
     examples = """
     jupyter-k8s-spec install --language=R --kernel-name=r_k8s --image-name=foo/my_r_kernel_image:v4_0
 
-jupyter-k8s-spec install --language=Scala --spark --kernel-name=scala_k8s_spark
-    --display-name='Scala on Kubernetes with Spark'
+jupyter-k8s-spec install --language=Scala --spark --kernel-name=scala_k8s_spark --display-name='Scala on Kubernetes with Spark'
+
+jupyter-k8s-spec install --spark --crd --display-name='Python SparkOperator"
     """
 
     @default("kernel_name")
@@ -99,11 +100,19 @@ Spark-enabled kernel specifications.  (GP_EXECUTOR_IMAGE_NAME env var)""",
         return os.getenv(self.executor_image_name_env)
 
     # Flags
-    tensorflow = Bool(False, config=True, help="""Install kernel for use with Tensorflow.""")
+    tensorflow = Bool(False, config=True, help="""Install kernelspec for use with Tensorflow.""")
     crd = Bool(
-        False, config=True, help="""Install kernel for use with Custom Resource Definition."""
+        False,
+        config=True,
+        help="""Install kernelspec for use with a Custom Resource Definition.  When combined with --spark,
+will configure the SparkOperatorProvisioner for Spark Application CRDs.""",
     )
-
+    spark = Bool(
+        False,
+        config=True,
+        help="""Install kernelspec for use with Spark.  When combined with --crd,
+will configure the SparkOperatorProvisioner for Spark Application CRDs.""",
+    )
     provisioner_name = Unicode(PROVISIONER_NAME, config=False)
     launcher_name = Unicode(LAUNCHER_NAME, config=False)
 
@@ -113,17 +122,25 @@ Spark-enabled kernel specifications.  (GP_EXECUTOR_IMAGE_NAME env var)""",
     }
     aliases.update(BaseSpecSparkApp.aliases)
 
-    flags = {
-        "tensorflow": (
-            {"K8sSpecInstaller": {"tensorflow": True}},
-            tensorflow.help,
-        ),
-        "crd": (
-            {"K8sSpecInstaller": {"crd": True}},
-            crd.help,
-        ),
-    }
+    flags = {}
     flags.update(BaseSpecSparkApp.flags)
+    flags.update(
+        {
+            "tensorflow": (
+                {"K8sSpecInstaller": {"tensorflow": True}},
+                tensorflow.help,
+            ),
+            "crd": (
+                {"K8sSpecInstaller": {"crd": True}},
+                crd.help,
+            ),
+            # Override the spark flag so this help string is present.
+            "spark": (
+                {"K8sSpecInstaller": {"spark": True}},
+                spark.help,
+            ),
+        }
+    )
 
     @overrides
     def detect_missing_extras(self):
@@ -149,15 +166,14 @@ Spark-enabled kernel specifications.  (GP_EXECUTOR_IMAGE_NAME env var)""",
 
         if self.crd is True:
             if self.spark is False:
-                self.log.warning(
-                    "--spark has not been specified and --crd currently requires Spark - auto-enabling Spark."
+                reason = (
+                    "--crd requires a specifying option (e.g., --spark) to determine which "
+                    "CustomResourceProvisioner to configure."
                 )
-                self.spark = True
+                raise RuntimeError(reason)
             if self.language != PYTHON:
                 self.log.warning(
-                    "CRD support only works with Python, changing language from {} to Python.".format(
-                        entered_language
-                    )
+                    f"CRD support only works with Python, changing language from {entered_language} to Python."
                 )
                 self.language = PYTHON
             # if kernel and display names are still defaulted, silently convert to lang default and append spark suffix

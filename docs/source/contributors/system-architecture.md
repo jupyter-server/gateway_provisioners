@@ -9,7 +9,7 @@ Gateway provisioner classes derive from the abstract base class
 [`KernelProvisionerBase`](https://github.com/jupyter/jupyter_client/blob/adff6b1d4389c885ee7ff4764fc5ffad6fcbe53f/jupyter_client/provisioning/provisioner_base.py#L17) -
 which defines abstract methods for managing the kernel process's lifecycle. There are two immediate subclasses of
 `KernelProvisionerBase` - [`LocalProvisioner`](https://github.com/jupyter/jupyter_client/blob/adff6b1d4389c885ee7ff4764fc5ffad6fcbe53f/jupyter_client/provisioning/local_provisioner.py#L16)
-(provided by `juptyer_client`) and [`RemoteProvisionerBase`](https://github.com/jupyter-server/gateway_provisioners/blob/d400f6f48de61823c596e4f774a42b01b17e6887/gateway_provisioners/remote_provisioner.py#L75) -
+(provided by `jupyter_client`) and [`RemoteProvisionerBase`](https://github.com/jupyter-server/gateway_provisioners/blob/d400f6f48de61823c596e4f774a42b01b17e6887/gateway_provisioners/remote_provisioner.py#L75) -
 the base class of all Gateway Provisioners' provisioners.
 
 `LocalProvisioner` is essentially a pass-through to the current implementation. Kernel specifications that do not contain

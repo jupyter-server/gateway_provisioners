@@ -119,7 +119,7 @@ additional configuration options within the host application.
 
 ## Command-line Options
 
-The following is produced using `juptyer docker-spec install --help` and displays the complete set of command-line
+The following is produced using `jupyter docker-spec install --help` and displays the complete set of command-line
 options:
 
 ```text

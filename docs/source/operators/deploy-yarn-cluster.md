@@ -184,7 +184,7 @@ You should also check the same kinds of environment and path settings in the cor
 
 ### Command-line Options
 
-The following is produced using `juptyer yarn-spec install --help` and displays the complete set of command-line
+The following is produced using `jupyter yarn-spec install --help` and displays the complete set of command-line
 options:
 
 ```text

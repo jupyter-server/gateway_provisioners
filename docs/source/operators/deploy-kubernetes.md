@@ -384,7 +384,7 @@ additional configuration options within the host application.
 
 ## Command-line Options
 
-The following is produced using `juptyer k8s-spec install --help` and displays the complete set of command-line
+The following is produced using `jupyter k8s-spec install --help` and displays the complete set of command-line
 options:
 
 ```text
@@ -398,17 +398,28 @@ To see all configurable class-options for some <cmd>, use:
     <cmd> --help-all
 
 --spark
-    Install kernelspec with Spark support.
-    Equivalent to: [--BaseSpecSparkApp.spark=True]
+    Install kernelspec for use with Spark.  When combined with --crd,
+    will configure the SparkOperatorProvisioner for Spark Application CRDs.
+    Equivalent to: [--K8sSpecInstaller.spark=True]
 --user
-    Install to the per-user kernel registry
+    Try to install the kernel spec to the per-user directory instead of the system or environment directory.
     Equivalent to: [--BaseSpecApp.user=True]
+--replace
+    If a kernel specification already exists in the destination, allow for its replacement.
+    Equivalent to: [--BaseSpecApp.replace=True]
 --sys-prefix
-    Install to Python's sys.prefix. Useful in conda/virtual environments.
+    Specify a prefix to install to, e.g. an env. The kernelspec will be installed in PREFIX/share/jupyter/kernels/
     Equivalent to: [--BaseSpecApp.prefix=/opt/miniconda3/envs/provisioners]
 --debug
     set log level to logging.DEBUG (maximize logging output)
     Equivalent to: [--Application.log_level=10]
+--tensorflow
+    Install kernelspec for use with Tensorflow.
+    Equivalent to: [--K8sSpecInstaller.tensorflow=True]
+--crd
+    Install kernelspec for use with a Custom Resource Definition.  When combined with --spark,
+    will configure the SparkOperatorProvisioner for Spark Application CRDs.
+    Equivalent to: [--K8sSpecInstaller.crd=True]
 --image-name=<Unicode>
     The kernel image to use for this kernel specification. If this specification
     is enabled for Spark usage, this image will be the driver image.
@@ -500,8 +511,9 @@ Examples
 
     jupyter-k8s-spec install --language=R --kernel-name=r_k8s --image-name=foo/my_r_kernel_image:v4_0
 
-    jupyter-k8s-spec install --language=Scala --spark --kernel-name=scala_k8s_spark
-        --display-name='Scala on Kubernetes with Spark'
+    jupyter-k8s-spec install --language=Scala --spark --kernel-name=scala_k8s_spark --display-name='Scala on Kubernetes with Spark'
+
+    jupyter-k8s-spec install --spark --crd --display-name='Python SparkOperator"
 
 To see all available configurables, use `--help-all`.
 ```
