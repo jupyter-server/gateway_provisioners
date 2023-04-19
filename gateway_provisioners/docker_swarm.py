@@ -51,6 +51,10 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         return {"preparing", "starting", "running"}
 
     @overrides
+    def get_error_states(self) -> Set[str]:
+        return {"failed", "rejected", "complete", "shutdown", "orphaned", "remove"}
+
+    @overrides
     def get_container_status(self, iteration: Optional[str]) -> str:
         # Locates the kernel container using the kernel_id filter.  If the status indicates an initial state we
         # should be able to get at the NetworksAttachments and determine the associated container's IP address.
@@ -175,6 +179,10 @@ class DockerProvisioner(ContainerProvisionerBase):
     @overrides
     def get_initial_states(self) -> Set[str]:
         return {"created", "running"}
+
+    @overrides
+    def get_error_states(self) -> Set[str]:
+        return {"restarting", "paused", "exited", "dead"}
 
     @overrides
     def get_container_status(self, iteration: Optional[str]) -> str:
