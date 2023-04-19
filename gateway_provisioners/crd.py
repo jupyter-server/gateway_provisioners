@@ -5,7 +5,7 @@
 import logging
 import re
 from contextlib import suppress
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from overrides import overrides
 
@@ -105,7 +105,7 @@ class CustomResourceProvisioner(KubernetesProvisioner):
         return application_state
 
     @overrides
-    def delete_managed_object(self, termination_stati: list[str]) -> bool:
+    def delete_managed_object(self, termination_stati: List[str]) -> bool:
         """Deletes the object managed by this provisioner
 
         A return value of True indicates the object is considered deleted,

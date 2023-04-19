@@ -5,7 +5,7 @@
 import logging
 import os
 import re
-from typing import Any, Dict, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 import urllib3
 from overrides import overrides
@@ -145,7 +145,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
 
         return pod_status
 
-    def delete_managed_object(self, termination_stati: list[str]) -> bool:
+    def delete_managed_object(self, termination_stati: List[str]) -> bool:
         """Deletes the object managed by this provisioner
 
         A return value of True indicates the object is considered deleted,
