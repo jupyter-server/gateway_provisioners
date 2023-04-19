@@ -35,10 +35,10 @@ which produces the following output...
 and the following set of files and directories:
 
 ```text
-/usr/local/share/jupyter/kernels/docker_python
+/usr/local/share/jupyter/kernels/k8s_python
 kernel.json logo-64x64.png
 
-/usr/local/share/jupyter/kernels/docker_python/scripts:
+/usr/local/share/jupyter/kernels/k8s_python/scripts:
 launch_kubernetes.py
 kernel-pod.yaml.j2
 ```
@@ -67,6 +67,56 @@ where each provides the following function:
 See [Command-line Options](#command-line-options) below for how to adjust the `image-name`, `display-name`, and
 others.
 ```
+
+### Deploying Custom Resource Definitions
+
+Gateway Provisioners currently supports one form of Custom Resource Definitions (CRDs) via the
+[`SparkOperatorProvisioner`](../contributors/system-architecture.md#sparkoperatorprovisioner).  To generate a kernel
+specification to use `SparkOperatorProvisioner`, in addition to including the `--spark` option, you will also include the
+`--crd` option to `jupyter k8s-spec install`.
+
+```dockerfile
+RUN jupyter k8s-spec install --crd --spark
+```
+
+which produces the following output...
+
+```text
+[I 2023-04-19 10:18:09.963 K8sSpecInstaller] Installing kernel specification for 'Kubernetes Spark Operator'
+[I 2023-04-19 10:18:10.360 K8sSpecInstaller] Installed kernelspec k8s_python_spark_operator in /usr/local/share/jupyter/kernels/k8s_python_spark_operator
+```
+
+and the following set of files and directories:
+
+```text
+/usr/local/share/jupyter/kernels/k8s_python_spark_operator
+kernel.json logo-64x64.png
+
+/usr/local/share/jupyter/kernels/k8s_python_spark_operator/scripts:
+launch_custom_resource.py
+sparkoperator.k8s.io-v1beta2.yaml.j2
+```
+
+There are a few things worth noting here.
+
+1. The `scripts` directory contains a different set of scripts.  This is because the SparkOperator requires a
+   slightly different launch script and its yaml definitions are different enough to warrant separation.
+1. Although this provisioner uses Spark, there is no `run` sub-directory created that contains a `spark-submit`
+   command.  Instead, the appropriate CRD is created which performs the application's submission to Spark directly.
+1. The yaml template name is a composition of the provisioner's [`group` and `version` attributes](../contributors/system-architecture.md/#sparkoperatorprovisioner).
+   In this case, the `group` is `sparkoperator.k8s.io` and `version` is `v1beta2`.
+
+````{note}
+If you plan to use kernel specifications leveraging `SparkOperatorProvisioner`, ensure that the
+[Kubernetes Operator for Apache Spark is installed](https://github.com/GoogleCloudPlatform/spark-on-k8s-operator#installation)
+in your Kubernetes cluster.
+
+```{tip}
+To ensure the proper flow of environment variables to your spark operator, make sure the
+webhook server is enabled when deploying the helm chart:
+
+`helm install my-release spark-operator/spark-operator --namespace spark-operator --set webhook.enable=true`
+````
 
 ### Generating Multiple Specifications
 

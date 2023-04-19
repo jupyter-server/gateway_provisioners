@@ -98,9 +98,8 @@ in the kernel startup request's JSON body will be available to the kernel for it
 
   KERNEL_SPARKAPP_CONFIG_MAP=<from user> or None
     SparkOperator provisioner only. The name of a Kubernetes ConfigMap which will be used to
-    configure the SparkApplication. See the SparkApplicationSpec
-    (https://googlecloudplatform.github.io/spark-on-k8s-operator/docs/api-docs.html#sparkoperator.k8s.io/v1beta2.SparkApplicationSpec)
-    sparkConfigMap for more information.
+    configure the SparkApplication. This value is used to set the `sparkConfigMap` property
+    in the spark operator's yaml template during launch.
 
   KERNEL_UID=<from user> or 1000
     Container-based provisioners only. This value represents the user id in which the container
