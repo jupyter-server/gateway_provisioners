@@ -26,7 +26,7 @@ built-in subclasses of `RemoteProvisionerBase`:
   is responsible for the discovery and management of kernels hosted as Hadoop YARN applications within a managed cluster.
 - [`KubernetesProvisioner`](https://github.com/jupyter-server/gateway_provisioners/blob/d400f6f48de61823c596e4f774a42b01b17e6887/gateway_provisioners/k8s.py#L56) -
   is responsible for the discovery and management of kernels hosted within a Kubernetes cluster.
-- `SparkOperatorProvisioner` -
+- [`SparkOperatorProvisioner`](https://github.com/jupyter-server/gateway_provisioners/blob/4c82a803614e8b26803d4a25c18683e3e5f4ec06/gateway_provisioners/spark_operator.py#L8) -
   is responsible for the discovery and management of kernels hosted within a Kubernetes cluster that are provisioned via
   the Custom Resource Definition (CRD) `SparkApplication`.
 - [`DockerSwarmProvisioner`](https://github.com/jupyter-server/gateway_provisioners/blob/d400f6f48de61823c596e4f774a42b01b17e6887/gateway_provisioners/docker_swarm.py#L33) -
