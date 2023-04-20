@@ -55,6 +55,7 @@ RUN jupyter k8s-spec install --language R
 RUN jupyter k8s-spec install --language R --spark
 RUN jupyter k8s-spec install --language Scala
 RUN jupyter k8s-spec install --language Scala --spark
+RUN jupyter k8s-spec install --spark --crd
 RUN jupyter docker-spec install --language Python
 RUN jupyter docker-spec install --language R
 RUN jupyter docker-spec install --language Scala

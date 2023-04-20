@@ -9,7 +9,7 @@ Gateway provisioner classes derive from the abstract base class
 [`KernelProvisionerBase`](https://github.com/jupyter/jupyter_client/blob/adff6b1d4389c885ee7ff4764fc5ffad6fcbe53f/jupyter_client/provisioning/provisioner_base.py#L17) -
 which defines abstract methods for managing the kernel process's lifecycle. There are two immediate subclasses of
 `KernelProvisionerBase` - [`LocalProvisioner`](https://github.com/jupyter/jupyter_client/blob/adff6b1d4389c885ee7ff4764fc5ffad6fcbe53f/jupyter_client/provisioning/local_provisioner.py#L16)
-(provided by `juptyer_client`) and [`RemoteProvisionerBase`](https://github.com/jupyter-server/gateway_provisioners/blob/d400f6f48de61823c596e4f774a42b01b17e6887/gateway_provisioners/remote_provisioner.py#L75) -
+(provided by `jupyter_client`) and [`RemoteProvisionerBase`](https://github.com/jupyter-server/gateway_provisioners/blob/d400f6f48de61823c596e4f774a42b01b17e6887/gateway_provisioners/remote_provisioner.py#L75) -
 the base class of all Gateway Provisioners' provisioners.
 
 `LocalProvisioner` is essentially a pass-through to the current implementation. Kernel specifications that do not contain
@@ -26,6 +26,9 @@ built-in subclasses of `RemoteProvisionerBase`:
   is responsible for the discovery and management of kernels hosted as Hadoop YARN applications within a managed cluster.
 - [`KubernetesProvisioner`](https://github.com/jupyter-server/gateway_provisioners/blob/d400f6f48de61823c596e4f774a42b01b17e6887/gateway_provisioners/k8s.py#L56) -
   is responsible for the discovery and management of kernels hosted within a Kubernetes cluster.
+- `SparkOperatorProvisioner` -
+  is responsible for the discovery and management of kernels hosted within a Kubernetes cluster that are provisioned via
+  the Custom Resource Definition (CRD) `SparkApplication`.
 - [`DockerSwarmProvisioner`](https://github.com/jupyter-server/gateway_provisioners/blob/d400f6f48de61823c596e4f774a42b01b17e6887/gateway_provisioners/docker_swarm.py#L33) -
   is responsible for the discovery and management of kernels hosted within a Docker Swarm cluster.
 - [`DockerProvisioner`](https://github.com/jupyter-server/gateway_provisioners/blob/d400f6f48de61823c596e4f774a42b01b17e6887/gateway_provisioners/docker_swarm.py#L159) -
@@ -61,6 +64,7 @@ blockdiag {
   default_node_color = pink;
 
   KernelProvisionerBase <- RemoteProvisionerBase <- ContainerProvisionerBase <- KubernetesProvisioner
+  KernelProvisionerBase <- RemoteProvisionerBase <- ContainerProvisionerBase <- KubernetesProvisioner <- CustomResourceProvisioner <- SparkOperatorProvisioner
   KernelProvisionerBase <- RemoteProvisionerBase <- ContainerProvisionerBase <- DockerSwarmProvisioner
   KernelProvisionerBase <- RemoteProvisionerBase <- ContainerProvisionerBase <- DockerProvisioner
   KernelProvisionerBase <- RemoteProvisionerBase <- DistributedProvisioner
@@ -68,37 +72,33 @@ blockdiag {
   KernelProvisionerBase <- LocalProvisioner
 
   KernelProvisionerBase, LocalProvisioner [color = lightblue];
-  RemoteProvisionerBase, ContainerProvisionerBase, DistributedProvisioner, YarnProvisioner, KubernetesProvisioner, DockerSwarmProvisioner, DockerProvisioner  [color = lightyellow];
-  KernelProvisionerBase, RemoteProvisionerBase, ContainerProvisionerBase [style = dashed, numbered = ABC];
+  RemoteProvisionerBase, ContainerProvisionerBase, DistributedProvisioner, YarnProvisioner, KubernetesProvisioner, CustomResourceProvisioner, SparkOperatorProvisioner, DockerSwarmProvisioner, DockerProvisioner  [color = lightyellow];
+  KernelProvisionerBase, RemoteProvisionerBase, ContainerProvisionerBase, CustomResourceProvisioner [style = dashed, numbered = ABC];
 }
 ```
 
-### RemoteProvisionerBase
+### `RemoteProvisionerBase`
 
 As noted above, `RemoteProvisionerBase` is an abstract base class that derives from `KernelProvisionerBase`. Subclasses
-of `RemoteProvisionerBase` must also implement `confirm_remote_startup()` and are encouraged to override
-`handle_launch_timeout()`:
+of `RemoteProvisionerBase` must also implement `confirm_remote_startup()` and `log_kernel_launch()`, and are
+encouraged to override `handle_launch_timeout()`:
 
 ```python
     @abstractmethod
     async def confirm_remote_startup(self):
         """Confirms the remote process has started and returned necessary connection information."""
-        pass
-```
 
-```python
+    @abstractmethod
+    def log_kernel_launch(self, cmd: List[str]) -> None:
+        """Logs the kernel launch from the respective remote provisioner"""
+
     async def handle_launch_timeout(self):
         """
         Checks to see if the kernel launch timeout has been exceeded while awaiting connection info.
         """
 ```
 
-Kernel launch timeout expiration is expressed via the environment variable `KERNEL_LAUNCH_TIMEOUT`. If this
-value does not exist, it defaults to the host application process environment variable `KERNEL_LAUNCH_TIMEOUT` - which
-defaults to 30 seconds if unspecified. Since all `KERNEL_` environment variables "flow" from the Notebook server, the launch
-timeout can be specified as a client attribute of the Notebook session.
-
-#### YarnProvisioner
+#### `YarnProvisioner`
 
 As part of its base offering, Gateway Provisioners provides an implementation of a kernel provisioner that communicates
 with the Hadoop YARN resource manager that has been instructed to launch a kernel on one of its worker nodes. The node
@@ -129,7 +129,7 @@ library will choose the active Resource Manager from the configuration files.
 - [`YarnProvisioner` configuration options](../operators/config-file.md#yarnprovisioner) for other options.
 ```
 
-#### DistributedProvisioner
+#### `DistributedProvisioner`
 
 Like `YarnProvisioner`, Gateway Provisioners also provides an implementation of a basic
 remoting mechanism that is part of the `DistributedProvisioner` class. This class
@@ -151,23 +151,84 @@ kernel provisioner configuration to override the global value, enabling finer-gr
 [Distributed deployments](../operators/deploy-distributed.md) in the Operators Guide for details.
 ```
 
-#### KubernetesProvisioner
+#### `ContainerProvisionerBase`
+
+`ContainerProvisionerBase` is an abstract base class that derives from `RemoteProvisionerBase`. It implements all
+the methods inherited from `RemoteProvsionerBase` interacting with the container API and requiring method implementations
+to perform the platform's integration.  Subclasses
+of `ContainerProvisionerBase` must also implement `get_initial_states()`,  `get_error_states()`, `get_container_status()`,
+and `terminate_container_resources()`:
+
+```python
+    @abstractmethod
+    def get_initial_states(self) -> Set[str]:
+        """Return list of states (in lowercase) indicating container is starting (includes running)."""
+
+    @abstractmethod
+    def get_error_states(self) -> Set[str]:
+        """Returns the list of error states (in lowercase)."""
+
+    @abstractmethod
+    def get_container_status(self, iteration: Optional[str]) -> str:
+        """Return current container state."""
+
+    @abstractmethod
+    def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
+        """Terminate any artifacts created on behalf of the container's lifetime."""
+```
+
+#### `KubernetesProvisioner`
 
 With the popularity of Kubernetes within the enterprise, Gateway Provisioners provides an implementation
-of a kernel provisioner that communicates with the Kubernetes resource manager via the Kubernetes API. Unlike
-the other offerings, in the case of Kubernetes, the host application is itself deployed within the Kubernetes
-cluster as a _Service_ and _Deployment_.
+of a kernel provisioner that communicates with the Kubernetes resource manager via the Kubernetes API. Because
+kernels managed by `KubernetesProvisioner` are Kubernetes Pods and have _container_ behaviors, `KubernetesProvisioner`
+derives from `ContainerProvisionerBase`. Unlike the other offerings, in the case of Kubernetes, the host application
+is itself deployed within the Kubernetes cluster as a _Service_ and _Deployment_.
 
 ```{seealso}
 [Kubernetes deployments](../operators/deploy-kubernetes.md) in the Operators Guide for details.
 ```
 
-#### DockerSwarmProvisioner
+#### `CustomResourceProvisioner`
+
+Gateway Provisioners also provides an implementation of a kernel provisioner derived from `KubernetesProvisioner`
+called `CustomResourceProvisioner`.
+
+Instead of creating kernels based on a Kubernetes pod, `CustomResourceProvisioner`
+manages kernels via a custom resource definition (CRD). For example, `SparkApplication` is a CRD that includes
+many components of a Spark-on-Kubernetes application.
+
+`CustomResourceProvisioner` could be considered a _virtual abstract base class_ that provides the necessary method overrides of
+`KubernetesProvisioner` to manage the lifecycle of CRDs.  If you are going to extend `CustomResourceProvisioner`,
+all that should be necessary is to override these custom resource related attributes (i.e. `group`, `version`, `plural` and
+`object_kind`) that define the CRD attributes and its implementation should cover the rest.  Note that `object_kind` is
+an internal attribute that Gateway Provisioners uses, while the other attributes are associated with the Kubernetes CRD
+object definition.
+
+```{admonition} Note
+`CustomResourceProvisioner` is considered a _virtual_ ABC in that an instance of `CustomResourceProvisioner` _could_
+be instantiated, but it wouldn't be usable because it doesn't define the necessary attribute values
+to function.  In addition, the class itself doesn't define any abstract methods (today).
+```
+
+#### `SparkOperatorProvisioner`
+
+A great example of a `CustomResourceProvisioner` is `SparkOperatorProvisioner`.  As described in the previous section,
+it's implementation consists of overrides of attributes `group` (e.g, `"sparkoperator.k8s.io"`), `version`
+(i.e., `"v1beta2"`), `plural` (i.e., `"sparkapplications"`) and `object_kind` (i.e., `"SparkApplication"`).
+
+```{seealso}
+[Deploying Custom Resource Definitions](../operators/deploy-kubernetes.md#deploying-custom-resource-definitions) in the
+Operators Guide for details.
+```
+
+#### `DockerSwarmProvisioner`
 
 Gateway Provisioners provides an implementation of a kernel provisioner that communicates with the Docker Swarm resource
 manager via the Docker API. When used, the kernels are launched as swarm services and can reside anywhere in the
-managed cluster. To leverage kernels configured in this manner, the host application can be deployed
-either as a Docker Swarm _service_ or a traditional Docker container.
+managed cluster.  The core of a Docker Swarm service is a container, so `DockerSwarmProvisioner` derives from
+`ContainerProvisionerBase`. To leverage kernels configured in this manner, the host application can be deployed either
+as a Docker Swarm _service_ or a traditional Docker container.
 
 A similar `DockerProvisioner` implementation has also been provided. When used, the corresponding kernel will be
 launched as a traditional docker container that runs local to the launching host application. As a result,

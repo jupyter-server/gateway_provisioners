@@ -31,7 +31,6 @@ KERNEL_JSON = "kernel.json"
 PYTHON = "python"
 SCALA = "scala"
 R = "r"
-DASK = "dask"
 DEFAULT_LANGUAGE = PYTHON
 SUPPORTED_LANGUAGES = [PYTHON, SCALA, R]
 DEFAULT_INIT_MODE = "lazy"
@@ -290,15 +289,15 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
     flags = {
         "user": (
             {"BaseSpecApp": {"user": True}},
-            "Install to the per-user kernel registry",
+            user.help,
         ),
         "replace": (
             {"BaseSpecApp": {"replace": True}},
-            "Allow replacement of existing kernel specification",
+            replace.help,
         ),
         "sys-prefix": (
             {"BaseSpecApp": {"prefix": sys.prefix}},
-            "Install to Python's sys.prefix. Useful in conda/virtual environments.",
+            prefix.help,
         ),
         "debug": base_flags["debug"],
     }
@@ -549,7 +548,7 @@ class BaseSpecSparkApp(BaseSpecApp):
 
     extra_spark_opts = Unicode("", config=True, help="Specify additional Spark options.")
 
-    spark = Bool(False, config=True, help="Install kernel for use with Spark.")
+    spark = Bool(False, config=True, help="Install kernelspec for use with Spark.")
 
     aliases = {
         "spark-home": "BaseSpecSparkApp.spark_home",
@@ -561,7 +560,7 @@ class BaseSpecSparkApp(BaseSpecApp):
     flags = {
         "spark": (
             {"BaseSpecSparkApp": {"spark": True}},
-            "Install kernelspec with Spark support.",
+            spark.help,
         ),
     }
     flags.update(BaseSpecApp.flags)

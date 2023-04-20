@@ -25,6 +25,12 @@ Submodules
    :show-inheritance:
 
 
+.. automodule:: gateway_provisioners.crd
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
 .. automodule:: gateway_provisioners.distributed
    :members:
    :undoc-members:
@@ -50,6 +56,12 @@ Submodules
 
 
 .. automodule:: gateway_provisioners.response_manager
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+
+.. automodule:: gateway_provisioners.spark_operator
    :members:
    :undoc-members:
    :show-inheritance:

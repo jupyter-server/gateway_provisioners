@@ -109,6 +109,7 @@ application:
     - k8s_r_spark
     - k8s_python_spark
     - k8s_scala_spark
+    - k8s_python_spark_operator
 
   # Default kernel name should be something from the allowedKernels
   defaultKernelName: k8s_python

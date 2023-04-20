@@ -35,10 +35,10 @@ which produces the following output...
 and the following set of files and directories:
 
 ```text
-/usr/local/share/jupyter/kernels/docker_python
+/usr/local/share/jupyter/kernels/k8s_python
 kernel.json logo-64x64.png
 
-/usr/local/share/jupyter/kernels/docker_python/scripts:
+/usr/local/share/jupyter/kernels/k8s_python/scripts:
 launch_kubernetes.py
 kernel-pod.yaml.j2
 ```
@@ -67,6 +67,56 @@ where each provides the following function:
 See [Command-line Options](#command-line-options) below for how to adjust the `image-name`, `display-name`, and
 others.
 ```
+
+### Deploying Custom Resource Definitions
+
+Gateway Provisioners currently supports one form of Custom Resource Definitions (CRDs) via the
+[`SparkOperatorProvisioner`](../contributors/system-architecture.md#sparkoperatorprovisioner).  To generate a kernel
+specification to use `SparkOperatorProvisioner`, in addition to including the `--spark` option, you will also include the
+`--crd` option to `jupyter k8s-spec install`.
+
+```dockerfile
+RUN jupyter k8s-spec install --crd --spark
+```
+
+which produces the following output...
+
+```text
+[I 2023-04-19 10:18:09.963 K8sSpecInstaller] Installing kernel specification for 'Kubernetes Spark Operator'
+[I 2023-04-19 10:18:10.360 K8sSpecInstaller] Installed kernelspec k8s_python_spark_operator in /usr/local/share/jupyter/kernels/k8s_python_spark_operator
+```
+
+and the following set of files and directories:
+
+```text
+/usr/local/share/jupyter/kernels/k8s_python_spark_operator
+kernel.json logo-64x64.png
+
+/usr/local/share/jupyter/kernels/k8s_python_spark_operator/scripts:
+launch_custom_resource.py
+sparkoperator.k8s.io-v1beta2.yaml.j2
+```
+
+There are a few things worth noting here.
+
+1. The `scripts` directory contains a different set of scripts.  This is because the SparkOperator requires a
+   slightly different launch script and its yaml definitions are different enough to warrant separation.
+1. Although this provisioner uses Spark, there is no `run` sub-directory created that contains a `spark-submit`
+   command.  Instead, the appropriate CRD is created which performs the application's submission to Spark directly.
+1. The yaml template name is a composition of the provisioner's [`group` and `version` attributes](../contributors/system-architecture.md/#sparkoperatorprovisioner).
+   In this case, the `group` is `sparkoperator.k8s.io` and `version` is `v1beta2`.
+
+````{note}
+If you plan to use kernel specifications leveraging `SparkOperatorProvisioner`, ensure that the
+[Kubernetes Operator for Apache Spark is installed](https://github.com/GoogleCloudPlatform/spark-on-k8s-operator#installation)
+in your Kubernetes cluster.
+
+```{tip}
+To ensure the proper flow of environment variables to your spark operator, make sure the
+webhook server is enabled when deploying the helm chart:
+
+`helm install my-release spark-operator/spark-operator --namespace spark-operator --set webhook.enable=true`
+````
 
 ### Generating Multiple Specifications
 
@@ -334,7 +384,7 @@ additional configuration options within the host application.
 
 ## Command-line Options
 
-The following is produced using `juptyer k8s-spec install --help` and displays the complete set of command-line
+The following is produced using `jupyter k8s-spec install --help` and displays the complete set of command-line
 options:
 
 ```text
@@ -348,17 +398,28 @@ To see all configurable class-options for some <cmd>, use:
     <cmd> --help-all
 
 --spark
-    Install kernelspec with Spark support.
-    Equivalent to: [--BaseSpecSparkApp.spark=True]
+    Install kernelspec for use with Spark.  When combined with --crd,
+    will configure the SparkOperatorProvisioner for Spark Application CRDs.
+    Equivalent to: [--K8sSpecInstaller.spark=True]
 --user
-    Install to the per-user kernel registry
+    Try to install the kernel spec to the per-user directory instead of the system or environment directory.
     Equivalent to: [--BaseSpecApp.user=True]
+--replace
+    If a kernel specification already exists in the destination, allow for its replacement.
+    Equivalent to: [--BaseSpecApp.replace=True]
 --sys-prefix
-    Install to Python's sys.prefix. Useful in conda/virtual environments.
+    Specify a prefix to install to, e.g. an env. The kernelspec will be installed in PREFIX/share/jupyter/kernels/
     Equivalent to: [--BaseSpecApp.prefix=/opt/miniconda3/envs/provisioners]
 --debug
     set log level to logging.DEBUG (maximize logging output)
     Equivalent to: [--Application.log_level=10]
+--tensorflow
+    Install kernelspec for use with Tensorflow.
+    Equivalent to: [--K8sSpecInstaller.tensorflow=True]
+--crd
+    Install kernelspec for use with a Custom Resource Definition.  When combined with --spark,
+    will configure the SparkOperatorProvisioner for Spark Application CRDs.
+    Equivalent to: [--K8sSpecInstaller.crd=True]
 --image-name=<Unicode>
     The kernel image to use for this kernel specification. If this specification
     is enabled for Spark usage, this image will be the driver image.
@@ -450,8 +511,9 @@ Examples
 
     jupyter-k8s-spec install --language=R --kernel-name=r_k8s --image-name=foo/my_r_kernel_image:v4_0
 
-    jupyter-k8s-spec install --language=Scala --spark --kernel-name=scala_k8s_spark
-        --display-name='Scala on Kubernetes with Spark'
+    jupyter-k8s-spec install --language=Scala --spark --kernel-name=scala_k8s_spark --display-name='Scala on Kubernetes with Spark'
+
+    jupyter-k8s-spec install --spark --crd --display-name='Python SparkOperator"
 
 To see all available configurables, use `--help-all`.
 ```

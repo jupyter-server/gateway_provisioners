@@ -51,17 +51,21 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         return {"preparing", "starting", "running"}
 
     @overrides
-    async def get_container_status(self, iteration: Optional[str]) -> str:
+    def get_error_states(self) -> Set[str]:
+        return {"failed", "rejected", "complete", "shutdown", "orphaned", "remove"}
+
+    @overrides
+    def get_container_status(self, iteration: Optional[str]) -> str:
         # Locates the kernel container using the kernel_id filter.  If the status indicates an initial state we
         # should be able to get at the NetworksAttachments and determine the associated container's IP address.
-        task_state = None
+        task_state = ""
         task_id = None
         task = self._get_task()
         if task:
             task_status = task["Status"]
             task_id = task["ID"]
             if task_status:
-                task_state = task_status["State"]
+                task_state = task_status["State"].lower()
                 if (
                     self.assigned_host == "" and task_state == "running"
                 ):  # in self.get_initial_states():
@@ -83,7 +87,7 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         return task_state
 
     @overrides
-    async def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
+    def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
         # Remove the docker service.
 
         result = True  # We'll be optimistic
@@ -177,16 +181,20 @@ class DockerProvisioner(ContainerProvisionerBase):
         return {"created", "running"}
 
     @overrides
-    async def get_container_status(self, iteration: Optional[str]) -> str:
+    def get_error_states(self) -> Set[str]:
+        return {"restarting", "paused", "exited", "dead"}
+
+    @overrides
+    def get_container_status(self, iteration: Optional[str]) -> str:
         # Locates the kernel container using the kernel_id filter.  If the phase indicates Running, the pod's IP
         # is used for the assigned_ip.  Only used when docker mode == regular (non swarm)
-        container_status = None
+        container_status = ""
 
         container = self._get_container()
         if container:
             self.container_name = container.name
             if container.status:
-                container_status = container.status
+                container_status = container.status.lower()
                 if container_status == "running" and self.assigned_host == "":
                     # Container is running, capture IP
 
@@ -216,7 +224,7 @@ class DockerProvisioner(ContainerProvisionerBase):
         return container_status
 
     @overrides
-    async def terminate_container_resources(self, restart: bool = False) -> None:
+    def terminate_container_resources(self, restart: bool = False) -> None:
         # Remove the container
 
         result = True  # Since we run containers with remove=True, we'll be optimistic

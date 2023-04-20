@@ -175,7 +175,7 @@ You should also check the same kinds of environment and path settings in the cor
 
 ### Command-line options
 
-The following is produced using `juptyer ssh-spec install --help` and displays the complete set of command-line options.
+The following is produced using `jupyter ssh-spec install --help` and displays the complete set of command-line options.
 
 ```text
 Creates a Jupyter kernel specification for use within a cluster of hosts via

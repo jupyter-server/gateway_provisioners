@@ -1,0 +1,29 @@
+{
+  "language": "${language}",
+  "display_name": "${display_name}",
+  "metadata": {
+    "debugger": true,
+    "kernel_provisioner": {
+      "provisioner_name": "${provisioner_name}",
+      "config": {
+        "image_name": "${image_name}",
+        "executor_image_name": "${executor_image_name}"
+      }
+    }
+  },
+  "env": {},
+  "argv": [
+    "python",
+    "${install_dir}/scripts/${launcher_name}",
+    "--kernel-id",
+    "{kernel_id}",
+    "--port-range",
+    "{port_range}",
+    "--response-address",
+    "{response_address}",
+    "--public-key",
+    "{public_key}",
+    "--kernel-class-name",
+    "${ipykernel_subclass_name}"
+  ]
+}

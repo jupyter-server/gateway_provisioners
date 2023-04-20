@@ -9,16 +9,25 @@ from traitlets import Bool, Unicode, default
 from .._version import __version__
 from .base_app import DEFAULT_LANGUAGE, PYTHON, SCALA, BaseSpecSparkApp, R
 
-DEFAULT_KERNEL_NAMES = {PYTHON: "k8s_python", SCALA: "k8s_scala", R: "k8s_r"}
+SPARK_OP = "spark_operator"
+
 KERNEL_SPEC_TEMPLATE_NAMES = {
     PYTHON: "container_python",
     SCALA: "container_scala",
     R: "container_r",
+    SPARK_OP: "k8s_python_spark_operator",
+}
+DEFAULT_KERNEL_NAMES = {
+    PYTHON: "k8s_python",
+    SCALA: "k8s_scala",
+    R: "k8s_r",
+    SPARK_OP: "k8s_python_spark_operator",
 }
 DEFAULT_DISPLAY_NAMES = {
     PYTHON: "Kubernetes Python",
     SCALA: "Kubernetes Scala",
     R: "Kubernetes R",
+    SPARK_OP: "Kubernetes Spark Operator",
 }
 DEFAULT_IMAGE_NAMES = {
     PYTHON: "elyra/kernel-py",
@@ -35,7 +44,9 @@ SPARK_SUFFIX = "_spark"
 SPARK_DISPLAY_NAME_SUFFIX = " (with Spark)"
 
 PROVISIONER_NAME = "kubernetes-provisioner"
+SPARK_OP_PROVISIONER_NAME = "spark-operator-provisioner"
 LAUNCHER_NAME = "launch_kubernetes.py"
+SPARK_OP_LAUNCHER_NAME = "launch_custom_resource.py"
 
 
 class K8sSpecInstaller(BaseSpecSparkApp):
@@ -48,8 +59,9 @@ class K8sSpecInstaller(BaseSpecSparkApp):
     examples = """
     jupyter-k8s-spec install --language=R --kernel-name=r_k8s --image-name=foo/my_r_kernel_image:v4_0
 
-jupyter-k8s-spec install --language=Scala --spark --kernel-name=scala_k8s_spark
-    --display-name='Scala on Kubernetes with Spark'
+jupyter-k8s-spec install --language=Scala --spark --kernel-name=scala_k8s_spark --display-name='Scala on Kubernetes with Spark'
+
+jupyter-k8s-spec install --spark --crd --display-name='Python SparkOperator"
     """
 
     @default("kernel_name")
@@ -88,8 +100,19 @@ Spark-enabled kernel specifications.  (GP_EXECUTOR_IMAGE_NAME env var)""",
         return os.getenv(self.executor_image_name_env)
 
     # Flags
-    tensorflow = Bool(False, config=True, help="""Install kernel for use with Tensorflow.""")
-
+    tensorflow = Bool(False, config=True, help="""Install kernelspec for use with Tensorflow.""")
+    crd = Bool(
+        False,
+        config=True,
+        help="""Install kernelspec for use with a Custom Resource Definition.  When combined with --spark,
+will configure the SparkOperatorProvisioner for Spark Application CRDs.""",
+    )
+    spark = Bool(
+        False,
+        config=True,
+        help="""Install kernelspec for use with Spark.  When combined with --crd,
+will configure the SparkOperatorProvisioner for Spark Application CRDs.""",
+    )
     provisioner_name = Unicode(PROVISIONER_NAME, config=False)
     launcher_name = Unicode(LAUNCHER_NAME, config=False)
 
@@ -101,6 +124,23 @@ Spark-enabled kernel specifications.  (GP_EXECUTOR_IMAGE_NAME env var)""",
 
     flags = {}
     flags.update(BaseSpecSparkApp.flags)
+    flags.update(
+        {
+            "tensorflow": (
+                {"K8sSpecInstaller": {"tensorflow": True}},
+                tensorflow.help,
+            ),
+            "crd": (
+                {"K8sSpecInstaller": {"crd": True}},
+                crd.help,
+            ),
+            # Override the spark flag so this help string is present.
+            "spark": (
+                {"K8sSpecInstaller": {"spark": True}},
+                spark.help,
+            ),
+        }
+    )
 
     @overrides
     def detect_missing_extras(self):
@@ -119,11 +159,43 @@ Spark-enabled kernel specifications.  (GP_EXECUTOR_IMAGE_NAME env var)""",
     def validate_parameters(self):
         super().validate_parameters()
 
+        entered_language = self.language
         self.language = self.language.lower()
         self.launcher_dir_name = "kubernetes"
         self.resource_dir_name = self.language
 
-        if self.spark is True:
+        if self.crd is True:
+            if self.spark is False:
+                reason = (
+                    "--crd requires a specifying option (e.g., --spark) to determine which "
+                    "CustomResourceProvisioner to configure."
+                )
+                raise RuntimeError(reason)
+            if self.language != PYTHON:
+                self.log.warning(
+                    f"CRD support only works with Python, changing language from {entered_language} to Python."
+                )
+                self.language = PYTHON
+            # if kernel and display names are still defaulted, silently convert to lang default and append spark suffix
+            if self.kernel_name == DEFAULT_KERNEL_NAMES[DEFAULT_LANGUAGE]:
+                self.kernel_name = DEFAULT_KERNEL_NAMES[SPARK_OP]
+            if self.display_name == DEFAULT_DISPLAY_NAMES[DEFAULT_LANGUAGE]:
+                self.display_name = DEFAULT_DISPLAY_NAMES[SPARK_OP]
+
+            self.kernel_spec_dir_name = KERNEL_SPEC_TEMPLATE_NAMES[SPARK_OP]
+
+            if self.image_name is None:
+                self.image_name = f"{DEFAULT_SPARK_IMAGE_NAMES[self.language]}:{self._get_tag()}"
+            if self.executor_image_name is None:
+                self.executor_image_name = self.image_name
+
+            # Spark operators use different provisioners and launchers
+            if self.provisioner_name == PROVISIONER_NAME:
+                self.provisioner_name = SPARK_OP_PROVISIONER_NAME
+            if self.launcher_name == LAUNCHER_NAME:
+                self.launcher_name = SPARK_OP_LAUNCHER_NAME
+            self.launcher_dir_name = "operators"
+        elif self.spark is True:
             # if kernel and display names are still defaulted, silently convert to lang default and append spark suffix
             if self.kernel_name == DEFAULT_KERNEL_NAMES[DEFAULT_LANGUAGE]:
                 self.kernel_name = DEFAULT_KERNEL_NAMES[self.language] + SPARK_SUFFIX
@@ -173,8 +245,9 @@ class K8sProvisionerApp(JupyterApp):
 
     version = __version__
     name = "jupyter k8s-spec"
-    description = """Application used to create kernel specifications for use on Kubernetes clusters
-    via the KubernetesProvisioner kernel provisioner."""
+    description = (
+        """Application used to create kernel specifications for use on Kubernetes clusters."""
+    )
     subcommands = dict(
         {
             "install": (K8sSpecInstaller, K8sSpecInstaller.description.splitlines()[0]),
