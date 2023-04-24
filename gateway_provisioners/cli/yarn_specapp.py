@@ -243,14 +243,12 @@ class YarnProvisionerApp(JupyterApp):
     name = "jupyter yarn-spec"
     description = """Application used to create kernel specifications for use on Hadoop Yarn clusters
     via the YarnProvisioner kernel provisioner."""
-    subcommands = dict(
-        {
-            "install": (
-                YarnSpecInstaller,
-                YarnSpecInstaller.description.splitlines()[0],
-            ),
-        }
-    )
+    subcommands = {
+        "install": (
+            YarnSpecInstaller,
+            YarnSpecInstaller.description.splitlines()[0],
+        ),
+    }
     aliases = {}
     flags = {}
 

@@ -124,11 +124,9 @@ class SshProvisionerApp(JupyterApp):
     name = "jupyter ssh-spec"
     description = """Application used to create kernel specifications for use on clusters via SSH
     and the DistributedProvisioner kernel provisioner."""
-    subcommands = dict(
-        {
-            "install": (SshSpecInstaller, SshSpecInstaller.description.splitlines()[0]),
-        }
-    )
+    subcommands = {
+        "install": (SshSpecInstaller, SshSpecInstaller.description.splitlines()[0]),
+    }
     aliases = {}
     flags = {}
 

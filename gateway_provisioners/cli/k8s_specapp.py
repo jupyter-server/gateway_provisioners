@@ -248,11 +248,9 @@ class K8sProvisionerApp(JupyterApp):
     description = (
         """Application used to create kernel specifications for use on Kubernetes clusters."""
     )
-    subcommands = dict(
-        {
-            "install": (K8sSpecInstaller, K8sSpecInstaller.description.splitlines()[0]),
-        }
-    )
+    subcommands = {
+        "install": (K8sSpecInstaller, K8sSpecInstaller.description.splitlines()[0]),
+    }
     aliases = {}
     flags = {}
 

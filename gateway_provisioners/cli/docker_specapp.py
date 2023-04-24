@@ -136,14 +136,12 @@ class DockerProvisionerApp(JupyterApp):
     name = "jupyter docker-spec"
     description = """Application used to create kernel specifications for use on Docker or Docker Swarm clusters
     via the DockerProvisioner or DockerSwarmProvisioner kernel provisioners."""
-    subcommands = dict(
-        {
-            "install": (
-                DockerSpecInstaller,
-                DockerSpecInstaller.description.splitlines()[0],
-            ),
-        }
-    )
+    subcommands = {
+        "install": (
+            DockerSpecInstaller,
+            DockerSpecInstaller.description.splitlines()[0],
+        ),
+    }
     aliases = {}
     flags = {}
 
