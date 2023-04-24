@@ -147,14 +147,12 @@ class ImageBootstrapApp(JupyterApp):
     name = "jupyter image-bootstrap"
     description = """Application used to bootstrap kernel images with the appropriate
 kernel launchers for use by Remote Provisioners."""
-    subcommands = dict(
-        {
-            "install": (
-                ImageBootstrapInstaller,
-                ImageBootstrapInstaller.description.splitlines()[0],
-            ),
-        }
-    )
+    subcommands = {
+        "install": (
+            ImageBootstrapInstaller,
+            ImageBootstrapInstaller.description.splitlines()[0],
+        ),
+    }
     aliases = {}
     flags = {}
 
