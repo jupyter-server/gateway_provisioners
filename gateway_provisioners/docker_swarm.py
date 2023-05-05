@@ -182,7 +182,7 @@ class DockerProvisioner(ContainerProvisionerBase):
 
     @overrides
     def get_error_states(self) -> Set[str]:
-        return {"restarting", "paused", "exited", "dead"}
+        return {"restarting", "removing", "paused", "exited", "dead"}
 
     @overrides
     def get_container_status(self, iteration: Optional[str]) -> str:
