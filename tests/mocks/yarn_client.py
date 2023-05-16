@@ -16,7 +16,7 @@ class YarnResource:
         self.kernel_id: str = env.get("KERNEL_ID")
         self.kernel_username: str = env.get("KERNEL_USERNAME")
         self.name = self.kernel_id
-        self.id = f"application_{str(time_ns())}_0001"
+        self.id = f"application_{time_ns()!s}_0001"
         self.status: str = "NEW"
         self.query_counter: int = 1
         self.terminate_counter: int = 0
