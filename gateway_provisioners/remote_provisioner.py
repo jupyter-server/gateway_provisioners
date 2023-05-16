@@ -699,7 +699,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                             self.log.warning(
                                 f"Exception occurred attempting to shutdown communication "
                                 f"socket to {self.comm_ip}:{self.comm_port} for KernelID "
-                                f"'{self.kernel_id}' (ignored): {str(e2)}"
+                                f"'{self.kernel_id}' (ignored): {e2!s}"
                             )
                 sock.close()
         else:
