@@ -88,7 +88,7 @@ dev = [
 lint = [
   "black[jupyter]==23.3.0",
   "mdformat>0.7",
-  "ruff==0.0.270",
+  "ruff==0.0.272",
 ]
 yarn = [
     "yarn-api-client"
