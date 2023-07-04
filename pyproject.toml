@@ -61,7 +61,7 @@ test = [
 ]
 docs = [
   "docutils<0.21",
-  "mistune<3.0.0",
+  "mistune<4.0.0",
   "myst-parser",
   "pydata_sphinx_theme",
   "sphinx-copybutton",
