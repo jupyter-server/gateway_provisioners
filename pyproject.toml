@@ -88,7 +88,7 @@ dev = [
 lint = [
   "black[jupyter]==23.3.0",
   "mdformat>0.7",
-  "ruff==0.0.270",
+  "ruff==0.0.276",
 ]
 yarn = [
     "yarn-api-client"
@@ -244,6 +244,8 @@ ignore = [
   "S311",
   # Relative imports are banned
   "TID252",
+  # RUF012 Mutable class attributes should be annotated with `typing.ClassVar`
+  "RUF012",
 ]
 unfixable = [
   # Don't touch print statements
