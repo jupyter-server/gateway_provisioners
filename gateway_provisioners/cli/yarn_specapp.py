@@ -227,7 +227,9 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         if self.language == PYTHON and not self.dask:
             try:
                 python_lib_contents = os.listdir(f"{self.spark_home}/python/lib")
-                py4j_zip = list(filter(lambda filename: "py4j" in filename, python_lib_contents))[0]
+                py4j_zip = next(
+                    iter(filter(lambda filename: "py4j" in filename, python_lib_contents))
+                )
 
                 # This is always a sub-element of a path, so let's prefix with colon
                 substitutions["py4j_path"] = f":{self.spark_home}/python/lib/{py4j_zip}"

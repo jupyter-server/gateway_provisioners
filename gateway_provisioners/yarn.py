@@ -513,7 +513,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         if not self.application_id:
             app = self._query_app_by_name(self.kernel_id)
             state_condition = True
-            if type(app) is dict:
+            if isinstance(app, dict):
                 state = app.get("state")
                 self.last_known_state = state
 
@@ -570,7 +570,11 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             )
         else:
             data = response.data
-            if type(data) is dict and type(data.get("apps")) is dict and "app" in data.get("apps"):
+            if (
+                isinstance(type, dict)
+                and isinstance(data.get("apps"), dict)
+                and "app" in data.get("apps")
+            ):
                 for app in data["apps"]["app"]:
                     if app.get("name", "").find(kernel_id) >= 0 and app.get("id") > top_most_app_id:
                         target_app = app
@@ -592,7 +596,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             )
         else:
             data = response.data
-            if type(data) is dict and "app" in data:
+            if isinstance(data, dict) and "app" in data:
                 app = data["app"]
 
         return app
