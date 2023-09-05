@@ -86,7 +86,7 @@ dev = [
   "twine",
 ]
 lint = [
-  "black[jupyter]==23.3.0",
+  "black[jupyter]==23.7.0",
   "mdformat>0.7",
   "ruff==0.0.276",
 ]
