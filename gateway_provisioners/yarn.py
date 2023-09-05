@@ -570,7 +570,11 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             )
         else:
             data = response.data
-            if isinstance(type, dict) and isinstance(data.get("apps"), dict) and "app" in data.get("apps"):
+            if (
+                isinstance(type, dict)
+                and isinstance(data.get("apps"), dict)
+                and "app" in data.get("apps")
+            ):
                 for app in data["apps"]["app"]:
                     if app.get("name", "").find(kernel_id) >= 0 and app.get("id") > top_most_app_id:
                         target_app = app
