@@ -307,8 +307,8 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         """
         await asyncio.sleep(poll_interval)
         time_interval = RemoteProvisionerBase.get_time_diff(
-            self.start_time
-        )  # type:ignore[arg-type]
+            self.start_time  # type:ignore[arg-type]
+        )
 
         if time_interval > self.launch_timeout:
             reason = (
@@ -454,8 +454,8 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
     def _handle_yarn_queue_timeout(self) -> None:
         time.sleep(poll_interval)
         time_interval = RemoteProvisionerBase.get_time_diff(
-            self.start_time
-        )  # type:ignore[arg-type]
+            self.start_time  # type:ignore[arg-type]
+        )
 
         if time_interval > self.yarn_resource_check_wait_time:
             reason = f"Yarn Compute Resource is unavailable after {self.yarn_resource_check_wait_time} seconds"
@@ -511,9 +511,11 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
                 self.last_known_state = app_state
 
             if self.assigned_host == "" and app.get("amHostHttpAddress"):
-                self.assigned_host = app.get("amHostHttpAddress").split(":")[
+                self.assigned_host = app.get("amHostHttpAddress").split(
+                    ":"
+                )[  # type:ignore[union-attr]
                     0
-                ]  # type:ignore[union-attr]
+                ]
                 # Set the assigned ip to the actual host where the application landed.
                 self.assigned_ip = socket.gethostbyname(self.assigned_host)
 
@@ -540,8 +542,8 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
                 if len(app.get("id", "")) > 0 and state_condition:
                     self.application_id = app["id"]
                     time_interval = RemoteProvisionerBase.get_time_diff(
-                        self.start_time
-                    )  # type:ignore[arg-type]
+                        self.start_time  # type:ignore[arg-type]
+                    )
                     self.log.info(
                         f"ApplicationID: '{app['id']}' assigned for KernelID: '{self.kernel_id}', "
                         f"state: {state}, {time_interval} seconds after starting."

@@ -274,8 +274,8 @@ class ResponseManager(SingletonConfigurable):
                 cipher = AES.new(aes_key, AES.MODE_ECB)
                 encrypted_connection_info = base64.b64decode(payload["conn_info"].encode())
                 connection_info_str = unpad(
-                    cipher.decrypt(encrypted_connection_info), 16
-                ).decode()  # type:ignore[call-arg]
+                    cipher.decrypt(encrypted_connection_info), 16  # type:ignore[call-arg]
+                ).decode()
             else:
                 err_msg = f"Unexpected version indicator received: {version}!"
                 raise ValueError(err_msg)

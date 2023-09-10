@@ -284,8 +284,8 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         """
         await asyncio.sleep(poll_interval)
         time_interval = RemoteProvisionerBase.get_time_diff(
-            self.start_time
-        )  # type:ignore[arg-type]
+            self.start_time  # type:ignore[arg-type]
+        )
 
         if time_interval > self.launch_timeout:
             reason = f"Waited too long ({self.launch_timeout}s) to get connection file"
