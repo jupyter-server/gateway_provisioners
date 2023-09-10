@@ -283,7 +283,9 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         Checks to see if the kernel launch timeout has been exceeded while awaiting connection info.
         """
         await asyncio.sleep(poll_interval)
-        time_interval = RemoteProvisionerBase.get_time_diff(self.start_time)  # type:ignore[arg-type]
+        time_interval = RemoteProvisionerBase.get_time_diff(
+            self.start_time
+        )  # type:ignore[arg-type]
 
         if time_interval > self.launch_timeout:
             reason = f"Waited too long ({self.launch_timeout}s) to get connection file"

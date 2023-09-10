@@ -2,9 +2,10 @@
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in docker-based containers."""
 from __future__ import annotations
+
 import logging
 import os
-from typing import Any, Dict, Optional, Set
+from typing import Any
 
 from overrides import overrides
 
@@ -39,7 +40,7 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         self.client = DockerClient.from_env()
 
     @overrides
-    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
         kwargs = await super().pre_launch(**kwargs)
 
         # Convey the network to the docker launch script
@@ -48,15 +49,15 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         return kwargs
 
     @overrides
-    def get_initial_states(self) -> Set[str]:
+    def get_initial_states(self) -> set[str]:
         return {"preparing", "starting", "running"}
 
     @overrides
-    def get_error_states(self) -> Set[str]:
+    def get_error_states(self) -> set[str]:
         return {"failed", "rejected", "complete", "shutdown", "orphaned", "remove"}
 
     @overrides
-    def get_container_status(self, iteration: Optional[str]) -> str:
+    def get_container_status(self, iteration: str | None) -> str:
         # Locates the kernel container using the kernel_id filter.  If the status indicates an initial state we
         # should be able to get at the NetworksAttachments and determine the associated container's IP address.
         task_state = ""
@@ -88,7 +89,7 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         return task_state
 
     @overrides
-    def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
+    def terminate_container_resources(self, restart: bool = False) -> bool | None:
         # Remove the docker service.
 
         result = True  # We'll be optimistic
@@ -169,7 +170,7 @@ class DockerProvisioner(ContainerProvisionerBase):
         self.client = DockerClient.from_env()
 
     @overrides
-    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
         kwargs = await super().pre_launch(**kwargs)
 
         # Convey the network to the docker launch script
@@ -178,15 +179,15 @@ class DockerProvisioner(ContainerProvisionerBase):
         return kwargs
 
     @overrides
-    def get_initial_states(self) -> Set[str]:
+    def get_initial_states(self) -> set[str]:
         return {"created", "running"}
 
     @overrides
-    def get_error_states(self) -> Set[str]:
+    def get_error_states(self) -> set[str]:
         return {"restarting", "removing", "paused", "exited", "dead"}
 
     @overrides
-    def get_container_status(self, iteration: Optional[str]) -> str:
+    def get_container_status(self, iteration: str | None) -> str:
         # Locates the kernel container using the kernel_id filter.  If the phase indicates Running, the pod's IP
         # is used for the assigned_ip.  Only used when docker mode == regular (non swarm)
         container_status = ""

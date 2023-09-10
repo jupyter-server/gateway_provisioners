@@ -2,6 +2,7 @@
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in YARN clusters."""
 from __future__ import annotations
+
 import asyncio
 import getpass
 import json
@@ -10,8 +11,7 @@ import signal
 import subprocess
 import warnings
 from socket import gethostbyname, gethostname
-from typing import Any, Dict, Optional
-from typing import List as tyList, cast
+from typing import Any, cast
 
 import paramiko
 from jupyter_client import KernelConnectionInfo, launch_kernel
@@ -45,7 +45,7 @@ class TrackKernelOnHost:
             self.decrement(host)
             del self._kernel_host_mapping[kernel_id]
 
-    def min_or_remote_host(self, remote_host: Optional[str] = None) -> str:
+    def min_or_remote_host(self, remote_host: str | None = None) -> str:
         if remote_host:
             return remote_host
         return min(self._host_kernels, key=lambda k: self._host_kernels[k])
@@ -101,7 +101,7 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
         )
 
     @validate("load_balancing_algorithm")
-    def _validate_load_balancing_algorithm(self, proposal: Dict[str, str]) -> str:
+    def _validate_load_balancing_algorithm(self, proposal: dict[str, str]) -> str:
         value = proposal["value"]
         try:
             assert value in ["round-robin", "least-connection"]
@@ -136,7 +136,7 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
         return self.local_proc is not None or (self.ip is not None and self.pid > 0)
 
     @overrides
-    async def launch_kernel(self, cmd: tyList[str], **kwargs: Any) -> KernelConnectionInfo:
+    async def launch_kernel(self, cmd: list[str], **kwargs: Any) -> KernelConnectionInfo:
         """
         Launches a kernel process on a selected host.
 
@@ -165,7 +165,7 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
         return self.connection_info
 
     @overrides
-    async def poll(self) -> Optional[int]:
+    async def poll(self) -> int | None:
         signal_delivered = await self._send_signal_via_listener(0)
         if signal_delivered:  # kernel process still alive, return None
             return None
@@ -217,14 +217,14 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
                 ready_to_connect = await self.receive_connection_info()
 
     @overrides
-    def log_kernel_launch(self, cmd: tyList[str]) -> None:
+    def log_kernel_launch(self, cmd: list[str]) -> None:
         self.log.info(
             f"{self.__class__.__name__}: kernel launched.  Host: '{self.assigned_host}', "
             f"pid: {self.pid}, Kernel ID: {self.kernel_id}, "
             f"Log file: {self.assigned_host}:{self.kernel_log}, cmd: '{cmd}'."
         )
 
-    def _launch_remote_process(self, cmd: tyList[str], **kwargs: Any):
+    def _launch_remote_process(self, cmd: list[str], **kwargs: Any):
         """
         Launch the kernel as indicated by the argv stanza in the kernelspec.  Note that this method
         will bypass use of ssh if the remote host is also the local machine.
@@ -250,7 +250,7 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
 
         return result_pid
 
-    def _build_startup_command(self, cmd: tyList[str], **kwargs: Any) -> tyList[str]:
+    def _build_startup_command(self, cmd: list[str], **kwargs: Any) -> list[str]:
         """
         Builds the command to invoke by concatenating envs from kernelspec followed by the kernel argvs.
 

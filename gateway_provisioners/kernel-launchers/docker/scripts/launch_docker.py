@@ -3,7 +3,7 @@ import os
 import sys
 
 import urllib3
-from docker.client import DockerClient # type:ignore[import]
+from docker.client import DockerClient  # type:ignore[import]
 from docker.types import EndpointSpec, RestartPolicy  # type:ignore[import]
 
 urllib3.disable_warnings()

@@ -2,6 +2,7 @@
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in YARN clusters."""
 from __future__ import annotations
+
 import asyncio
 import errno
 import logging
@@ -9,7 +10,7 @@ import os
 import signal
 import socket
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from overrides import overrides
 from traitlets import Bool, Unicode, default
@@ -129,7 +130,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         return self.local_proc is not None or self.application_id is not None
 
     @overrides
-    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
         self.application_id = None
         self.last_known_state = None
         self.candidate_queue = None
@@ -167,7 +168,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         return recommended
 
     @overrides
-    async def poll(self) -> Optional[int]:
+    async def poll(self) -> int | None:
         # Submitting a new kernel/app to YARN will take a while to be ACCEPTED.
         # Thus application ID will probably not be available immediately for poll.
         # So will regard the application as RUNNING when application ID still in ACCEPTED or SUBMITTED state.
@@ -198,7 +199,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             return await super().send_signal(signum)  # type:ignore[func-returns-value]
 
     @overrides
-    async def kill(self, restart: bool = False) ->bool| None:  # type:ignore[override]
+    async def kill(self, restart: bool = False) -> bool | None:  # type:ignore[override]
         state = None
         result = False
         if self._get_application_id():
@@ -215,7 +216,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         return result
 
     @overrides
-    async def terminate(self, restart: bool = False) ->bool| None:  # type:ignore[override]
+    async def terminate(self, restart: bool = False) -> bool | None:  # type:ignore[override]
         state = None
         result = False
         if self._get_application_id():
@@ -249,7 +250,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         await super().cleanup(restart=restart)
 
     @overrides
-    async def get_provisioner_info(self) -> Dict[str, Any]:
+    async def get_provisioner_info(self) -> dict[str, Any]:
         provisioner_info = await super().get_provisioner_info()
         provisioner_info.update({"application_id": self.application_id})
         return provisioner_info
@@ -290,7 +291,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
                 self.detect_launch_failure()
 
     @overrides
-    def log_kernel_launch(self, cmd: List[str]) -> None:
+    def log_kernel_launch(self, cmd: list[str]) -> None:
         assert self.local_proc is not None
         self.log.info(
             f"{self.__class__.__name__}: kernel launched. YARN RM: {self.rm_addr}, "
@@ -305,7 +306,9 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         Note: This is a complete override of the superclass method.
         """
         await asyncio.sleep(poll_interval)
-        time_interval = RemoteProvisionerBase.get_time_diff(self.start_time)  # type:ignore[arg-type]
+        time_interval = RemoteProvisionerBase.get_time_diff(
+            self.start_time
+        )  # type:ignore[arg-type]
 
         if time_interval > self.launch_timeout:
             reason = (
@@ -331,7 +334,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             timeout_message = f"KernelID: '{self.kernel_id}' launch timeout due to: {reason}"
             self.log_and_raise(TimeoutError(timeout_message))
 
-    async def _shutdown_application(self) -> Tuple[Optional[bool], str]:
+    async def _shutdown_application(self) -> tuple[bool | None, str]:
         """Shuts down the YARN application, returning None if final state is confirmed, False otherwise."""
         result = False
         assert self.application_id is not None
@@ -351,7 +354,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         assert state is not None
         return result, state
 
-    def _confirm_yarn_queue_availability(self, **kwargs: Dict[str, Any]) -> None:
+    def _confirm_yarn_queue_availability(self, **kwargs: dict[str, Any]) -> None:
         """
         Submitting jobs to yarn queue and then checking till the jobs are in running state
         will lead to orphan jobs being created in some scenarios.
@@ -450,13 +453,15 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
 
     def _handle_yarn_queue_timeout(self) -> None:
         time.sleep(poll_interval)
-        time_interval = RemoteProvisionerBase.get_time_diff(self.start_time)  # type:ignore[arg-type]
+        time_interval = RemoteProvisionerBase.get_time_diff(
+            self.start_time
+        )  # type:ignore[arg-type]
 
         if time_interval > self.yarn_resource_check_wait_time:
             reason = f"Yarn Compute Resource is unavailable after {self.yarn_resource_check_wait_time} seconds"
             self.log_and_raise(TimeoutError(reason))
 
-    def _initialize_resource_manager(self, **kwargs: Optional[Dict[str, Any]]) -> None:
+    def _initialize_resource_manager(self, **kwargs: dict[str, Any] | None) -> None:
         """Initialize the Hadoop YARN Resource Manager instance used for this kernel's lifecycle."""
 
         endpoints = None
@@ -506,13 +511,15 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
                 self.last_known_state = app_state
 
             if self.assigned_host == "" and app.get("amHostHttpAddress"):
-                self.assigned_host = app.get("amHostHttpAddress").split(":")[0]  # type:ignore[union-attr]
+                self.assigned_host = app.get("amHostHttpAddress").split(":")[
+                    0
+                ]  # type:ignore[union-attr]
                 # Set the assigned ip to the actual host where the application landed.
                 self.assigned_ip = socket.gethostbyname(self.assigned_host)
 
         return app_state
 
-    def _get_application_id(self, ignore_final_states: bool = False) -> Optional[str]:
+    def _get_application_id(self, ignore_final_states: bool = False) -> str | None:
         """
         Return the kernel's YARN application ID if available, otherwise None.
 
@@ -532,7 +539,9 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
 
                 if len(app.get("id", "")) > 0 and state_condition:
                     self.application_id = app["id"]
-                    time_interval = RemoteProvisionerBase.get_time_diff(self.start_time)  # type:ignore[arg-type]
+                    time_interval = RemoteProvisionerBase.get_time_diff(
+                        self.start_time
+                    )  # type:ignore[arg-type]
                     self.log.info(
                         f"ApplicationID: '{app['id']}' assigned for KernelID: '{self.kernel_id}', "
                         f"state: {state}, {time_interval} seconds after starting."
@@ -543,7 +552,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
                 )
         return self.application_id
 
-    def _query_app_by_name(self, kernel_id: str) -> Optional[dict]:
+    def _query_app_by_name(self, kernel_id: str) -> dict | None:
         """
         Retrieve application by using kernel_id as the unique app name.
 
@@ -591,7 +600,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
                         top_most_app_id = app.get("id")
         return target_app
 
-    def _query_app_by_id(self, app_id: str) -> Optional[dict]:
+    def _query_app_by_id(self, app_id: str) -> dict | None:
         """Retrieve an application by application ID.
 
         :param app_id
