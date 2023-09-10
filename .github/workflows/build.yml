@@ -46,7 +46,7 @@ jobs:
         with:
           timeout_minutes: 10
           command: |
-            make clean lint dist install
+            make clean dist install
       - name: Run unit tests
         uses: nick-invision/retry@v2.8.3
         with:
@@ -88,6 +88,15 @@ jobs:
         uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
       - name: Build Docs
         run: make docs
+
+  lint_checks:
+    name: Lint Checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
+      - run: make lint
+      - run: make typing
 
   # Disabled for now, timed out after 20 and 30 minute attempts
   #  test_minimum_versions:
@@ -131,6 +140,7 @@ jobs:
       - check_release
       # - test_minimum_versions
       - build_docs
+      - lint_checks
       - test_sdist
     runs-on: ubuntu-latest
     steps:
