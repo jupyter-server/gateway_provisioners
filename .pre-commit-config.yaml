@@ -16,6 +16,7 @@ repos:
       - id: check-json
       - id: check-toml
       - id: check-yaml
+        exclude: gateway_provisioners/app-support/kubernetes/.*.yaml
       - id: debug-statements
       - id: end-of-file-fixer
       - id: trailing-whitespace
@@ -37,6 +38,7 @@ repos:
     hooks:
       - id: prettier
         types_or: [yaml, html, json]
+        exclude: gateway_provisioners/app-support/kubernetes/.*.yaml
 
   - repo: https://github.com/adamchainz/blacken-docs
     rev: "1.16.0"

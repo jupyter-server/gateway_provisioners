@@ -170,29 +170,12 @@ before-build-python = ["pip install -e .[dev]", "make clean lint dist install"]
 post-version-spec = "dev"
 
 [tool.mypy]
-check_untyped_defs = true
-disallow_any_generics = false
-disallow_incomplete_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-no_implicit_reexport = false
-pretty = true
-show_error_context = true
+files = "gateway_provisioners"
+python_version = "3.8"
+strict = true
 show_error_codes = true
-strict_equality = true
-strict_optional = true
-warn_unused_configs = true
-warn_redundant_casts = true
-warn_return_any = false
-warn_unused_ignores = true
-
-[[tool.mypy.overrides]]
-module = [
-    "traitlets.*",
-    "jupyter_core.*",
-    "entrypoints"
-]
-ignore_missing_imports = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+warn_unreachable = true
 
 [tool.pytest.ini_options]
 minversion = "6.0"

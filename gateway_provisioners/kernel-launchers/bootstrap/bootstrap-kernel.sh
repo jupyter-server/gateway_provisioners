@@ -40,7 +40,7 @@ launch_R_kernel() {
 
 launch_scala_kernel() {
     # Launch the scala kernel launcher - which embeds the Apache Toree kernel and listens for interrupts
-    # and shutdown requests from the server.  This kernel is currenly always launched using
+    # and shutdown requests from the server.  This kernel is currently always launched using
     # spark-submit, so additional setup is required.
 
     PROG_HOME=${KERNEL_LAUNCHERS_DIR}/scala

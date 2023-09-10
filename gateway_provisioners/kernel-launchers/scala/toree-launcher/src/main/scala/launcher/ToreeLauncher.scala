@@ -86,7 +86,7 @@ object ToreeLauncher extends LogLike {
       var arg: String = args(i)
       arg match {
 
-        // Alternate sigint is a straight pass-thru to toree
+        // Alternate sigint is a straight pass-through to toree
         case "--alternate-sigint" =>
           i += 1
           alternateSigint = args(i).trim
@@ -125,7 +125,7 @@ object ToreeLauncher extends LogLike {
           i += 1
           publicKey = args(i).trim
 
-        // All other arguments should pass-thru to toree
+        // All other arguments should pass-through to toree
         case _ => toreeArgs += args(i).trim
       }
       i += 1
