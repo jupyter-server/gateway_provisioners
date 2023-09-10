@@ -142,35 +142,32 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
         return result
 
     @overrides
-    async def send_signal(self, signum: int) -> Any:
+    async def send_signal(self, signum: int) -> None:
         """Send signal `signum` to container."""
         if signum == 0:
-            return await self.poll()
+            await self.poll()
         elif signum == signal.SIGKILL:
-            return await self.kill()
+            await self.kill()
         else:
             # This is very likely an interrupt signal, so defer to the super class
             # which should use the communication port.
-            return await super().send_signal(signum)
+            await super().send_signal(signum)
 
     @overrides
-    async def kill(self, restart: bool = False) -> bool | None:  # type:ignore[override]
+    async def kill(self, restart: bool = False) -> None:
         """Kills a containerized kernel."""
-        result = None
 
         if self.container_name:  # We only have something to terminate if we have a name
-            result = self.terminate_container_resources(restart=restart)
-
-        return result
+            self.terminate_container_resources(restart=restart)
 
     @overrides
-    async def terminate(self, restart: bool = False) -> bool | None:  # type:ignore[override]
+    async def terminate(self, restart: bool = False) -> None:
         """Terminates a containerized kernel.
 
         This method defers to kill() since there's no distinction between the
         two in these environments.
         """
-        return await self.kill(restart=restart)
+        await self.kill(restart=restart)
 
     @overrides
     async def shutdown_listener(self, restart: bool) -> None:

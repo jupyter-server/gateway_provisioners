@@ -187,19 +187,19 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         return result
 
     @overrides
-    async def send_signal(self, signum: int) -> int | None:  # type:ignore[override]
+    async def send_signal(self, signum: int) -> None:
         if signum == 0:
-            return await self.poll()
+            await self.poll()
         elif signum == signal.SIGKILL:
-            return await self.kill()
+            await self.kill()
         else:
             # Yarn api doesn't support the equivalent to interrupts, so take our chances
             # via a remote signal.  Note that this condition cannot check against the
             # signum value because alternate interrupt signals might be in play.
-            return await super().send_signal(signum)  # type:ignore[func-returns-value]
+            await super().send_signal(signum)
 
     @overrides
-    async def kill(self, restart: bool = False) -> bool | None:  # type:ignore[override]
+    async def kill(self, restart: bool = False) -> None:
         state = None
         result = False
         if self._get_application_id():
@@ -213,12 +213,10 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             f"YarnProvisioner.kill, application ID: {self.application_id}, "
             f"kernel ID: {self.kernel_id}, state: {state}, result: {result}"
         )
-        return result
 
     @overrides
-    async def terminate(self, restart: bool = False) -> bool | None:  # type:ignore[override]
+    async def terminate(self, restart: bool = False) -> None:
         state = None
-        result = False
         if self._get_application_id():
             result, state = await self._shutdown_application()
 
@@ -226,7 +224,6 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             f"YarnProvisioner.terminate, application ID: {self.application_id}, "
             f"kernel ID: {self.kernel_id}, state: {state}, result: {result}"
         )
-        return result
 
     @overrides
     async def cleanup(self, restart: bool = False) -> None:
