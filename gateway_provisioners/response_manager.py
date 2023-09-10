@@ -211,7 +211,7 @@ class ResponseManager(SingletonConfigurable):
         data = ""
         conn = None
         try:
-            assert self._response_socket is not None
+            # assert self._response_socket is not None
             conn, addr = await loop.sock_accept(self._response_socket)
             while True:
                 buffer = await loop.sock_recv(conn, 1024)
@@ -315,7 +315,7 @@ class ResponseManager(SingletonConfigurable):
                 raise ex
 
         # and convert to usable dictionary
-        assert connection_info_str is not None
+        # assert connection_info_str is not None
         connection_info = json.loads(connection_info_str)
         if "key" in connection_info:  # Convert key to bytes
             connection_info["key"] = connection_info["key"].encode()

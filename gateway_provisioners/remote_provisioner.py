@@ -568,7 +568,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             self.tunneled_connect_info = dict(connect_info)
 
             # Open tunnels to the 5 ZMQ kernel ports
-            assert self.assigned_ip is not None
+            # assert self.assigned_ip is not None
             tunnel_ports = self._tunnel_to_kernel(connect_info, self.assigned_ip)
             self.log.debug(f"Local ports used to create SSH tunnels: '{tunnel_ports}'")
 
