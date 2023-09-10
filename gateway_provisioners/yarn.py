@@ -511,11 +511,9 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
                 self.last_known_state = app_state
 
             if self.assigned_host == "" and app.get("amHostHttpAddress"):
-                self.assigned_host = app.get("amHostHttpAddress").split(
+                self.assigned_host = app.get("amHostHttpAddress").split(  # type:ignore[union-attr]
                     ":"
-                )[  # type:ignore[union-attr]
-                    0
-                ]
+                )[0]
                 # Set the assigned ip to the actual host where the application landed.
                 self.assigned_ip = socket.gethostbyname(self.assigned_host)
 
