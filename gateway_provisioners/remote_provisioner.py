@@ -15,7 +15,7 @@ from enum import Enum
 from socket import AF_INET, SHUT_WR, SOCK_STREAM, socket, timeout
 from typing import Any, Dict, List, Optional, Tuple
 
-import pexpect
+import pexpect  # type:ignore[import]
 from jupyter_client import (
     KernelConnectionInfo,
     KernelProvisionerBase,
@@ -245,7 +245,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         self.tunneled_connect_info = provisioner_info.get("tunneled_connect_info")
 
     @overrides
-    def get_shutdown_wait_time(self, recommended: Optional[float] = 5.0) -> float:
+    def get_shutdown_wait_time(self, recommended: float = 5.0) -> float:  # type;ignore[override]
         return recommended
 
     @overrides
@@ -283,7 +283,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         Checks to see if the kernel launch timeout has been exceeded while awaiting connection info.
         """
         await asyncio.sleep(poll_interval)
-        time_interval = RemoteProvisionerBase.get_time_diff(self.start_time)
+        time_interval = RemoteProvisionerBase.get_time_diff(self.start_time)  # type:ignore[arg-type]
 
         if time_interval > self.launch_timeout:
             reason = f"Waited too long ({self.launch_timeout}s) to get connection file"
@@ -566,6 +566,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             self.tunneled_connect_info = dict(connect_info)
 
             # Open tunnels to the 5 ZMQ kernel ports
+            assert self.assigned_ip is not None
             tunnel_ports = self._tunnel_to_kernel(connect_info, self.assigned_ip)
             self.log.debug(f"Local ports used to create SSH tunnels: '{tunnel_ports}'")
 

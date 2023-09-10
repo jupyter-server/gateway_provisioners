@@ -1,6 +1,7 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in YARN clusters."""
+from __future__ import annotations
 import asyncio
 import getpass
 import json
@@ -10,7 +11,7 @@ import subprocess
 import warnings
 from socket import gethostbyname, gethostname
 from typing import Any, Dict, Optional
-from typing import List as tyList
+from typing import List as tyList, cast
 
 import paramiko
 from jupyter_client import KernelConnectionInfo, launch_kernel
@@ -31,8 +32,8 @@ class TrackKernelOnHost:
     request.
     """
 
-    _host_kernels = {}
-    _kernel_host_mapping = {}
+    _host_kernels: dict = {}
+    _kernel_host_mapping: dict = {}
 
     def add_kernel_id(self, host: str, kernel_id: str) -> None:
         self._kernel_host_mapping[kernel_id] = host
@@ -235,7 +236,8 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
 
         if RemoteProvisionerBase.ip_is_local(self.ip):
             # launch the local command with redirection in place
-            self.local_stdout = open(self.kernel_log, mode="a")
+            assert self.kernel_log is not None
+            self.local_stdout = cast(int, open(self.kernel_log, mode="a"))
             self.local_proc = launch_kernel(
                 cmd, stdout=self.local_stdout, stderr=subprocess.STDOUT, **kwargs
             )
@@ -311,7 +313,7 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
         if self.least_connection:
             DistributedProvisioner.kernel_on_host.delete_kernel_id(self.kernel_id)
 
-    def _get_ssh_client(self, host) -> paramiko.SSHClient:
+    def _get_ssh_client(self, host) -> paramiko.SSHClient | None:
         """
         Create a SSH Client based on host, username and password if provided.
         If there is any AuthenticationException/SSHException, raise HTTP Error 403 as permission denied.
@@ -348,7 +350,7 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
                 f"Exception '{type(e).__name__}' occurred when creating a SSHClient at {current_host} connecting "
                 f"to '{host}:{ssh_port}' with user '{self.remote_user}', message='{e}'."
             )
-            if e is paramiko.SSHException or paramiko.AuthenticationException:
+            if isinstance(e, (paramiko.SSHException, paramiko.AuthenticationException)):
                 error_message_prefix = "Failed to authenticate SSHClient with password"
                 error_message = error_message_prefix + (
                     " provided" if self.remote_pwd else "-less SSH"
@@ -376,6 +378,8 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
             The command's output.  If stdout is zero length, the stderr output is returned.
         """
         ssh = self._get_ssh_client(host)
+        if not ssh:
+            return
         try:
             stdin, stdout, stderr = ssh.exec_command(command, timeout=30)
             lines = stdout.readlines()
@@ -386,7 +390,6 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
             raise e
 
         finally:
-            if ssh:
-                ssh.close()
+            ssh.close()
 
         return lines

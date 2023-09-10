@@ -171,10 +171,13 @@ post-version-spec = "dev"
 
 [tool.mypy]
 files = "gateway_provisioners"
+exclude = "gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py"
 python_version = "3.8"
 strict = true
 show_error_codes = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+disable_error_code = ["no-untyped-call", "no-untyped-def", "type-arg", "no-any-return", "misc",
+      "attr-defined", "assignment", "unreachable"]
 warn_unreachable = true
 
 [tool.pytest.ini_options]

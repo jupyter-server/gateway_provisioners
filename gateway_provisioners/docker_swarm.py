@@ -1,6 +1,7 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in docker-based containers."""
+from __future__ import annotations
 import logging
 import os
 from typing import Any, Dict, Optional, Set
@@ -8,10 +9,10 @@ from typing import Any, Dict, Optional, Set
 from overrides import overrides
 
 try:
-    from docker.client import DockerClient
-    from docker.errors import NotFound
-    from docker.models.containers import Container
-    from docker.models.services import Service
+    from docker.client import DockerClient  # type:ignore[import]
+    from docker.errors import NotFound  # type:ignore[import]
+    from docker.models.containers import Container  # type:ignore[import]
+    from docker.models.services import Service  # type:ignore[import]
 except ImportError:
     logging.warning(
         "The extra package 'docker' is not installed in this environment and is required.  "
@@ -138,7 +139,7 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
             self.container_name = service.name
         return service
 
-    def _get_task(self) -> dict:
+    def _get_task(self) -> dict | None:
         """
         Fetches the task object corresponding to the service associated with the kernel.  We only ask for the
         current task with desired-state == running.  This eliminates failed states.
@@ -224,7 +225,7 @@ class DockerProvisioner(ContainerProvisionerBase):
         return container_status
 
     @overrides
-    def terminate_container_resources(self, restart: bool = False) -> None:
+    def terminate_container_resources(self, restart: bool = False) -> bool:
         # Remove the container
 
         result = True  # Since we run containers with remove=True, we'll be optimistic

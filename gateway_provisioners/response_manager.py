@@ -110,7 +110,7 @@ class ResponseManager(SingletonConfigurable):
         self._public_pem = self._public_key.export_key("PEM")
 
         # Event facility...
-        self._response_registry = {}
+        self._response_registry: dict = {}
 
         # Start the response manager (create socket, periodic callback, etc.) ...
         self._start_response_manager()
@@ -211,6 +211,7 @@ class ResponseManager(SingletonConfigurable):
         data = ""
         conn = None
         try:
+            assert self._response_socket is not None
             conn, addr = await loop.sock_accept(self._response_socket)
             while True:
                 buffer = await loop.sock_recv(conn, 1024)
@@ -272,7 +273,7 @@ class ResponseManager(SingletonConfigurable):
                 # Decrypt and unpad the connection information using the just-decrypted AES key
                 cipher = AES.new(aes_key, AES.MODE_ECB)
                 encrypted_connection_info = base64.b64decode(payload["conn_info"].encode())
-                connection_info_str = unpad(cipher.decrypt(encrypted_connection_info), 16).decode()
+                connection_info_str = unpad(cipher.decrypt(encrypted_connection_info), 16).decode()  # type:ignore[call-arg]
             else:
                 err_msg = f"Unexpected version indicator received: {version}!"
                 raise ValueError(err_msg)
@@ -285,7 +286,7 @@ class ResponseManager(SingletonConfigurable):
                 aes_key = kernel_id[0:16]
                 try:
                     cipher = AES.new(aes_key.encode("utf-8"), AES.MODE_ECB)
-                    decrypted_payload = cipher.decrypt(payload_str)
+                    decrypted_payload = cipher.decrypt(payload_str)  # type:ignore[call-arg]
                     # Version "0" responses use custom padding, so remove that here.
                     connection_info_str = "".join(
                         [decrypted_payload.decode("utf-8").rsplit("}", 1)[0], "}"]
@@ -312,6 +313,7 @@ class ResponseManager(SingletonConfigurable):
                 raise ex
 
         # and convert to usable dictionary
+        assert connection_info_str is not None
         connection_info = json.loads(connection_info_str)
         if "key" in connection_info:  # Convert key to bytes
             connection_info["key"] = connection_info["key"].encode()

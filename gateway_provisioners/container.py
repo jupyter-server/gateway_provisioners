@@ -1,6 +1,7 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in containers."""
+from __future__ import annotations
 import os
 import signal
 from abc import abstractmethod
@@ -128,7 +129,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
         Returns None if the container cannot be found or its in an initial state. Otherwise,
         return an exit code of 0.
         """
-        result = 0
+        result: int|None = 0
 
         container_status = self.get_container_status(None)
         # Do not check whether container_status is None
@@ -140,7 +141,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
         return result
 
     @overrides
-    async def send_signal(self, signum: int) -> None:
+    async def send_signal(self, signum: int) -> Any:
         """Send signal `signum` to container."""
         if signum == 0:
             return await self.poll()
@@ -152,7 +153,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
             return await super().send_signal(signum)
 
     @overrides
-    async def kill(self, restart: bool = False) -> None:
+    async def kill(self, restart: bool = False) -> bool |None:  # type:ignore[override]
         """Kills a containerized kernel."""
         result = None
 
@@ -162,7 +163,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
         return result
 
     @overrides
-    async def terminate(self, restart: bool = False) -> None:
+    async def terminate(self, restart: bool = False) -> bool|None:  # type:ignore[override]
         """Terminates a containerized kernel.
 
         This method defers to kill() since there's no distinction between the
