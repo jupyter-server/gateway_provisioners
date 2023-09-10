@@ -140,7 +140,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         # logic will take the appropriate steps to impersonate the user identified by
         # KERNEL_USERNAME when impersonation_enabled is True.
         env_dict = kwargs.get("env")
-        # assert env_dict is not None
+        assert env_dict is not None
         env_dict["GP_IMPERSONATION_ENABLED"] = str(self.impersonation_enabled)
 
         kwargs = await super().pre_launch(**kwargs)
@@ -176,7 +176,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         result = 0
 
         if self._get_application_id():
-            # assert self.application_id is not None
+            assert self.application_id is not None
             state = self._query_app_state_by_id(self.application_id)
             if state in YarnProvisioner.initial_states:
                 result = None
@@ -289,7 +289,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
 
     @overrides
     def log_kernel_launch(self, cmd: list[str]) -> None:
-        # assert self.local_proc is not None
+        assert self.local_proc is not None
         self.log.info(
             f"{self.__class__.__name__}: kernel launched. YARN RM: {self.rm_addr}, "
             f"pid: {self.local_proc.pid}, Kernel ID: {self.kernel_id}, cmd: '{cmd}'"
@@ -314,7 +314,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             )
 
             if self._get_application_id(True):
-                # assert self.application_id is not None
+                assert self.application_id is not None
                 if self._query_app_state_by_id(self.application_id) != "RUNNING":
                     reason = (
                         f"YARN resources unavailable after {time_interval} seconds for "
@@ -334,12 +334,12 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
     async def _shutdown_application(self) -> tuple[bool | None, str]:
         """Shuts down the YARN application, returning None if final state is confirmed, False otherwise."""
         result = False
-        # assert self.application_id is not None
+        assert self.application_id is not None
         self._kill_app_by_id(self.application_id)
         # Check that state has moved to a final state (most likely KILLED)
         i = 1
         state = self._query_app_state_by_id(self.application_id)
-        # assert state is not None
+        assert state is not None
         while state not in YarnProvisioner.final_states and i <= max_poll_attempts:
             await asyncio.sleep(poll_interval)
             state = self._query_app_state_by_id(self.application_id)
@@ -348,7 +348,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         if state in YarnProvisioner.final_states:
             result = None
 
-        # assert state is not None
+        assert state is not None
         return result, state
 
     def _confirm_yarn_queue_availability(self, **kwargs: dict[str, Any]) -> None:
@@ -500,7 +500,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         Once the assigned host has been identified, 'amHostHttpAddress' is no longer accessed.
         """
         app_state = self.last_known_state
-        # assert self.application_id is not None
+        assert self.application_id is not None
         app = self._query_app_by_id(self.application_id)
         if app:
             if app.get("state"):
