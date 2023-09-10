@@ -157,6 +157,12 @@ fmt = [
   "mdformat {args:docs/source *.md}"
 ]
 
+[tool.hatch.envs.typing]
+features = ["test"]
+dependencies = ["mypy>=1.5.1"]
+[tool.hatch.envs.typing.scripts]
+test = "mypy --install-types --non-interactive {args}"
+
 [tool.jupyter-releaser.hooks]
 before-build-python = ["pip install -e .[dev]", "make clean lint dist install"]
 
@@ -189,10 +195,14 @@ module = [
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
-addopts = "-raXs --durations 10 --color=yes --doctest-modules"
-testpaths = [
-    "tests/"
+minversion = "6.0"
+xfail_strict = true
+log_cli_level = "info"
+addopts = [
+  "-raXs", "--durations=10", "--color=yes", "--doctest-modules",
+   "--showlocals", "--strict-markers", "--strict-config"
 ]
+testpaths = ["tests"]
 filterwarnings= [
   # Fail on warnings
   "error",
@@ -264,3 +274,6 @@ unfixable = [
 
 [tool.check-wheel-contents]
 ignore = ["W002", "W004"]
+
+[tool.repo-review]
+ignore = ["PY004", "PY007", "PP308", "GH102", "PC140", "RTD100"]
