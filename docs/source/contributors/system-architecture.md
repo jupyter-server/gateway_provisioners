@@ -84,18 +84,20 @@ of `RemoteProvisionerBase` must also implement `confirm_remote_startup()` and `l
 encouraged to override `handle_launch_timeout()`:
 
 ```python
-    @abstractmethod
-    async def confirm_remote_startup(self):
-        """Confirms the remote process has started and returned necessary connection information."""
+@abstractmethod
+async def confirm_remote_startup(self):
+    """Confirms the remote process has started and returned necessary connection information."""
 
-    @abstractmethod
-    def log_kernel_launch(self, cmd: List[str]) -> None:
-        """Logs the kernel launch from the respective remote provisioner"""
 
-    async def handle_launch_timeout(self):
-        """
-        Checks to see if the kernel launch timeout has been exceeded while awaiting connection info.
-        """
+@abstractmethod
+def log_kernel_launch(self, cmd: List[str]) -> None:
+    """Logs the kernel launch from the respective remote provisioner"""
+
+
+async def handle_launch_timeout(self):
+    """
+    Checks to see if the kernel launch timeout has been exceeded while awaiting connection info.
+    """
 ```
 
 #### `YarnProvisioner`
@@ -160,21 +162,24 @@ of `ContainerProvisionerBase` must also implement `get_initial_states()`,  `get_
 and `terminate_container_resources()`:
 
 ```python
-    @abstractmethod
-    def get_initial_states(self) -> Set[str]:
-        """Return list of states (in lowercase) indicating container is starting (includes running)."""
+@abstractmethod
+def get_initial_states(self) -> Set[str]:
+    """Return list of states (in lowercase) indicating container is starting (includes running)."""
 
-    @abstractmethod
-    def get_error_states(self) -> Set[str]:
-        """Returns the list of error states (in lowercase)."""
 
-    @abstractmethod
-    def get_container_status(self, iteration: Optional[str]) -> str:
-        """Return current container state."""
+@abstractmethod
+def get_error_states(self) -> Set[str]:
+    """Returns the list of error states (in lowercase)."""
 
-    @abstractmethod
-    def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
-        """Terminate any artifacts created on behalf of the container's lifetime."""
+
+@abstractmethod
+def get_container_status(self, iteration: Optional[str]) -> str:
+    """Return current container state."""
+
+
+@abstractmethod
+def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
+    """Terminate any artifacts created on behalf of the container's lifetime."""
 ```
 
 #### `KubernetesProvisioner`

@@ -56,17 +56,17 @@ jobs:
             make test
 
   check_release:
-   name: Check Release
-   runs-on: ubuntu-latest
-   steps:
-     - name: Checkout
-       uses: actions/checkout@v3
-     - name: Base Setup
-       uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
-     - name: Check Release
-       uses: jupyter-server/jupyter_releaser/.github/actions/check-release@v2
-       with:
-         token: ${{ secrets.GITHUB_TOKEN }}
+    name: Check Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Base Setup
+        uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
+      - name: Check Release
+        uses: jupyter-server/jupyter_releaser/.github/actions/check-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
   link_check:
     name: Check Links
@@ -89,20 +89,20 @@ jobs:
       - name: Build Docs
         run: make docs
 
-# Disabled for now, timed out after 20 and 30 minute attempts
-#  test_minimum_versions:
-#    name: Test Minimum Versions
-#    timeout-minutes: 20
-#    runs-on: ubuntu-latest
-#    steps:
-#      - uses: actions/checkout@v3
-#      - uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
-#        with:
-#          python_version: "3.9"
-#      - uses: jupyterlab/maintainer-tools/.github/actions/install-minimums@v1
-#      - name: Run the unit tests
-#        run: |
-#          make test
+  # Disabled for now, timed out after 20 and 30 minute attempts
+  #  test_minimum_versions:
+  #    name: Test Minimum Versions
+  #    timeout-minutes: 20
+  #    runs-on: ubuntu-latest
+  #    steps:
+  #      - uses: actions/checkout@v3
+  #      - uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
+  #        with:
+  #          python_version: "3.9"
+  #      - uses: jupyterlab/maintainer-tools/.github/actions/install-minimums@v1
+  #      - name: Run the unit tests
+  #        run: |
+  #          make test
 
   make_sdist:
     name: Make SDist
