@@ -23,7 +23,7 @@ mamba install -c conda-forge gateway_provisioners
 
 ```{note}
 We recommend the use of `mamba` over `conda`.  However, if you need to use `conda`, all `mamba`
-commands should be directly replacable with `conda`.
+commands should be directly replaceable with `conda`.
 ```
 
 ## Optional Dependencies

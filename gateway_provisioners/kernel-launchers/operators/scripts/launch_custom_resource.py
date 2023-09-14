@@ -9,7 +9,7 @@ import sys
 import urllib3
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from kubernetes import client, config
+from kubernetes import client, config  # type:ignore[import]
 
 urllib3.disable_warnings()
 

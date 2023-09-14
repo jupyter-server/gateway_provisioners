@@ -26,4 +26,4 @@ type: application
 
 sources:
   - https://github.com/jupyter-server/gateway_provisioners
-kubeVersion: '>=1.18.0-0'
+kubeVersion: ">=1.18.0-0"
