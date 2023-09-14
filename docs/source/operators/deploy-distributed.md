@@ -312,7 +312,7 @@ specify the use of round-robin, use one of the following:
 _Configuration_:
 
 ```python
-c.DistributedProvisioner.load_balancing_algorithm="round-robin"
+c.DistributedProvisioner.load_balancing_algorithm = "round-robin"
 ```
 
 _Environment_:
@@ -334,7 +334,7 @@ the following:
 _Configuration_:
 
 ```python
-c.DistributedProvisioner.load_balancing_algorithm="least-connection"
+c.DistributedProvisioner.load_balancing_algorithm = "least-connection"
 ```
 
 _Environment_:

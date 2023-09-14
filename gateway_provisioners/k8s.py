@@ -12,8 +12,8 @@ from overrides import overrides
 
 try:
     from jinja2 import Environment  # noqa - used by launcher so check presence here
-    from kubernetes import client, config
-    from kubernetes.client.rest import ApiException
+    from kubernetes import client, config  # type:ignore[import]
+    from kubernetes.client.rest import ApiException  # type:ignore[import]
 except ImportError:
     logging.warning(
         "At least one of the extra packages 'kubernetes' or 'jinja2' are not installed in "

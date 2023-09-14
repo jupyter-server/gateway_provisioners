@@ -4,20 +4,23 @@ global:
   # ImagePullSecrets for a ServiceAccount, list of secrets in the same namespace
   # to use for pulling any images in pods that reference this ServiceAccount.
   # Must be set for any cluster configured with private docker registry.
-  imagePullSecrets: []
+  imagePullSecrets:
+    []
     # - private-registry-key
   commonLabels: {
-    app: gateway-provisioners
-    # app.kubernetes.io/name: [your app name]
-  }
+      app: gateway-provisioners,
+      # app.kubernetes.io/name: [your app name]
+    }
 
 # You can optionally create imagePull Secrets
 imagePullSecretsCreate:
   enabled: false
-  annotations: {}
+  annotations:
+    {}
     # this annotatoin allows to keep secret even if helm release is deleted
     # "helm.sh/resource-policy": "keep"
-  secrets: []
+  secrets:
+    []
     # - name: "private"
     # # base64 encoded value
     #   --set imagePullSecretsCreate.secrets[0].data="UHJvZCBTZWNyZXQgSW5mb3JtYXRpb24K"
@@ -29,7 +32,7 @@ service:
   type: "NodePort"
   externalIPs:
     # Master public IP on which to expose the application.
-    k8sMasterPublicIP: ''
+    k8sMasterPublicIP: ""
   ports:
     # The primary port on which the application is servicing requests.
     - name: "http"
@@ -44,7 +47,7 @@ service:
 
 deployment:
   enabled: true
-  serviceAccountName: 'gateway-provisioners-sa'
+  serviceAccountName: "gateway-provisioners-sa"
   terminationGracePeriodSeconds: 30
   annotations: {}
   resources: {}
@@ -61,17 +64,17 @@ deployment:
   affinity: {}
   nodeSelector: {}
   extraEnv: {
-    # SOME_ENV_VAR_WITH_SIMPLE_VALUE: "example"
-    # SOME_ENV_VAR_WITH_LONG_VALUE: >
-    #   'this example',
-    #   'will not preserve',
-    #   'line breaks',
-    # SOME_ENV_VAR_WITH_MULTILINE_VALUE: |
-    #   this example
-    #   will preserve
-    #   line breaks
-    GP_INHERITED_ENVS: "PATH"
-  }
+      # SOME_ENV_VAR_WITH_SIMPLE_VALUE: "example"
+      # SOME_ENV_VAR_WITH_LONG_VALUE: >
+      #   'this example',
+      #   'will not preserve',
+      #   'line breaks',
+      # SOME_ENV_VAR_WITH_MULTILINE_VALUE: |
+      #   this example
+      #   will preserve
+      #   line breaks
+      GP_INHERITED_ENVS: "PATH",
+    }
 
 # Application-specific settings go here. The image start script is responsible for converting
 # these to their application-specific values.
@@ -85,7 +88,7 @@ application:
 
   # Application name and command.  These are set into the environment and used by the
   # image's startup command.
-  name: 'Jupyter Kernel Gateway'
+  name: "Jupyter Kernel Gateway"
   cmd: jupyter-kernelgateway
 
   # Log output level.
@@ -154,11 +157,10 @@ ingress:
   #     hosts:
   #       - myhost.example.com
 
-
 # Kernel Image Puller (daemonset)
 kip:
   enabled: true
-  serviceAccountName: 'kernel-image-puller-sa'
+  serviceAccountName: "kernel-image-puller-sa"
   serviceName: gateway-provisioners
   server: # KIP properties.
     protocol: http

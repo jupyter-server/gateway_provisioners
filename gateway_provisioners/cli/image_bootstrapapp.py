@@ -99,6 +99,8 @@ jupyter-image-bootstrap install --languages=Python --languages=Scala
         parent_dir = os.path.join(BOOTSTRAP_DIR, "kernel-launchers")
         for lang in self.languages:
             lang_dir_name = LANG_DIR_NAMES.get(lang.lower())
+            if not lang_dir_name:
+                continue
             target_dir = os.path.join(parent_dir, lang_dir_name)
             self._copy_launcher_files(lang_dir_name, target_dir)
             if lang_dir_name == SCALA and not self.toree_jar_path:

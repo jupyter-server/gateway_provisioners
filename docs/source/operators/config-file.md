@@ -16,7 +16,7 @@ the corresponding environment variable name:
 #  kernels will be launched e.g., ['host1','host2'].
 #  (GP_REMOTE_HOSTS env var - non-bracketed, just comma-separated)
 #  Default: ['localhost']
-c.DistributedProvisioner.remote_hosts = ['localhost']
+c.DistributedProvisioner.remote_hosts = ["localhost"]
 ```
 
 ## Provisioner-specific Configuration Options
@@ -27,9 +27,9 @@ configurable option's default value is also provided.
 ### `KubernetesProvisioner`
 
 ```python
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # KubernetesProvisioner(ContainerProvisionerBase) configuration
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 ## Kernel lifecycle management for Kubernetes kernels.
 
 ## List of user names against which KERNEL_USERNAME will be compared.
@@ -60,9 +60,9 @@ configurable option's default value is also provided.
 ### `DockerSwarmProvisioner`
 
 ```python
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # DockerSwarmProvisioner(ContainerProvisionerBase) configuration
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 ## Kernel provisioner for kernels in Docker Swarm.
 
 ## List of user names against which KERNEL_USERNAME will be compared.
@@ -93,9 +93,9 @@ configurable option's default value is also provided.
 ### `DockerProvisioner`
 
 ```python
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # DockerProvisioner(ContainerProvisionerBase) configuration
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 ## Kernel provisioner for kernels in Docker (non-Swarm).
 
 ## List of user names against which KERNEL_USERNAME will be compared.
@@ -126,9 +126,9 @@ configurable option's default value is also provided.
 ### `DistributedProvisioner`
 
 ```python
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # DistributedProvisioner(RemoteProvisionerBase) configuration
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 ## Kernel lifecycle management for clusters via ssh and a set of hosts.
 
 ## List of user names against which KERNEL_USERNAME will be compared.
@@ -163,9 +163,9 @@ configurable option's default value is also provided.
 ### `YarnProvisioner`
 
 ```python
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 # YarnProvisioner(RemoteProvisionerBase) configuration
-#------------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
 ## Kernel lifecycle management for YARN clusters.
 
 ## The http url specifying the alternate YARN Resource Manager.  This value

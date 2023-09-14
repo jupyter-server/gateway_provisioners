@@ -90,7 +90,7 @@ class BaseApp(JupyterApp):
         """
         self.toree_jar_path = None
         try:
-            import toree
+            import toree  # type:ignore[import]
         except ImportError:
             self.log.warning(
                 "The Apache Torre kernel package is not installed in this environment and is required "
@@ -479,7 +479,7 @@ class BaseSpecApp(RemoteProvisionerConfigMixin, BaseApp):
         if self.launch_timeout:  # Always add launch_timeout if there's a value.
             config_stanza["launch_timeout"] = self.launch_timeout
 
-    def get_substitutions(self, install_dir: os.path) -> dict:
+    def get_substitutions(self, install_dir: str) -> dict:
         """
         Gather substitution strings to inject into the templated files.
 
@@ -565,7 +565,7 @@ class BaseSpecSparkApp(BaseSpecApp):
     }
     flags.update(BaseSpecApp.flags)
 
-    def get_substitutions(self, install_dir: os.path) -> dict:
+    def get_substitutions(self, install_dir: str) -> dict:
         """
         Gather substitution strings to inject into the templated files.
 

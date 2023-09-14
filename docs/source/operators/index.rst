@@ -26,7 +26,7 @@ then the deployment and configuration of Gateway Provisioners would take place w
 image that is launched on behalf of each user.
 
 Regardless of *which* host application to update, Gateway Provisioners are deployed and configured wherever the
-kernel process is ultimately launched. In any case, the host application is using `jupyter_client` to launch kernels.
+kernel process is ultimately launched. In any case, the host application is using ``jupyter_client`` to launch kernels.
 
 Container-based deployments
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -45,7 +45,7 @@ and Docker.
 Server-based deployments
 ~~~~~~~~~~~~~~~~~~~~~~~~
 Tasks for traditional server deployments are nearly identical to container-based deployments
-except the commands are not entered within a `Dockerfile`, but rather in the shell of the
+except the commands are not entered within a ``Dockerfile``, but rather in the shell of the
 server where the host application resides.
 
 .. toctree::
