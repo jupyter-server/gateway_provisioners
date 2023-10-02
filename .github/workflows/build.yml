@@ -42,13 +42,13 @@ jobs:
         run: |
           pip freeze
       - name: Build and install Gateway Provisioners
-        uses: nick-invision/retry@v2.8.3
+        uses: nick-invision/retry@v2.9.0
         with:
           timeout_minutes: 10
           command: |
             make clean dist install
       - name: Run unit tests
-        uses: nick-invision/retry@v2.8.3
+        uses: nick-invision/retry@v2.9.0
         with:
           timeout_minutes: 3
           max_attempts: 1
