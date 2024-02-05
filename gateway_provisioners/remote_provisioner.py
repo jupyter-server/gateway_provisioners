@@ -558,9 +558,9 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             f"Host assigned to the kernel is: '{self.assigned_host}' '{self.assigned_ip}'"
         )
 
-        connect_info[
-            "ip"
-        ] = self.assigned_ip  # Set connection to IP address of system where the kernel was launched
+        connect_info["ip"] = (
+            self.assigned_ip
+        )  # Set connection to IP address of system where the kernel was launched
 
         if tunneling_enabled is True:
             # Capture the current(tunneled) connect_info relative to the IP and ports (including the
