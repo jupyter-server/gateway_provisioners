@@ -149,6 +149,9 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
         self.assigned_ip = self.ip
 
         launch_kwargs = RemoteProvisionerBase._scrub_kwargs(kwargs)
+        self.log.debug(
+            f"DistributedProvisioner.launch_kernel() env: {launch_kwargs.get('env', {})}"
+        )
         try:
             result_pid = self._launch_remote_process(cmd, **launch_kwargs)
             self.pid = int(result_pid)
