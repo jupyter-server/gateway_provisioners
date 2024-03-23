@@ -15,7 +15,7 @@ from enum import Enum
 from socket import AF_INET, SHUT_WR, SOCK_STREAM, socket, timeout
 from typing import Any, Dict, List, Optional, Tuple
 
-import pexpect  # type:ignore[import]
+import pexpect  # type:ignore[import-untyped]
 from jupyter_client import (
     KernelConnectionInfo,
     KernelProvisionerBase,
@@ -491,6 +491,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
         lower_port = upper_port = 0
         port_range = self.port_range
+        assert port_range is not None
         try:
             port_ranges = port_range.split("..")
 

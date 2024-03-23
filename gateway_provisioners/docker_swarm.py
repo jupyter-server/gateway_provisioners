@@ -10,10 +10,10 @@ from typing import Any
 from overrides import overrides
 
 try:
-    from docker.client import DockerClient  # type:ignore[import]
-    from docker.errors import NotFound  # type:ignore[import]
-    from docker.models.containers import Container  # type:ignore[import]
-    from docker.models.services import Service  # type:ignore[import]
+    from docker.client import DockerClient  # type:ignore[import-untyped]
+    from docker.errors import NotFound  # type:ignore[import-untyped]
+    from docker.models.containers import Container  # type:ignore[import-untyped]
+    from docker.models.services import Service  # type:ignore[import-untyped]
 except ImportError:
     logging.warning(
         "The extra package 'docker' is not installed in this environment and is required.  "
