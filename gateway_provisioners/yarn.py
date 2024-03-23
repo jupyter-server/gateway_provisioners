@@ -16,7 +16,7 @@ from overrides import overrides
 from traitlets import Bool, Unicode, default
 
 try:
-    from yarn_api_client.resource_manager import ResourceManager  # type:ignore[import]
+    from yarn_api_client.resource_manager import ResourceManager  # type:ignore[import-untyped]
 except ImportError:
     logging.warning(
         "The extra package 'yarn_api_client'is not installed in this environment and is "
@@ -470,7 +470,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
                 endpoints.append(self.alt_yarn_endpoint)
 
         if self.yarn_endpoint_security_enabled:
-            from requests_kerberos import HTTPKerberosAuth  # type:ignore[import]
+            from requests_kerberos import HTTPKerberosAuth  # type:ignore[import-not-found]
 
             auth = HTTPKerberosAuth()
         else:
@@ -478,7 +478,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             # This allows EG to continue to issue requests against the YARN api when anonymous
             # access is not allowed. (Default is to allow anonymous access.)
             try:
-                from yarn_api_client.auth import SimpleAuth  # type:ignore[import]
+                from yarn_api_client.auth import SimpleAuth  # type:ignore[import-untyped]
 
                 auth = SimpleAuth(self.kernel_username)
                 self.log.debug(

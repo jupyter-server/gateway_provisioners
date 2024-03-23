@@ -73,6 +73,8 @@ docs = [
   "sphinx-autodoc-typehints",
   "sphinxemoji",
   "tornado",
+  # Needed for sequence and block dialogs.
+  "pillow==9.5.0",
   # Install optional dependencies so all API modules will load
   "docker>=3.5.0",
   "yarn-api-client",
