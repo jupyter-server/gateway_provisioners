@@ -90,7 +90,7 @@ class BaseApp(JupyterApp):
         """
         self.toree_jar_path = None
         try:
-            import toree  # type:ignore[import]
+            import toree  # type:ignore[import-not-found]
         except ImportError:
             self.log.warning(
                 "The Apache Torre kernel package is not installed in this environment and is required "

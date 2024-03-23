@@ -77,6 +77,7 @@ jobs:
       - uses: jupyterlab/maintainer-tools/.github/actions/check-links@v1
         with:
           ignore_links: "http://my-gateway-server.com:8888"
+          ignore_glob: "gateway_provisioners/app-support/README.md"
 
   build_docs:
     name: Build Docs

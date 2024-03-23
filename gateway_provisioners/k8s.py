@@ -12,8 +12,8 @@ from overrides import overrides
 
 try:
     from jinja2 import Environment  # noqa - used by launcher so check presence here
-    from kubernetes import client, config  # type:ignore[import]
-    from kubernetes.client.rest import ApiException  # type:ignore[import]
+    from kubernetes import client, config  # type:ignore[import-untyped]
+    from kubernetes.client.rest import ApiException  # type:ignore[import-untyped]
 except ImportError:
     logging.warning(
         "At least one of the extra packages 'kubernetes' or 'jinja2' are not installed in "
@@ -75,7 +75,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
 
     @overrides
     async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
-        # Set env before superclass call, so we can see these in the debug output
+        kwargs = await super().pre_launch(**kwargs)
 
         # Kubernetes relies on internal env variables to determine its configuration.  When
         # running within a K8s cluster, these start with KUBERNETES_SERVICE, otherwise look
@@ -83,7 +83,6 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         for key in os.environ:
             if key.startswith("KUBECONFIG") or key.startswith("KUBERNETES_SERVICE"):
                 kwargs["env"][key] = os.environ[key]
-        kwargs = await super().pre_launch(**kwargs)
         # Determine pod name and namespace - creating the latter if necessary
         self.kernel_pod_name = self._determine_kernel_pod_name(**kwargs)
         self.kernel_namespace = self._determine_kernel_namespace(**kwargs)

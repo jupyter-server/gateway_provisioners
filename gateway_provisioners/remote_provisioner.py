@@ -15,7 +15,7 @@ from enum import Enum
 from socket import AF_INET, SHUT_WR, SOCK_STREAM, socket, timeout
 from typing import Any, Dict, List, Optional, Tuple
 
-import pexpect  # type:ignore[import]
+import pexpect  # type:ignore[import-untyped]
 from jupyter_client import (
     KernelConnectionInfo,
     KernelProvisionerBase,
@@ -146,6 +146,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
     @overrides
     async def launch_kernel(self, cmd: List[str], **kwargs: Any) -> KernelConnectionInfo:
         launch_kwargs = RemoteProvisionerBase._scrub_kwargs(kwargs)
+        self.log.debug(f"RemoteProvisionerBase.launch_kernel() env: {launch_kwargs.get('env', {})}")
         self.local_proc = gp_launch_kernel(cmd, **launch_kwargs)
         self.pid = self.local_proc.pid
         self.ip = local_ip
@@ -490,6 +491,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
         lower_port = upper_port = 0
         port_range = self.port_range
+        assert port_range is not None
         try:
             port_ranges = port_range.split("..")
 
