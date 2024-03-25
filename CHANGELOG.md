@@ -2,6 +2,47 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 0.4.0
+
+([Full Changelog](https://github.com/jupyter-server/gateway_provisioners/compare/v0.2.0...b47b9a33ca19e50359248d7cb91dff35f1daf564))
+
+### Enhancements made
+
+- Fix k8s pre_launch key error and add debug log [#127](https://github.com/jupyter-server/gateway_provisioners/pull/127) ([@BetterLevi](https://github.com/BetterLevi))
+
+### Bugs fixed
+
+- Address CI failures [#128](https://github.com/jupyter-server/gateway_provisioners/pull/128) ([@blink1073](https://github.com/blink1073))
+- Fix kernel-class-name option [#124](https://github.com/jupyter-server/gateway_provisioners/pull/124) ([@mmmommm](https://github.com/mmmommm))
+- Update docker_swarm.py [#85](https://github.com/jupyter-server/gateway_provisioners/pull/85) ([@bsdz](https://github.com/bsdz))
+
+### Maintenance and upkeep improvements
+
+- Update dependabot config [#130](https://github.com/jupyter-server/gateway_provisioners/pull/130) ([@blink1073](https://github.com/blink1073))
+- Update Release Workflows [#129](https://github.com/jupyter-server/gateway_provisioners/pull/129) ([@blink1073](https://github.com/blink1073))
+- Bump black\[jupyter\] from 23.9.1 to 23.11.0 [#119](https://github.com/jupyter-server/gateway_provisioners/pull/119) ([@dependabot](https://github.com/dependabot))
+- Bump actions/checkout from 3 to 4 [#106](https://github.com/jupyter-server/gateway_provisioners/pull/106) ([@dependabot](https://github.com/dependabot))
+- Bump black\[jupyter\] from 23.7.0 to 23.9.1 [#105](https://github.com/jupyter-server/gateway_provisioners/pull/105) ([@dependabot](https://github.com/dependabot))
+- Adopt sp-repo-review [#104](https://github.com/jupyter-server/gateway_provisioners/pull/104) ([@blink1073](https://github.com/blink1073))
+- Bump black\[jupyter\] from 23.3.0 to 23.7.0 [#99](https://github.com/jupyter-server/gateway_provisioners/pull/99) ([@dependabot](https://github.com/dependabot))
+- Update mistune requirement from \<3.0.0 to \<4.0.0 [#94](https://github.com/jupyter-server/gateway_provisioners/pull/94) ([@dependabot](https://github.com/dependabot))
+- Bump ruff from 0.0.269 to 0.0.270 [#92](https://github.com/jupyter-server/gateway_provisioners/pull/92) ([@dependabot](https://github.com/dependabot))
+- Bump ruff from 0.0.267 to 0.0.269 [#91](https://github.com/jupyter-server/gateway_provisioners/pull/91) ([@dependabot](https://github.com/dependabot))
+- Update docutils requirement from \<0.20 to \<0.21 [#90](https://github.com/jupyter-server/gateway_provisioners/pull/90) ([@dependabot](https://github.com/dependabot))
+- Bump ruff from 0.0.265 to 0.0.267 [#89](https://github.com/jupyter-server/gateway_provisioners/pull/89) ([@dependabot](https://github.com/dependabot))
+- Bump ruff from 0.0.263 to 0.0.265 [#88](https://github.com/jupyter-server/gateway_provisioners/pull/88) ([@dependabot](https://github.com/dependabot))
+- Update RTD config [#87](https://github.com/jupyter-server/gateway_provisioners/pull/87) ([@blink1073](https://github.com/blink1073))
+- Bump ruff from 0.0.262 to 0.0.263 [#83](https://github.com/jupyter-server/gateway_provisioners/pull/83) ([@dependabot](https://github.com/dependabot))
+- Bump ruff from 0.0.261 to 0.0.262 [#82](https://github.com/jupyter-server/gateway_provisioners/pull/82) ([@dependabot](https://github.com/dependabot))
+
+### Contributors to this release
+
+([GitHub contributors page for this release](https://github.com/jupyter-server/gateway_provisioners/graphs/contributors?from=2023-04-20&to=2024-03-25&type=c))
+
+[@BetterLevi](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3ABetterLevi+updated%3A2023-04-20..2024-03-25&type=Issues) | [@blink1073](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Ablink1073+updated%3A2023-04-20..2024-03-25&type=Issues) | [@bsdz](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Absdz+updated%3A2023-04-20..2024-03-25&type=Issues) | [@dependabot](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Adependabot+updated%3A2023-04-20..2024-03-25&type=Issues) | [@kevin-bates](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Akevin-bates+updated%3A2023-04-20..2024-03-25&type=Issues) | [@mmmommm](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Ammmommm+updated%3A2023-04-20..2024-03-25&type=Issues) | [@pre-commit-ci](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Apre-commit-ci+updated%3A2023-04-20..2024-03-25&type=Issues) | [@welcome](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Awelcome+updated%3A2023-04-20..2024-03-25&type=Issues)
+
+<!-- <END NEW CHANGELOG ENTRY> -->
+
 ## Gateway Provisioners 0.2.0
 
 ([Full Changelog](https://github.com/jupyter-server/gateway_provisioners/compare/v0.1.0...5dc7e2c85f98328bd4f1a960555fad81894eb78b))
@@ -52,8 +93,6 @@
 ([GitHub contributors page for this release](https://github.com/jupyter-server/gateway_provisioners/graphs/contributors?from=2023-01-27&to=2023-04-20&type=c))
 
 [@blink1073](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Ablink1073+updated%3A2023-01-27..2023-04-20&type=Issues) | [@dependabot](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Adependabot+updated%3A2023-01-27..2023-04-20&type=Issues) | [@echarles](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Aecharles+updated%3A2023-01-27..2023-04-20&type=Issues) | [@kevin-bates](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Akevin-bates+updated%3A2023-01-27..2023-04-20&type=Issues) | [@kiersten-stokes](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Akiersten-stokes+updated%3A2023-01-27..2023-04-20&type=Issues) | [@pre-commit-ci](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Apre-commit-ci+updated%3A2023-01-27..2023-04-20&type=Issues) | [@welcome](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Awelcome+updated%3A2023-01-27..2023-04-20&type=Issues)
-
-<!-- <END NEW CHANGELOG ENTRY> -->
 
 ## 0.1
 
