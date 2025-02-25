@@ -587,7 +587,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         else:
             data = response.data
             if (
-                isinstance(type, dict)
+                isinstance(data, dict)
                 and isinstance(data.get("apps"), dict)
                 and "app" in data.get("apps")
             ):
