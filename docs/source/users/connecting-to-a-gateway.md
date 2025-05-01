@@ -75,7 +75,7 @@ where the kernel will run.
 ### Creating a Papermill Engine
 
 Connecting Papermill to a Gateway actually leverages the same `KernelManager` that is used when JupyterLab connects to
-a Gateway server.  However, to set the class of a `KernelManager` to `jupyter_server.gateway.managers.GatewayKernelManager`
+a Gateway server. However, to set the class of a `KernelManager` to `jupyter_server.gateway.managers.GatewayKernelManager`
 one must implement, and register (via entrypoints), a ["Papermill engine"](https://papermill.readthedocs.io/en/latest/extending-entry-points.html#developing-a-new-engine).
 
 Once the engine is implemented and set to use the `GatewayKernelManager` class, Papermill can be invoked using:

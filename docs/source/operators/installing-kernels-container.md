@@ -7,7 +7,7 @@ Gateway Provisioners includes tooling to generate kernel specifications that sup
 - IRKernel (R)
 
 Kernel specifications reside within the host application image (or volume mount) and their generation is addressed
-in the applicable sections for [Kubernetes](deploy-kubernetes.md) and [Docker/DockerSwarm](deploy-docker.md).  What
+in the applicable sections for [Kubernetes](deploy-kubernetes.md) and [Docker/DockerSwarm](deploy-docker.md). What
 follows are instructions for how to build the kernel-based image.
 
 ```{tip}
@@ -19,7 +19,7 @@ these tasks.
 ## Kernel-image Dockerfiles
 
 There are two forms of kernel images that can be created, one for regular or _vanilla_ kernels, another
-for Spark-based kernels.  Both use the same Dockerfile, but Spark-based images will specify a different base image
+for Spark-based kernels. Both use the same Dockerfile, but Spark-based images will specify a different base image
 from which the target image is derived.
 
 ### Spark Base Image
@@ -27,7 +27,7 @@ from which the target image is derived.
 Spark-based images will be built upon the `elyra/gp-spark-base` image, whose
 [`Dockerfile`](https://github.com/jupyter-server/gateway_provisioners/tree/main/gateway_provisioners/docker/gp-spark-base/Dockerfile) is located in
 [`gateway_provisioners/docker/gp-spark-base`](https://github.com/jupyter-server/gateway_provisioners/tree/main/gateway_provisioners/docker/gp-spark-base).
-This image builds on `jupyter/docker-stacks-foundation:2022-11-15` by installing Spark.  However, that base can also be
+This image builds on `jupyter/docker-stacks-foundation:2022-11-15` by installing Spark. However, that base can also be
 substituted via the build argument `BASE_CONTAINER`.
 
 To build the spark base image use:
@@ -36,8 +36,8 @@ To build the spark base image use:
 make gp-spark-base
 ```
 
-This will create an image named, by default, `elyra/gp-spark-base:dev`.  The organization (`elyra`) and tag (`dev`) can
-be controlled using variables `DOCKER_ORG` and `TAG`, respectively.  For example, to create a `gp-spark-base` image
+This will create an image named, by default, `elyra/gp-spark-base:dev`. The organization (`elyra`) and tag (`dev`) can
+be controlled using variables `DOCKER_ORG` and `TAG`, respectively. For example, to create a `gp-spark-base` image
 with a custom organization and tag of the form `my-custom-org/gp-spark-base:my-custom-tag`, you can use:
 
 ```bash
@@ -58,13 +58,13 @@ used to create a kernel image representing any of the supported kernels is locat
 [`gateway_provisioners/docker/kernel-image`](https://github.com/jupyter-server/gateway_provisioners/tree/main/gateway_provisioners/docker/kernel-image).
 
 This is a [_multi-stage build_](https://docs.docker.com/build/building/multi-stage/) Dockerfile whose build options are
-driven by [`docker build` arguments](https://docs.docker.com/engine/reference/builder/#arg).  There are three primary
+driven by [`docker build` arguments](https://docs.docker.com/engine/reference/builder/#arg). There are three primary
 arguments that drive a kernel's image build, `BASE_CONTAINER`, `KERNEL_LANG`, and `PACKAGE_SOURCE`.
 
 #### `BASE_CONTAINER`
 
 Using a `BASE_CONTAINER` build argument (e.g., `--build-arg BASE_CONTAINER=xxx`) controls from which image the kernel
-image will be derived.  By default, _vanilla_ kernel images are derived from `jupyter/docker-stacks-foundation:2022-11-15`
+image will be derived. By default, _vanilla_ kernel images are derived from `jupyter/docker-stacks-foundation:2022-11-15`
 while _spark-based_ kernel images should specify a `BASE_CONTAINER` of either `elyra/gp-spark-base:dev` or another applicable image.
 
 Gateway Provisioner's `Makefile` supports targets for three spark-based images: `gp-kernel-spark-py`,
@@ -90,8 +90,8 @@ The _helper-target_ `kernel-images` can be used to create all five kernel images
 #### `KERNEL_LANG`
 
 The second primary build argument to consider is the kernel language. Each of the previously mentioned Makefile targets
-automatically set `--build-arg KERNEL_LANG=<lang>` to the expected argument.  If not specified, `KERNEL_LANG` defaults
-to `python`.  `KERNEL_LANG` must be one of the following values: `python`, `r`, or `scala`.
+automatically set `--build-arg KERNEL_LANG=<lang>` to the expected argument. If not specified, `KERNEL_LANG` defaults
+to `python`. `KERNEL_LANG` must be one of the following values: `python`, `r`, or `scala`.
 
 It is this build argument that determines which kernel package to install, all of which is handled in the `Dockerfile`.
 
@@ -100,12 +100,12 @@ or `Scala`, as well as a `LABEL` entry of `KERNEL_LANG` with the respective lowe
 
 #### `PACKAGE_SOURCE`
 
-The third primary build argument is `PACKAGE_SOURCE`.  This identifies from where the Gateway Provisioners installation
-should come.  By default, `PACKAGE_SOURCE=release`, meaning that the Gateway Provisioners package will be installed
-from the latest release.  If a build argument for `PACKAGE_SOURCE` specifies `local`, then the
-locally built wheel file for Gateway Provisioners will be installed.  This option is ideal for development environments.
+The third primary build argument is `PACKAGE_SOURCE`. This identifies from where the Gateway Provisioners installation
+should come. By default, `PACKAGE_SOURCE=release`, meaning that the Gateway Provisioners package will be installed
+from the latest release. If a build argument for `PACKAGE_SOURCE` specifies `local`, then the
+locally built wheel file for Gateway Provisioners will be installed. This option is ideal for development environments.
 
-Because the `Makefile` is _plumbed_ for `PACKAGE_SOURCE`, it can be specified directly in the `make` command.  For example,
+Because the `Makefile` is _plumbed_ for `PACKAGE_SOURCE`, it can be specified directly in the `make` command. For example,
 the following will build a vanilla kernel for python using a locally built wheel file:
 
 ```bash

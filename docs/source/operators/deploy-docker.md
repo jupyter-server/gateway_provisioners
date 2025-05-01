@@ -16,10 +16,10 @@ for examples of how to configure and deploy such applications.
 
 ## Generating Kernel Specifications
 
-Kernelspec generation for Docker and Docker Swarm deployments is performed using the `jupyter-docker-spec` command.  Because
+Kernelspec generation for Docker and Docker Swarm deployments is performed using the `jupyter-docker-spec` command. Because
 the host application will also reside within a docker image, the commands are usually placed into a Dockerfile
-that _extends_ an existing image.  However, some may choose to `docker exec` into a running container, perform and test
-the necessary configuration, then use `docker commit` to generate a new image.  That said, the following will assume a
+that _extends_ an existing image. However, some may choose to `docker exec` into a running container, perform and test
+the necessary configuration, then use `docker commit` to generate a new image. That said, the following will assume a
 Dockerfile approach.
 
 ```{attention}
@@ -57,10 +57,10 @@ where each provides the following function:
   its display name (`display_name`) and language (`language`), as
   well as its kernel provisioner's configuration (`metadata.kernel_provisioner`) - which, in this case, will reflect the
   `DockerProvisioner`.
-- `logo-64x64.png` - the icon resource corresponding to this kernel specification.  Icon resource files must be start
+- `logo-64x64.png` - the icon resource corresponding to this kernel specification. Icon resource files must be start
   with the `logo-` prefix to be included in the kernel specification.
 - `scripts/launch_docker.py` - the "launcher" for the kernel image identified by the
-  `metadata.kernel_provisioner.config.image_name` entry.  This file can be modified to include instructions for
+  `metadata.kernel_provisioner.config.image_name` entry. This file can be modified to include instructions for
   volume mounts, etc., and is compatible with both Docker and Docker Swarm - performing the applicable instructions for
   each environment.
 
@@ -71,7 +71,7 @@ others.
 
 ### Generating Multiple Specifications
 
-Its common practice to support multiple languages or use different images for kernels of the same language.  For each
+Its common practice to support multiple languages or use different images for kernels of the same language. For each
 of those differences, a separate installation command should be provided:
 
 ```dockerfile
@@ -102,9 +102,9 @@ Items worth noting:
 ## Other Configuration Items
 
 There are some environment variables that can be set in the host application's environment that affect how Gateway
-Provisioners operate within a Docker and Docker Swarm environment.  For example, `GP_MIRROR_WORKING_DIRS` can be set
+Provisioners operate within a Docker and Docker Swarm environment. For example, `GP_MIRROR_WORKING_DIRS` can be set
 to `True`, instructing Gateway Provisioners to set the launched container's working directory to the value of
-`KERNEL_WORKING_DIR`.  When this environment variable is enabled, it usually implies that volume mounts are in play
+`KERNEL_WORKING_DIR`. When this environment variable is enabled, it usually implies that volume mounts are in play
 such that the per-user volumes are then available to the launched container.
 
 Other [environment variables](config-add-env.md#additional-environment-variables) applicable to Docker/Docker Swarm
@@ -216,7 +216,7 @@ To see all configurable class-options for some <cmd>, use:
 Examples
 --------
 
-    jupyter-docker-spec install --language=R --kernel-name=r_docker --image_name=foo/my_r_kernel_image:v4_0
+    jupyter-docker-spec install --language=R --kernel-name=r_docker --image-name=foo/my_r_kernel_image:v4_0
 
     jupyter-docker-spec install --swarm --kernel-name=python_swarm
 
