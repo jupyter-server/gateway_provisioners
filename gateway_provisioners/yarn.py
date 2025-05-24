@@ -240,8 +240,9 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             self.local_proc.wait()
             self.local_proc = None
 
-        # reset application id to force new query - handles kernel restarts/interrupts
+        # reset application id and assigned host to force new query - handles kernel restarts/interrupts
         self.application_id = None
+        self.assigned_host = ""
 
         # for cleanup, we should call the superclass last
         await super().cleanup(restart=restart)
