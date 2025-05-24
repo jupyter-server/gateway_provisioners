@@ -60,8 +60,8 @@ class ServerListener:
         # Initialized later...
         self.comm_socket: socket | None = None
 
-    def build_connection_file(self) -> None:
-        ports: list = self._select_ports(5)
+    def build_connection_file(self) -> int:
+        ports: list = self._select_ports(6)
         write_connection_file(
             fname=self.conn_filename,
             ip="0.0.0.0",  # noqa: S104
@@ -72,6 +72,7 @@ class ServerListener:
             hb_port=ports[3],
             control_port=ports[4],
         )
+        return ports[5]
 
     def _encrypt(self, connection_info_bytes: bytes) -> bytes:
         """Encrypt the connection information using a generated AES key that is then encrypted using
@@ -98,7 +99,7 @@ class ServerListener:
         b64_payload = base64.b64encode(json.dumps(payload).encode(encoding="utf-8"))
         return b64_payload
 
-    def return_connection_info(self) -> None:
+    def return_connection_info(self, comm_port) -> None:
         """Returns the connection information corresponding to this kernel."""
         response_parts = self.response_addr.split(":")
         if len(response_parts) != 2:
@@ -125,7 +126,7 @@ class ServerListener:
         cf_json["pgid"] = os.getpgid(self.parent_pid)
 
         # prepare socket address for handling signals
-        self.prepare_comm_socket()  # self.comm_socket initialized
+        self.prepare_comm_socket(comm_port)  # self.comm_socket initialized
         cf_json["comm_port"] = self.comm_socket.getsockname()[1]
         cf_json["kernel_id"] = self.kernel_id
 
@@ -137,9 +138,11 @@ class ServerListener:
             logger.debug(f"Encrypted Payload '{payload}")
             s.send(payload)
 
-    def prepare_comm_socket(self) -> None:
+    def prepare_comm_socket(self, comm_port) -> None:
         """Prepares the socket to which the server will send signal and shutdown requests."""
-        self.comm_socket = self._select_socket()
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(("0.0.0.0", comm_port))
+        self.comm_socket = sock
         logger.info(
             f"Signal socket bound to host: "
             f"{self.comm_socket.getsockname()[0]}, port: {self.comm_socket.getsockname()[1]}"
@@ -212,7 +215,7 @@ class ServerListener:
 
         return request_info
 
-    def process_requests(self) -> None:
+    def process_requests(self, comm_port) -> None:
         """Waits for requests from the server and processes each when received.  Currently,
         these will be one of a sending a signal to the corresponding kernel process (signum) or
         stopping the listener and exiting the kernel (shutdown).
@@ -225,7 +228,7 @@ class ServerListener:
 
         # Since this creates the communication socket, we should do this here so the socket
         # gets created in the sub-process/thread.  This is necessary on MacOS/Python.
-        self.return_connection_info()
+        self.return_connection_info(comm_port)
 
         while not shutdown:
             request = self.get_server_request()
@@ -277,10 +280,11 @@ def setup_server_listener(
         public_key,
         cluster_type,
     )
-    sl.build_connection_file()
+    comm_port = sl.build_connection_file()
 
     set_start_method("fork")
-    server_listener = Process(target=sl.process_requests)
+    # server_listener = Process(target=sl.process_requests)
+    server_listener = Process(target=sl.process_requests, args=(comm_port,))
     server_listener.start()
 
 

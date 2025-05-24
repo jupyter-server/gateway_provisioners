@@ -1,13 +1,13 @@
 Users Guide
 ===========
 
-Gateway Provisioners is a package available to any application that leverages `jupyter_client`
+Gateway Provisioners is a package available to any application that leverages ``jupyter_client``
 to manage its kernels.  While all kernels launched using Gateway Provisioners run remotely from
 their *launching application*, some require that the launching application reside within the cluster
 in which the kernels will run, while others do not.  As a result, deployment steps for a given
 Gateway provisioner will vary, and are covered in our `Operators Guide <../operators/index.html>`_ .
 
-Examples of applications that leverage `jupyter_client` include, but are not limited to, the
+Examples of applications that leverage ``jupyter_client`` include, but are not limited to, the
 following:
 
  - `JupyterLab <https://jupyterlab.readthedocs.io/en/stable/>`_ - the next-generation web-based

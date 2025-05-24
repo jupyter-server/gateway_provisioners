@@ -1,17 +1,19 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in docker-based containers."""
+from __future__ import annotations
+
 import logging
 import os
-from typing import Any, Dict, Optional, Set
+from typing import Any
 
 from overrides import overrides
 
 try:
-    from docker.client import DockerClient
-    from docker.errors import NotFound
-    from docker.models.containers import Container
-    from docker.models.services import Service
+    from docker.client import DockerClient  # type:ignore[import-untyped]
+    from docker.errors import NotFound  # type:ignore[import-untyped]
+    from docker.models.containers import Container  # type:ignore[import-untyped]
+    from docker.models.services import Service  # type:ignore[import-untyped]
 except ImportError:
     logging.warning(
         "The extra package 'docker' is not installed in this environment and is required.  "
@@ -38,7 +40,7 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         self.client = DockerClient.from_env()
 
     @overrides
-    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
         kwargs = await super().pre_launch(**kwargs)
 
         # Convey the network to the docker launch script
@@ -47,15 +49,15 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         return kwargs
 
     @overrides
-    def get_initial_states(self) -> Set[str]:
+    def get_initial_states(self) -> set[str]:
         return {"preparing", "starting", "running"}
 
     @overrides
-    def get_error_states(self) -> Set[str]:
+    def get_error_states(self) -> set[str]:
         return {"failed", "rejected", "complete", "shutdown", "orphaned", "remove"}
 
     @overrides
-    def get_container_status(self, iteration: Optional[str]) -> str:
+    def get_container_status(self, iteration: str | None) -> str:
         # Locates the kernel container using the kernel_id filter.  If the status indicates an initial state we
         # should be able to get at the NetworksAttachments and determine the associated container's IP address.
         task_state = ""
@@ -87,7 +89,7 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         return task_state
 
     @overrides
-    def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
+    def terminate_container_resources(self, restart: bool = False) -> bool | None:
         # Remove the docker service.
 
         result = True  # We'll be optimistic
@@ -138,7 +140,7 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
             self.container_name = service.name
         return service
 
-    def _get_task(self) -> dict:
+    def _get_task(self) -> dict | None:
         """
         Fetches the task object corresponding to the service associated with the kernel.  We only ask for the
         current task with desired-state == running.  This eliminates failed states.
@@ -168,7 +170,7 @@ class DockerProvisioner(ContainerProvisionerBase):
         self.client = DockerClient.from_env()
 
     @overrides
-    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
         kwargs = await super().pre_launch(**kwargs)
 
         # Convey the network to the docker launch script
@@ -177,15 +179,15 @@ class DockerProvisioner(ContainerProvisionerBase):
         return kwargs
 
     @overrides
-    def get_initial_states(self) -> Set[str]:
+    def get_initial_states(self) -> set[str]:
         return {"created", "running"}
 
     @overrides
-    def get_error_states(self) -> Set[str]:
+    def get_error_states(self) -> set[str]:
         return {"restarting", "removing", "paused", "exited", "dead"}
 
     @overrides
-    def get_container_status(self, iteration: Optional[str]) -> str:
+    def get_container_status(self, iteration: str | None) -> str:
         # Locates the kernel container using the kernel_id filter.  If the phase indicates Running, the pod's IP
         # is used for the assigned_ip.  Only used when docker mode == regular (non swarm)
         container_status = ""
@@ -224,7 +226,7 @@ class DockerProvisioner(ContainerProvisionerBase):
         return container_status
 
     @overrides
-    def terminate_container_resources(self, restart: bool = False) -> None:
+    def terminate_container_resources(self, restart: bool = False) -> bool:
         # Remove the container
 
         result = True  # Since we run containers with remove=True, we'll be optimistic

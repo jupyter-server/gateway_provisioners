@@ -1,14 +1,16 @@
 version: 2
 updates:
-  # Set update schedule for GitHub Actions
+  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      # Check for updates to GitHub Actions once a week (Mondays by default)
       interval: "weekly"
-  # Set update schedule for pip
+    groups:
+      actions:
+        patterns:
+          - "*"
+  # Python
   - package-ecosystem: "pip"
     directory: "/"
     schedule:
-      # Check for updates to Python deps once a week (Mondays by default)
       interval: "weekly"

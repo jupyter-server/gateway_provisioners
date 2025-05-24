@@ -10,8 +10,8 @@ from typing import List
 import urllib3
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from kubernetes import client, config
-from kubernetes.client.rest import ApiException
+from kubernetes import client, config  # type:ignore[import-untyped]
+from kubernetes.client.rest import ApiException  # type:ignore[import-untyped]
 
 urllib3.disable_warnings()
 
@@ -213,7 +213,7 @@ def launch_kubernetes_kernel(
             f"--conf spark.kubernetes.driver.podTemplateFile={pod_template_file} "
             f"--conf spark.kubernetes.executor.podTemplateFile={pod_template_file} "
         )
-
+        assert pod_template is not None
         additional_spark_opts += _get_spark_resources(pod_template)
 
         if spark_opts_out:

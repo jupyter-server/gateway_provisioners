@@ -1,10 +1,12 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in containers."""
+from __future__ import annotations
+
 import os
 import signal
 from abc import abstractmethod
-from typing import Any, Dict, List, Optional, Set
+from typing import Any
 
 import urllib3  # docker ends up using this and it causes lots of noise, so turn off warnings
 from jupyter_client import localinterfaces
@@ -70,7 +72,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
         return self.container_name is not None
 
     @overrides
-    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
         # Unset assigned_host, ip, and node_ip in pre-launch, otherwise, these screw up restarts
         self.assigned_host = ""
         self.assigned_ip = None
@@ -91,7 +93,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
         return kwargs
 
     @overrides
-    def log_kernel_launch(self, cmd: List[str]) -> None:
+    def log_kernel_launch(self, cmd: list[str]) -> None:
         self.log.info(
             f"{self.__class__.__name__}: kernel launched. Kernel image: {self.image_name}, "
             f"KernelID: {self.kernel_id}, cmd: '{cmd}'"
@@ -118,7 +120,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
         kwargs["env"]["KERNEL_GID"] = kernel_gid
 
     @overrides
-    async def poll(self) -> Optional[int]:
+    async def poll(self) -> int | None:
         """Determines if container is still active.
 
         Submitting a new kernel to the container manager will take a while to be Running.
@@ -128,7 +130,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
         Returns None if the container cannot be found or its in an initial state. Otherwise,
         return an exit code of 0.
         """
-        result = 0
+        result: int | None = 0
 
         container_status = self.get_container_status(None)
         # Do not check whether container_status is None
@@ -143,23 +145,20 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
     async def send_signal(self, signum: int) -> None:
         """Send signal `signum` to container."""
         if signum == 0:
-            return await self.poll()
+            await self.poll()
         elif signum == signal.SIGKILL:
-            return await self.kill()
+            await self.kill()
         else:
             # This is very likely an interrupt signal, so defer to the super class
             # which should use the communication port.
-            return await super().send_signal(signum)
+            await super().send_signal(signum)
 
     @overrides
     async def kill(self, restart: bool = False) -> None:
         """Kills a containerized kernel."""
-        result = None
 
         if self.container_name:  # We only have something to terminate if we have a name
-            result = self.terminate_container_resources(restart=restart)
-
-        return result
+            self.terminate_container_resources(restart=restart)
 
     @overrides
     async def terminate(self, restart: bool = False) -> None:
@@ -168,7 +167,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
         This method defers to kill() since there's no distinction between the
         two in these environments.
         """
-        return await self.kill(restart=restart)
+        await self.kill(restart=restart)
 
     @overrides
     async def shutdown_listener(self, restart: bool) -> None:
@@ -203,7 +202,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
                 self.detect_launch_failure()
 
     @overrides
-    async def get_provisioner_info(self) -> Dict[str, Any]:
+    async def get_provisioner_info(self) -> dict[str, Any]:
         """Captures the base information necessary for kernel persistence relative to containers."""
         provisioner_info = await super().get_provisioner_info()
         provisioner_info.update(
@@ -220,21 +219,21 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
         self.assigned_node_ip = provisioner_info.get("assigned_node_ip")
 
     @abstractmethod
-    def get_initial_states(self) -> Set[str]:
+    def get_initial_states(self) -> set[str]:
         """Return list of states (in lowercase) indicating container is starting (includes running)."""
         raise NotImplementedError
 
     @abstractmethod
-    def get_error_states(self) -> Set[str]:
+    def get_error_states(self) -> set[str]:
         """Returns the list of error states (in lowercase)."""
         raise NotImplementedError
 
     @abstractmethod
-    def get_container_status(self, iteration: Optional[str]) -> str:
+    def get_container_status(self, iteration: str | None) -> str:
         """Return current container state."""
         raise NotImplementedError
 
     @abstractmethod
-    def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
+    def terminate_container_resources(self, restart: bool = False) -> bool | None:
         """Terminate any artifacts created on behalf of the container's lifetime."""
         raise NotImplementedError

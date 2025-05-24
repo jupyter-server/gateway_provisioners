@@ -1,6 +1,6 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
-"""Mixin for configuation options on RemoteProvisionerBase."""
+"""Mixin for configuration options on RemoteProvisionerBase."""
 
 import os
 

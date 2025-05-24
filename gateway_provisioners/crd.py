@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Set
 from overrides import overrides
 
 try:
-    from kubernetes import client
+    from kubernetes import client  # type:ignore[import-untyped]
 except ImportError:
     logging.warning(
         "At least one of the extra packages 'kubernetes' or 'jinja2' are not installed in "

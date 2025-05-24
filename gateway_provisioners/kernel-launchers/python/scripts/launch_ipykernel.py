@@ -56,7 +56,7 @@ def initialize_namespace(namespace: dict, cluster_type: str = "spark") -> None:
     """
     if cluster_type == "spark":
         try:
-            from pyspark.sql import SparkSession
+            from pyspark.sql import SparkSession  # type:ignore[import-not-found]
         except ImportError:
             __logger.info(
                 "A spark context was desired but the pyspark distribution is not present.  "
@@ -99,7 +99,7 @@ def initialize_namespace(namespace: dict, cluster_type: str = "spark") -> None:
         init_thread.start()
 
     elif cluster_type == "dask":
-        import dask_yarn
+        import dask_yarn  # type:ignore[import-not-found]
 
         cluster = dask_yarn.YarnCluster.from_current()
         namespace.update({"cluster": cluster})

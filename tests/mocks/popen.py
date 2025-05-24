@@ -44,7 +44,7 @@ class MockPopen(Popen):
             yarn_resources[resource.kernel_id] = resource
             self.resources = yarn_resources
         else:
-            err_msg = "Cant determine resource to mock!"
+            err_msg = "Can't determine resource to mock!"
             raise AssertionError(err_msg)
 
 

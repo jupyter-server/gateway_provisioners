@@ -89,6 +89,9 @@ clean-test: # Remove test and coverage artifacts
 	rm -rf htmlcov/
 	rm -rf .pytest_cache
 
+typing: ## Check type hints
+	hatch run typing:test
+
 lint: ## Check style and linting
 	hatch run lint:style
 

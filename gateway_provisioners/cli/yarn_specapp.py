@@ -152,7 +152,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
     def detect_missing_extras(self):
         super().detect_missing_extras()
         try:
-            import yarn_api_client  # noqa: F401
+            import yarn_api_client  # type:ignore[import-untyped] # noqa: F401
         except ImportError:
             self.log.warning(
                 "The extra package 'yarn_api_client'is not installed in this environment and is "

@@ -14,7 +14,7 @@ within a Gateway server.
 
 ```{attention}
 Enterprise Gateway will not be compatible with Gateway Provisioners until its 4.0 release.  As a result
-the following assumes the targetted Gateway server is a Jupyter Kernel Gateway deployment.  While attempts
+the following assumes the targeted Gateway server is a Jupyter Kernel Gateway deployment.  While attempts
 to connect to a deployment of Enterprise Gateway 3.x, the kernels provided by _that_ deployment will be
 based on EG's process-proxies and not kernel provisioners.  Nevertheless, _these instructions_ are the
 same since the GatewayClient support in Jupyter Server is backward compatible.

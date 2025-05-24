@@ -147,7 +147,7 @@ will configure the SparkOperatorProvisioner for Spark Application CRDs.""",
         super().detect_missing_extras()
         try:
             import jinja2  # noqa: F401
-            import kubernetes  # noqa: F401
+            import kubernetes  # type:ignore[import-untyped] # noqa: F401
         except ImportError:
             self.log.warning(
                 "At least one of the extra packages 'kubernetes' or 'jinja2' are not installed in "

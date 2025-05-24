@@ -89,7 +89,7 @@ enabled for Spark usage, this image will be the driver image. (GP_IMAGE_NAME env
     def detect_missing_extras(self):
         super().detect_missing_extras()
         try:
-            import docker  # noqa: F401
+            import docker  # type:ignore[import-untyped] # noqa: F401
         except ImportError:
             self.log.warning(
                 "The extra package 'docker' is not installed in this environment and is required.  "
