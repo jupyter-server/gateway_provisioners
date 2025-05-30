@@ -13,7 +13,7 @@ import time
 from abc import abstractmethod
 from enum import Enum
 from socket import AF_INET, SHUT_WR, SOCK_STREAM, socket, timeout
-from typing import Any, Dict, List, Optional, Tuple, cast
+from typing import Any, Optional, cast
 
 import pexpect
 from jupyter_client import (

@@ -1,7 +1,6 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 import re
-from typing import List
 
 # Version string must appear intact for automatic versioning
 __version__ = "0.5.0.dev0"

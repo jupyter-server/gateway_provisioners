@@ -5,7 +5,6 @@
 import argparse
 import os
 import sys
-from typing import List
 
 import urllib3
 import yaml
