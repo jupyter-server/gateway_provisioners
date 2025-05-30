@@ -13,10 +13,10 @@ for examples of how to configure and deploy such applications.
 
 ## Generating Kernel Specifications
 
-Kernelspec generation for Kubernetes deployments is performed using the `jupyter-k8s-spec` command.  Because
+Kernelspec generation for Kubernetes deployments is performed using the `jupyter-k8s-spec` command. Because
 the host application will also reside within a docker image, the commands are usually placed into a Dockerfile
-that _extends_ an existing image.  However, some may choose to `docker exec` into a running container, perform and test
-the necessary configuration, then use `docker commit` to generate a new image.  That said, the following will assume a
+that _extends_ an existing image. However, some may choose to `docker exec` into a running container, perform and test
+the necessary configuration, then use `docker commit` to generate a new image. That said, the following will assume a
 Dockerfile approach.
 
 To generate a default kernel specification (where Python is the default kernel) enter:
@@ -50,17 +50,17 @@ where each provides the following function:
   its display name (`display_name`) and language (`language`), as
   well as its kernel provisioner's configuration (`metadata.kernel_provisioner`) - which, in this case, will reflect the
   `KubernetesProvisioner`.
-- `logo-64x64.png` - the icon resource corresponding to this kernel specification.  Icon resource files must be start
+- `logo-64x64.png` - the icon resource corresponding to this kernel specification. Icon resource files must be start
   with the `logo-` prefix to be included in the kernel specification.
-- `scripts/launch_kubernetes.py` - the "launcher" for the kernel pod.  This script processes its sibling Jinja
+- `scripts/launch_kubernetes.py` - the "launcher" for the kernel pod. This script processes its sibling Jinja
   templates by applying appropriate substitutes and creating each of the Kubernetes resources as described in the template.
 - `scripts/kernel-pod.yaml.j2` - the Jinja template describing the to-be-launched kernel pod corresponding to the
-  kernel image identified by the `metadata.kernel_provisioner.config.image_name` entry.  This file can be modified to
+  kernel image identified by the `metadata.kernel_provisioner.config.image_name` entry. This file can be modified to
   include instructions for volume mounts, etc., for establishing the pod's configuration.
-- `bin/run.sh` - This file will be present only when `--spark` is specified.  The first entry in the `kernel.json`'s
+- `bin/run.sh` - This file will be present only when `--spark` is specified. The first entry in the `kernel.json`'s
   `argv` stanza will be a reference to `bin/run.sh`. This script sets up and invokes the `spark-submit` command that
-  is responsible for interacting with the Spark-on-Kubernetes resource manager.  With the introduction of Spark Pod
-  Templates, we can leverage the same templating behavior in Spark-based environments.  As a result, both the driver
+  is responsible for interacting with the Spark-on-Kubernetes resource manager. With the introduction of Spark Pod
+  Templates, we can leverage the same templating behavior in Spark-based environments. As a result, both the driver
   and executor pods will have similar configurations.
 
 ```{seealso}
@@ -71,7 +71,7 @@ others.
 ### Deploying Custom Resource Definitions
 
 Gateway Provisioners currently supports one form of Custom Resource Definitions (CRDs) via the
-[`SparkOperatorProvisioner`](../contributors/system-architecture.md#sparkoperatorprovisioner).  To generate a kernel
+[`SparkOperatorProvisioner`](../contributors/system-architecture.md#sparkoperatorprovisioner). To generate a kernel
 specification to use `SparkOperatorProvisioner`, in addition to including the `--spark` option, you will also include the
 `--crd` option to `jupyter k8s-spec install`.
 
@@ -99,10 +99,10 @@ sparkoperator.k8s.io-v1beta2.yaml.j2
 
 There are a few things worth noting here.
 
-1. The `scripts` directory contains a different set of scripts.  This is because the SparkOperator requires a
+1. The `scripts` directory contains a different set of scripts. This is because the SparkOperator requires a
    slightly different launch script and its yaml definitions are different enough to warrant separation.
 1. Although this provisioner uses Spark, there is no `run` sub-directory created that contains a `spark-submit`
-   command.  Instead, the appropriate CRD is created which performs the application's submission to Spark directly.
+   command. Instead, the appropriate CRD is created which performs the application's submission to Spark directly.
 1. The yaml template name is a composition of the provisioner's [`group` and `version` attributes](../contributors/system-architecture.md/#sparkoperatorprovisioner).
    In this case, the `group` is `sparkoperator.k8s.io` and `version` is `v1beta2`.
 
@@ -120,7 +120,7 @@ webhook server is enabled when deploying the helm chart:
 
 ### Generating Multiple Specifications
 
-Its common practice to support multiple languages or use different images for kernels of the same language.  For each
+Its common practice to support multiple languages or use different images for kernels of the same language. For each
 of those differences, a separate installation command should be provided:
 
 ```dockerfile
@@ -136,7 +136,7 @@ When kernels are launched, Gateway Provisioners is responsible for creating the 
 entity created is a function of whether the kernel is a regular or spark-based kernel specification.
 
 Regular kernels are launched as a kernel pod based on the `scripts/kernel-pod.yaml.j2` template via the
-`scripts/launch_kubernetes.py` script, both of which are located in the `scripts` directory.  Spark-based kernels are
+`scripts/launch_kubernetes.py` script, both of which are located in the `scripts` directory. Spark-based kernels are
 launched via `spark-submit` in the `bin/run.sh` script triggering the creation of a _driver_ pod and one or more
 _executor_ pods.
 
@@ -145,7 +145,7 @@ Items worth noting:
 1. The launched pods' names will be composed of the launching username (`KERNEL_USERNAME`) and kernel-id. Some additional
    information is added to the spark-based pod names.
 1. The pods will have 3 labels applied: `"kernel_id=<kernel-id>"`, `"component=kernel"`, and
-   `"app=gateway-provisioners"` - similar to Docker.  The `component` label on the spark-based executor pods will hold a
+   `"app=gateway-provisioners"` - similar to Docker. The `component` label on the spark-based executor pods will hold a
    value of `worker` to distinguish them from the driver.
 1. The pods will be launched within the same Kubernetes network as the host application.
 
@@ -158,17 +158,17 @@ and Automatic Namespace.
 ### Shared Namespace
 
 Because Gateway Provisioners is a _library package_ and not its own application, the default namespace behavior is to
-use a _shared namespace_.  That is, kernel pods launched by the application are placed into the same namespace as the
-hosting application.  This option is controlled by two environment variables: `GP_SHARED_NAMESPACE` and `GP_NAMESPACE`.
+use a _shared namespace_. That is, kernel pods launched by the application are placed into the same namespace as the
+hosting application. This option is controlled by two environment variables: `GP_SHARED_NAMESPACE` and `GP_NAMESPACE`.
 
 #### `GP_SHARED_NAMESPACE`
 
-This environment variable defaults to `True`.  When enabled, all kernel pods will be launched into the namespace
-identified by `GP_NAMESPACE`.  No attempt is made to alter the configuration of `GP_NAMESPACE`.
+This environment variable defaults to `True`. When enabled, all kernel pods will be launched into the namespace
+identified by `GP_NAMESPACE`. No attempt is made to alter the configuration of `GP_NAMESPACE`.
 
 #### `GP_NAMESPACE`
 
-This environment variable identifies the namespace in which the host application is running.  It defaults to the
+This environment variable identifies the namespace in which the host application is running. It defaults to the
 namespace named `default`, but its recommended that host application deployment configure its own namespace and this
 environment variable be set to that value.
 
@@ -182,8 +182,8 @@ application or, for example, in JupyterHub situations where Hub launches noteboo
 modeling_, would have the same effect as setting `KERNEL_NAMESPACE` using the _Bring-Your-Own Namespace modeling_.)
 
 When configured, Gateway Provisioners assumes the namespace identified by `KERNEL_NAMESPACE` already exists and is
-properly configured from a resources and privileges standpoint.  In addition to providing `KERNEL_NAMESPACE`, users
-must also provide the name of the service account privileged to create resources within the namespace.  The service
+properly configured from a resources and privileges standpoint. In addition to providing `KERNEL_NAMESPACE`, users
+must also provide the name of the service account privileged to create resources within the namespace. The service
 account name is conveyed via `KERNEL_SERVICE_ACCOUNT_NAME`.
 
 Gateway Provisioners will not attempt to delete this namespace upon the kernel's termination.
@@ -191,7 +191,7 @@ Gateway Provisioners will not attempt to delete this namespace upon the kernel's
 ### Automatic Namespace
 
 Operators wanting the finest isolation level, where each kernel pod is launched into their own namespace, can do so by
-disabling `GP_SHARED_NAMESPACE` and not setting `KERNEL_NAMESPACE`.  In these configurations, Gateway Provisioners will
+disabling `GP_SHARED_NAMESPACE` and not setting `KERNEL_NAMESPACE`. In these configurations, Gateway Provisioners will
 _create_ a namespace corresponding to the values of `KERNEL_USERNAME`-`KERNEL_ID`, just as the pods are named.
 
 This option requires higher-level privileges on the RBAC settings of the host application as the namespace must be
@@ -200,9 +200,9 @@ created on startup and deleted on termination.
 #### Required RBAC Settings
 
 As noted above, the ability to create and destroy namespaces at the time of kernel launch requires additional privileges
-in the form of a `cluster-role`.  This role will require privileges to create and delete namespaces, services, and
-role-bindings, among other things.  Because a new namespace will be created, a subsequent cluster-role should exist
-that is for use by the kernel pod itself.  These two role definitions are provided below:
+in the form of a `cluster-role`. This role will require privileges to create and delete namespaces, services, and
+role-bindings, among other things. Because a new namespace will be created, a subsequent cluster-role should exist
+that is for use by the kernel pod itself. These two role definitions are provided below:
 
 ##### Application Cluster Role
 
@@ -238,7 +238,7 @@ support Spark Operators - but plans to in the near future.
 
 The name of this role is conveyed from the host application to Gateway Provisioners via
 the `GP_KERNEL_CLUSTER_ROLE` environment variable and defaults to `cluster-admin`, so operators are advised to create
-a specific role for these purposes.  This role is responsible for managing resources within the newly-created namespace.\
+a specific role for these purposes. This role is responsible for managing resources within the newly-created namespace.\
 While the role is a `cluster-role`, it is only _bound_ via a `role-binding` binding the cluster role to the namespace
 and its service account referenced by `KERNEL_SERVICE_ACCOUNT_NAME`.
 
@@ -367,9 +367,9 @@ When defined, these variables are then substituted into the appropriate location
 ## Other Configuration Items
 
 There are some environment variables that can be set in the host application's environment that affect how Gateway
-Provisioners operate within a Kubernetes environment.  For example, `GP_MIRROR_WORKING_DIRS` can be set
+Provisioners operate within a Kubernetes environment. For example, `GP_MIRROR_WORKING_DIRS` can be set
 to `True`, instructing Gateway Provisioners to set the launched container's working directory to the value of
-`KERNEL_WORKING_DIR`.  When this environment variable is enabled, it usually implies that volume mounts are in play
+`KERNEL_WORKING_DIR`. When this environment variable is enabled, it usually implies that volume mounts are in play
 such that the per-user volumes are then available to the launched container.
 
 Other [environment variables](config-add-env.md#additional-environment-variables) applicable to Kubernetes

@@ -21,7 +21,7 @@ c.DistributedProvisioner.remote_hosts = ["localhost"]
 
 ## Provisioner-specific Configuration Options
 
-A complete set of configuration options available for each Gateway Provisioner follows.  Where applicable, the
+A complete set of configuration options available for each Gateway Provisioner follows. Where applicable, the
 configurable option's default value is also provided.
 
 ### `KubernetesProvisioner`

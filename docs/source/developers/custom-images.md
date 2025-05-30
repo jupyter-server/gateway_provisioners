@@ -108,8 +108,8 @@ the appropriate directory in place. For the purposes of this discussion, we'll a
 directory, `/usr/local/share/jupyter/kernels`, is externally mounted.
 
 Depending on the environment, Kubernetes or Docker, you can use with `jupyter-k8s-spec` or `jupyter-docker-spec`,
-respectively.  Invoke the appropriate script by adding the `--image-name` parameter identifying the name of your
-custom kernel image.  For example, if your custom image is named `acme/data-sci-py:2.0` and you are targeting
+respectively. Invoke the appropriate script by adding the `--image-name` parameter identifying the name of your
+custom kernel image. For example, if your custom image is named `acme/data-sci-py:2.0` and you are targeting
 Kubernetes, issue:
 
 ```dockerfile

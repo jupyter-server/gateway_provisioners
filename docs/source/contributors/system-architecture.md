@@ -51,8 +51,8 @@ step from its implementation.
 
 ### Gateway Provisioner Class Hierarchy
 
-The following block diagram depicts the current class hierarchy for the Gateway Provisioners.  The blocks with an
-`ABC` badge and dashed border indicate abstract base classes.  Those light blue blocks come from `jupyter_client`,
+The following block diagram depicts the current class hierarchy for the Gateway Provisioners. The blocks with an
+`ABC` badge and dashed border indicate abstract base classes. Those light blue blocks come from `jupyter_client`,
 while the others reside in Gateway Provisioners.
 
 ```{blockdiag}
@@ -157,8 +157,8 @@ kernel provisioner configuration to override the global value, enabling finer-gr
 
 `ContainerProvisionerBase` is an abstract base class that derives from `RemoteProvisionerBase`. It implements all
 the methods inherited from `RemoteProvsionerBase` interacting with the container API and requiring method implementations
-to perform the platform's integration.  Subclasses
-of `ContainerProvisionerBase` must also implement `get_initial_states()`,  `get_error_states()`, `get_container_status()`,
+to perform the platform's integration. Subclasses
+of `ContainerProvisionerBase` must also implement `get_initial_states()`, `get_error_states()`, `get_container_status()`,
 and `terminate_container_resources()`:
 
 ```python
@@ -204,9 +204,9 @@ manages kernels via a custom resource definition (CRD). For example, `SparkAppli
 many components of a Spark-on-Kubernetes application.
 
 `CustomResourceProvisioner` could be considered a _virtual abstract base class_ that provides the necessary method overrides of
-`KubernetesProvisioner` to manage the lifecycle of CRDs.  If you are going to extend `CustomResourceProvisioner`,
+`KubernetesProvisioner` to manage the lifecycle of CRDs. If you are going to extend `CustomResourceProvisioner`,
 all that should be necessary is to override these custom resource related attributes (i.e. `group`, `version`, `plural` and
-`object_kind`) that define the CRD attributes and its implementation should cover the rest.  Note that `object_kind` is
+`object_kind`) that define the CRD attributes and its implementation should cover the rest. Note that `object_kind` is
 an internal attribute that Gateway Provisioners uses, while the other attributes are associated with the Kubernetes CRD
 object definition.
 
@@ -218,7 +218,7 @@ to function.  In addition, the class itself doesn't define any abstract methods 
 
 #### `SparkOperatorProvisioner`
 
-A great example of a `CustomResourceProvisioner` is `SparkOperatorProvisioner`.  As described in the previous section,
+A great example of a `CustomResourceProvisioner` is `SparkOperatorProvisioner`. As described in the previous section,
 it's implementation consists of overrides of attributes `group` (e.g, `"sparkoperator.k8s.io"`), `version`
 (i.e., `"v1beta2"`), `plural` (i.e., `"sparkapplications"`) and `object_kind` (i.e., `"SparkApplication"`).
 
@@ -231,7 +231,7 @@ Operators Guide for details.
 
 Gateway Provisioners provides an implementation of a kernel provisioner that communicates with the Docker Swarm resource
 manager via the Docker API. When used, the kernels are launched as swarm services and can reside anywhere in the
-managed cluster.  The core of a Docker Swarm service is a container, so `DockerSwarmProvisioner` derives from
+managed cluster. The core of a Docker Swarm service is a container, so `DockerSwarmProvisioner` derives from
 `ContainerProvisionerBase`. To leverage kernels configured in this manner, the host application can be deployed either
 as a Docker Swarm _service_ or a traditional Docker container.
 

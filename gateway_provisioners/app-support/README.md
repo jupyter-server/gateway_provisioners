@@ -1,6 +1,6 @@
 # Application Support
 
-Welcome to Gateway Provisioner's application support page.  Here, we document helpful
+Welcome to Gateway Provisioner's application support page. Here, we document helpful
 approaches for how to deploy _applications_ that utilize Gateway Provisioners.
 
 This information is primarily suited to container-based environments (e.g., Docker &
@@ -26,7 +26,7 @@ The Dockerfile located in docker/Dockerfile contains a multi-stage build that:
 
 ### Building Application Images
 
-Support for building application images is built into the `Makefile`.  The following targets
+Support for building application images is built into the `Makefile`. The following targets
 apply to application builds:
 
 #### `app-images`
@@ -44,12 +44,12 @@ Use `make gp-lab` to build only `elyra/gp-lab:dev` containing Jupyter Lab.
 
 #### `clean-app-images`
 
-Use `make clean-app-images` to remove BOTH `elyra/gp-jkg:dev` and `elyra/gp-lab:dev`.  Individual
+Use `make clean-app-images` to remove BOTH `elyra/gp-jkg:dev` and `elyra/gp-lab:dev`. Individual
 images can be cleaned using either `make clean-gp-jkg` or `make clean-gp-lab`.
 
 #### `push-app-images`
 
-Use `make push-app-images` to push BOTH `elyra/gp-jkg:dev` and `elyra/gp-lab:dev` to dockerhub.  Individual
+Use `make push-app-images` to push BOTH `elyra/gp-jkg:dev` and `elyra/gp-lab:dev` to dockerhub. Individual
 images can be pushed using either `make push-gp-jkg` or `make push-gp-lab`.
 
 #### Available Adjustments
@@ -59,29 +59,29 @@ there are build arguments that can be specified in the `make` command that influ
 
 ##### `BASE_CONTAINER`
 
-`BASE_CONTAINER` can be specified to override the base container upon which the application is built.  By
+`BASE_CONTAINER` can be specified to override the base container upon which the application is built. By
 default, the application images are built upon `elyra/gp-spark-base` since they will require Spark.
 
 ##### `PACKAGE_SOURCE`
 
-`PACKAGE_SOURCE` supports two values `release` and `local`.  A value of `release` indicates that
+`PACKAGE_SOURCE` supports two values `release` and `local`. A value of `release` indicates that
 the gateway_provisioners package be installed from PyPi.org using `pip` - thereby installing the
-latest release.  While a value of `local` indicates that the local wheel distribution be installed.
+latest release. While a value of `local` indicates that the local wheel distribution be installed.
 
 ##### `SERVER_APP`
 
 `SERVER_APP` can take one of two values (`jkg` or `lab`) to identify which application should be installed
-and invoked.  A value of `jkg` indicates that `jupyter-kernel-gateway` be installed and `jupyter-kernelgateway`
-be invoked with a display name of `Jupyter Kernel Gateway`.  While a value of `lab` indicates that `jupyterlab`
+and invoked. A value of `jkg` indicates that `jupyter-kernel-gateway` be installed and `jupyter-kernelgateway`
+be invoked with a display name of `Jupyter Kernel Gateway`. While a value of `lab` indicates that `jupyterlab`
 be installed and `jupyter-lab` be invoked with a display name of `Jupyter Lab`.
 
 ##### `DOCKER_ORG`
 
-`DOCKER_ORG` can be specified to determine the docker organization.  The default value is `elyra`.
+`DOCKER_ORG` can be specified to determine the docker organization. The default value is `elyra`.
 
 ##### `TAG`
 
-`TAG` can be specified to determine the tag to apply to the image.  The default is `dev` when the
+`TAG` can be specified to determine the tag to apply to the image. The default is `dev` when the
 Gateway Provisioners version indicates a development version cycle (e.g., `0.2.0.dev0`) or the
 actual version value if the there is no `devN` suffix.
 
@@ -91,18 +91,18 @@ Deployment into Kubernetes environments first requires the application reside wi
 Once an image exists, deployment consists of updating the `values.yaml` file and deploying the helm chart.
 
 Much of the information (like environment variables) in the docker image can be overridden
-in the helm chart.  For example, the list of allowed kernelspecs is specified in the `Dockerfile`
+in the helm chart. For example, the list of allowed kernelspecs is specified in the `Dockerfile`
 via the `APP_ALLOWED_KERNELS` environment variable and reflects the _docker-based_ kernel specifications.
 However, the `APP_ALLOWED_KERNELS` in the helm charts will be overridden to reflect the _kubernetes-based_
 kernel specifications.
 
 The primary portion of [`values.yaml`](https://github.com/jupyter-server/gateway_provisioners/tree/main/gateway_provisioners/app-support/kubernetes/helm/gateway-provisioners/values.yaml)
-that applies to application-specific information is in the `application` stanza.  Here, things
+that applies to application-specific information is in the `application` stanza. Here, things
 like the application name, command, and image can be specified, in addition to the allowed
 kernels and culling intervals, etc.
 
 Other values that are more applicable to the _application_ rather than the _kernel_ are located
-in the `provisioner` stanza.  These are values that are used by Gateway Provisioners _within_
+in the `provisioner` stanza. These are values that are used by Gateway Provisioners _within_
 the application.
 
 ### Deploying Kubernetes Applications
@@ -117,7 +117,7 @@ that value is up to you:
 kubectl create namespace gateway-provisioners
 ```
 
-Next, you are ready to deploy the application.  From the repo's root, issue the following (note:
+Next, you are ready to deploy the application. From the repo's root, issue the following (note:
 we're using a deployment name of `gateway-provisioners`:
 
 ```bash

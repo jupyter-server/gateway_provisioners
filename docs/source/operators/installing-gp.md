@@ -1,6 +1,6 @@
 # Installing Gateway Provisioners (Servers)
 
-These instructions are relative to the host application _server_.  For _container-based_ installations, see
+These instructions are relative to the host application _server_. For _container-based_ installations, see
 [Installing Gateway Provisioners (Containers)](installing-gp-container.md).
 
 ```{attention}

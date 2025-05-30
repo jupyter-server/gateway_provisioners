@@ -23,7 +23,7 @@ will not occur!  Always use `make dist` to build the distribution.
 ### `sbt`
 
 Our Scala launcher is built using `sbt`
-([Scala Build Tool](https://www.scala-sbt.org/index.html)).  Please check
+([Scala Build Tool](https://www.scala-sbt.org/index.html)). Please check
 [here](https://www.scala-sbt.org/1.x/docs/Setup.html) for installation instructions for your platform.
 
 ## Clone the repo

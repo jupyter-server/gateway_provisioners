@@ -1,7 +1,7 @@
 # Hadoop YARN deployments
 
 Hadoop YARN deployments will utilize the `YarnProvisioner` to launch kernels across the cluster via
-the YARN resource manager.  The following assumes a Hadoop Yarn cluster has already been provisioned.
+the YARN resource manager. The following assumes a Hadoop Yarn cluster has already been provisioned.
 
 ```{note}
 In some cases, where a Spark "client mode" is desired, use of the `DistributedProvisioner`
@@ -92,12 +92,12 @@ where each provides the following function:
   its display name (`display_name`) and language (`language`), as
   well as its kernel provisioner's configuration (`metadata.kernel_provisioner`) - which, in this case, will reflect the
   `YarnProvisioner`.
-- `logo-64x64.png` - the icon resource corresponding to this kernel specification.  Icon resource files must be start
+- `logo-64x64.png` - the icon resource corresponding to this kernel specification. Icon resource files must be start
   with the `logo-` prefix to be included in the kernel specification.
 - `bin/run.sh` - the first entry in the `kernel.json`'s `argv` stanza, this script sets up and invokes the `spark-submit`
-  command that is responsible for interacting with the Hadoop Yarn Resource Manager.  The `YarnProvisioner` then
+  command that is responsible for interacting with the Hadoop Yarn Resource Manager. The `YarnProvisioner` then
   _discovers_ the location of where the kernel (Spark driver) was scheduled to run to complete the kernel's startup.
-- `scripts/launch_ipykernel.py` - the "launcher" for the IPyKernel kernel (or subclasses thereof).  This file is typically
+- `scripts/launch_ipykernel.py` - the "launcher" for the IPyKernel kernel (or subclasses thereof). This file is typically
   implemented in the language of the kernel and is responsible for creating the local connection information, asynchronously
   starting a SparkContext (if asked), spawning a listener process to receive interrupts and shutdown requests, and starting
   the IPyKernel itself.

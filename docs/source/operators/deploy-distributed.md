@@ -18,7 +18,7 @@ Steps required to complete deployment on a distributed cluster are:
 
 ## Prerequisites
 
-The distributed capabilities of the `DistributedProvisioner` utilize SSH.  As a result, you must ensure appropriate
+The distributed capabilities of the `DistributedProvisioner` utilize SSH. As a result, you must ensure appropriate
 password-less functionality is in place.
 
 If you want to use Spark in "client mode", you'll want to ensure the `SPARK_HOME` environment variable is properly
@@ -92,9 +92,9 @@ where each provides the following function:
   its display name (`display_name`) and language (`language`), as
   well as its kernel provisioner's configuration (`metadata.kernel_provisioner`) - which, in this case, will reflect the
   `DistributedProvisioner`.
-- `logo-64x64.png` - the icon resource corresponding to this kernel specification.  Icon resource files must be start
+- `logo-64x64.png` - the icon resource corresponding to this kernel specification. Icon resource files must be start
   with the `logo-` prefix to be included in the kernel specification.
-- `scripts/launch_ipykernel.py` - the "launcher" for the IPyKernel kernel (or subclasses thereof).  This file is typically
+- `scripts/launch_ipykernel.py` - the "launcher" for the IPyKernel kernel (or subclasses thereof). This file is typically
   implemented in the language of the kernel and is responsible for creating the local connection information, asynchronously
   starting a SparkContext (if asked), spawning a listener process to receive interrupts and shutdown requests, and starting
   the IPyKernel itself.
@@ -300,7 +300,7 @@ To see all available configurables, use `--help-all`.
 ## Specifying a load-balancing algorithm
 
 The `DistributedProvisioner` provides two ways to configure how kernels are distributed across
-the configured set of hosts: round-robin or least-connection.  This configurable option is a _host application_
+the configured set of hosts: round-robin or least-connection. This configurable option is a _host application_
 setting and is not available to be overridden on a per-kernel basis.
 
 ### Round-robin
@@ -362,7 +362,7 @@ YARN client mode kernel specifications can be considered _distributed mode kerne
 happen to use `spark-submit` from different nodes in the cluster but use the
 `DistributedProvisioner` to manage their lifecycle.
 
-These kernel specifications are generated using the `'--spark'` command line option as noted above.  When provided,
+These kernel specifications are generated using the `'--spark'` command line option as noted above. When provided,
 a kernel specification similar to the following is produced:
 
 ```json

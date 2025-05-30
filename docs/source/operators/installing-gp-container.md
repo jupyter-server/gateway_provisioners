@@ -1,7 +1,7 @@
 # Installing Gateway Provisioners (Containers)
 
-These instructions are relative to the host application _image_.  For configuring kernel images for use with Gateway
-Provisioners see [Installing Supported Kernels (Containers)](installing-kernels-container.md).  For instructions on installing
+These instructions are relative to the host application _image_. For configuring kernel images for use with Gateway
+Provisioners see [Installing Supported Kernels (Containers)](installing-kernels-container.md). For instructions on installing
 Gateway Provisioners on host application _servers_, please see [Installing Gateway Provisioners (Servers)](installing-gp.md).
 
 ```{attention}
@@ -53,7 +53,7 @@ RUN mamba install -c conda-forge gateway_provisioners[docker]
 ## Mixed Environments
 
 If you are unsure in which environment this image will be used, you can install both Kubernetes and Docker client
-libraries.  In addition, in some cases, you may wish to support Yarn from within a Kubernetes or Docker cluster, in
+libraries. In addition, in some cases, you may wish to support Yarn from within a Kubernetes or Docker cluster, in
 which case, you may even wish to add its client libraries as well:
 
 ```dockerfile

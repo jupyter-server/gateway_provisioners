@@ -141,7 +141,7 @@ class ServerListener:
     def prepare_comm_socket(self, comm_port) -> None:
         """Prepares the socket to which the server will send signal and shutdown requests."""
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.bind(("0.0.0.0", comm_port))
+        sock.bind(("0.0.0.0", comm_port))  # noqa: S104
         self.comm_socket = sock
         logger.info(
             f"Signal socket bound to host: "
