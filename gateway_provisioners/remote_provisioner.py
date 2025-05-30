@@ -15,7 +15,7 @@ from enum import Enum
 from socket import AF_INET, SHUT_WR, SOCK_STREAM, socket, timeout
 from typing import Any, Dict, List, Optional, Tuple
 
-import pexpect  # type:ignore[import-untyped]
+import pexpect
 from jupyter_client import (
     KernelConnectionInfo,
     KernelProvisionerBase,
