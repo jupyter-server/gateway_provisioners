@@ -13,7 +13,7 @@ import time
 from abc import abstractmethod
 from enum import Enum
 from socket import AF_INET, SHUT_WR, SOCK_STREAM, socket, timeout
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import pexpect
 from jupyter_client import (
@@ -854,7 +854,9 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 remote_port,
                 server,
             )
-            return pexpect.spawn(cmd, env=os.environ.copy().pop("SSH_ASKPASS", None))
+            env = os.environ.copy()
+            env.pop("SSH_ASKPASS", None)
+            return pexpect.spawn(cmd, env=cast(os._Environ, env))
 
     def _select_ports(self, count: int) -> List[int]:
         """
