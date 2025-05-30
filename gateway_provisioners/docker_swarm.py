@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, cast
 
 from overrides import overrides
 
@@ -94,7 +94,7 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
 
         result = True  # We'll be optimistic
         service = self._get_service()
-        if service:
+        if service is not None:
             try:
                 service.remove()  # Service still exists, attempt removal
             except Exception as err:
@@ -138,7 +138,7 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         else:
             service = services[0]
             self.container_name = service.name
-        return service
+        return cast(Service, service)
 
     def _get_task(self) -> dict | None:
         """
@@ -147,7 +147,7 @@ class DockerSwarmProvisioner(ContainerProvisionerBase):
         """
         task = None
         service = self._get_service()
-        if service:
+        if service is not None:
             tasks = service.tasks(filters={"desired-state": "running"})
             num_tasks = len(tasks)
             if num_tasks != 1:
@@ -193,7 +193,7 @@ class DockerProvisioner(ContainerProvisionerBase):
         container_status = ""
 
         container = self._get_container()
-        if container:
+        if container is not None:
             self.container_name = container.name
             if container.status:
                 container_status = container.status.lower()
@@ -201,8 +201,8 @@ class DockerProvisioner(ContainerProvisionerBase):
                     # Container is running, capture IP
 
                     # we'll use this as a fallback in case we don't find our network
-                    self.assigned_ip = container.attrs.get("NetworkSettings").get("IPAddress")
-                    networks = container.attrs.get("NetworkSettings").get("Networks")
+                    self.assigned_ip = container.attrs.get("NetworkSettings", {}).get("IPAddress")
+                    networks = container.attrs.get("NetworkSettings", {}).get("Networks")
                     if len(networks) > 0:
                         self.assigned_ip = networks.get(docker_network).get("IPAddress")
                         self.log.debug(
@@ -231,7 +231,7 @@ class DockerProvisioner(ContainerProvisionerBase):
 
         result = True  # Since we run containers with remove=True, we'll be optimistic
         container = self._get_container()
-        if container:
+        if container is not None:
             try:
                 container.remove(force=True)  # Container still exists, attempt forced removal
             except Exception as err:
@@ -276,4 +276,4 @@ class DockerProvisioner(ContainerProvisionerBase):
                 raise RuntimeError(err_msg)
         else:
             container = containers[0]
-        return container
+        return cast(Container, container)
