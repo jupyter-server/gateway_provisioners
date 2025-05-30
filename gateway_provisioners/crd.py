@@ -38,7 +38,7 @@ class CustomResourceProvisioner(KubernetesProvisioner):
         self.kernel_resource_name = None
 
     @overrides
-    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
         """Launch the process for a kernel."""
         kwargs = await super().pre_launch(**kwargs)
         self.kernel_resource_name = self._determine_kernel_pod_name(**kwargs)
@@ -105,7 +105,7 @@ class CustomResourceProvisioner(KubernetesProvisioner):
         return application_state
 
     @overrides
-    def delete_managed_object(self, termination_stati: List[str]) -> bool:
+    def delete_managed_object(self, termination_stati: list[str]) -> bool:
         """Deletes the object managed by this provisioner
 
         A return value of True indicates the object is considered deleted,
@@ -128,7 +128,7 @@ class CustomResourceProvisioner(KubernetesProvisioner):
         return result
 
     @overrides
-    def get_initial_states(self) -> Set[str]:
+    def get_initial_states(self) -> set[str]:
         """Return list of states in lowercase indicating container is starting (includes running)."""
         return {"submitted", "pending", "running"}
 

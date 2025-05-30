@@ -74,7 +74,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         self.restarting = False
 
     @overrides
-    async def pre_launch(self, **kwargs: Any) -> Dict[str, Any]:
+    async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
         kwargs = await super().pre_launch(**kwargs)
 
         # Kubernetes relies on internal env variables to determine its configuration.  When
@@ -89,7 +89,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         return kwargs
 
     @overrides
-    async def get_provisioner_info(self) -> Dict[str, Any]:
+    async def get_provisioner_info(self) -> dict[str, Any]:
         provisioner_info = await super().get_provisioner_info()
         provisioner_info.update(
             {
@@ -106,11 +106,11 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         self.delete_kernel_namespace = provisioner_info["delete_ns"]
 
     @overrides
-    def get_initial_states(self) -> Set[str]:
+    def get_initial_states(self) -> set[str]:
         return {"pending", "running"}
 
     @overrides
-    def get_error_states(self) -> Set[str]:
+    def get_error_states(self) -> set[str]:
         return {"failed"}
 
     @overrides
@@ -144,7 +144,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
 
         return pod_status
 
-    def delete_managed_object(self, termination_stati: List[str]) -> bool:
+    def delete_managed_object(self, termination_stati: list[str]) -> bool:
         """Deletes the object managed by this provisioner
 
         A return value of True indicates the object is considered deleted,

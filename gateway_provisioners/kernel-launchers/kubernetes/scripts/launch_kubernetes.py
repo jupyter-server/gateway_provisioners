@@ -52,7 +52,7 @@ def extend_pod_env(pod_def: dict) -> dict:
     # Walk current set of template env entries and replace those found in the current
     # env with their values (and record those items).   Then add all others from the env
     # that were not already.
-    processed_entries: List[str] = []
+    processed_entries: list[str] = []
     for item in env_stanza:
         item_name = item.get("name")
         if item_name in os.environ:
