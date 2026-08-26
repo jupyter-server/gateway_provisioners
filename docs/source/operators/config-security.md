@@ -150,6 +150,12 @@ Gateway Provisioners has support for SSH connections using GSS (for example Kerb
 enables its deployment without the use of an ssh key. The `GP_REMOTE_GSS_SSH` environment
 variable can be used to control this behavior.
 
+```{attention}
+  GSS-API authentication was removed from `paramiko` in version 5.0. Install `paramiko<5` to use
+  `GP_REMOTE_GSS_SSH`. On a newer `paramiko`, `DistributedProvisioner` raises a `RuntimeError` when
+  the variable is set, instead of failing later during the connection attempt.
+```
+
 ```{seealso}
 The list of [additional supported environment variables](config-add-env.md#additional-environment-variables).
 ```

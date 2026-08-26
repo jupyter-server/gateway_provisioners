@@ -9,41 +9,38 @@ This diagram depicts the interactions between components when a kernel start req
 is submitted from a Web application running against a host application in which Gateway
 Provisioners has been configured.
 
-```{seqdiag}
-   :align: "center"
-   :caption: "Kernel Launch: Web Application to Kernel"
+```{mermaid}
+:align: center
+:caption: Kernel Launch: Web Application to Kernel
 
-seqdiag {
-   edge_length = 180;
-   span_height = 15;
-   WebApplication  [label = "Web Application"];
-   HostApplication  [label = "Host Application"];
-   KernelManager  [label = "Kernel Manager"];
-   Provisioner;
-   Kernel;
-   ResourceManager  [label = "Resource Manager"];
+sequenceDiagram
+  participant WebApplication as Web Application
+  participant HostApplication as Host Application
+  participant KernelManager as Kernel Manager
+  participant Provisioner
+  participant Kernel
+  participant ResourceManager as Resource Manager
 
-  === Kernel Launch ===
+  Note over WebApplication,ResourceManager: Kernel Launch
 
-  WebApplication -> HostApplication [label = "https POST api/kernels "];
-  HostApplication -> KernelManager [label = "start_kernel() "];
-  KernelManager -> Provisioner [label = "launch_process() "];
+  WebApplication ->> HostApplication: https POST api/kernels
+  HostApplication ->> KernelManager: start_kernel()
+  KernelManager ->> Provisioner: launch_process()
 
-  Provisioner -> Kernel [label = "launch kernel"];
-  Provisioner -> ResourceManager [label = "confirm startup"];
-  Kernel --> Provisioner [label = "connection info"];
-  ResourceManager --> Provisioner [label = "state & host info"];
-  Provisioner --> KernelManager [label = "complete connection info"];
-  KernelManager -> Kernel [label = "TCP socket requests"];
-  Kernel --> KernelManager [label = "TCP socket handshakes"];
-  KernelManager --> HostApplication [label = "kernel-id"];
-  HostApplication --> WebApplication [label = "api/kernels response"];
+  Provisioner ->> Kernel: launch kernel
+  Provisioner ->> ResourceManager: confirm startup
+  Kernel -->> Provisioner: connection info
+  ResourceManager -->> Provisioner: state and host info
+  Provisioner -->> KernelManager: complete connection info
+  KernelManager ->> Kernel: TCP socket requests
+  Kernel -->> KernelManager: TCP socket handshakes
+  KernelManager -->> HostApplication: kernel-id
+  HostApplication -->> WebApplication: api/kernels response
 
-  === Websocket Negotiation ===
+  Note over WebApplication,ResourceManager: Websocket Negotiation
 
-  WebApplication -> HostApplication [label = "ws GET api/kernels"];
-  HostApplication -> Kernel [label = "kernel_info_request message"];
-  Kernel --> HostApplication [label = "kernel_info_reply message"];
-  HostApplication --> WebApplication [label = "websocket upgrade response"];
-}
+  WebApplication ->> HostApplication: ws GET api/kernels
+  HostApplication ->> Kernel: kernel_info_request message
+  Kernel -->> HostApplication: kernel_info_reply message
+  HostApplication -->> WebApplication: websocket upgrade response
 ```

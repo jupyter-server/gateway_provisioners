@@ -51,30 +51,40 @@ step from its implementation.
 
 ### Gateway Provisioner Class Hierarchy
 
-The following block diagram depicts the current class hierarchy for the Gateway Provisioners. The blocks with an
-`ABC` badge and dashed border indicate abstract base classes. Those light blue blocks come from `jupyter_client`,
-while the others reside in Gateway Provisioners.
+The following class diagram depicts the current class hierarchy for the Gateway Provisioners. The classes
+carrying an `«abstract»` annotation are abstract base classes. The light blue classes come from
+`jupyter_client`, while the others reside in Gateway Provisioners.
 
-```{blockdiag}
-blockdiag {
-  node_width = 200;
-  node_height = 50;
-  orientation = portrait;
-  edge_layout = normal;
-  default_node_color = pink;
+```{mermaid}
+classDiagram
+  direction TB
 
-  KernelProvisionerBase <- RemoteProvisionerBase <- ContainerProvisionerBase <- KubernetesProvisioner
-  KernelProvisionerBase <- RemoteProvisionerBase <- ContainerProvisionerBase <- KubernetesProvisioner <- CustomResourceProvisioner <- SparkOperatorProvisioner
-  KernelProvisionerBase <- RemoteProvisionerBase <- ContainerProvisionerBase <- DockerSwarmProvisioner
-  KernelProvisionerBase <- RemoteProvisionerBase <- ContainerProvisionerBase <- DockerProvisioner
-  KernelProvisionerBase <- RemoteProvisionerBase <- DistributedProvisioner
-  KernelProvisionerBase <- RemoteProvisionerBase <- YarnProvisioner
-  KernelProvisionerBase <- LocalProvisioner
+  class KernelProvisionerBase {
+    <<abstract>>
+  }
+  class RemoteProvisionerBase {
+    <<abstract>>
+  }
+  class ContainerProvisionerBase {
+    <<abstract>>
+  }
+  class CustomResourceProvisioner {
+    <<abstract>>
+  }
 
-  KernelProvisionerBase, LocalProvisioner [color = lightblue];
-  RemoteProvisionerBase, ContainerProvisionerBase, DistributedProvisioner, YarnProvisioner, KubernetesProvisioner, CustomResourceProvisioner, SparkOperatorProvisioner, DockerSwarmProvisioner, DockerProvisioner  [color = lightyellow];
-  KernelProvisionerBase, RemoteProvisionerBase, ContainerProvisionerBase, CustomResourceProvisioner [style = dashed, numbered = ABC];
-}
+  KernelProvisionerBase <|-- LocalProvisioner
+  KernelProvisionerBase <|-- RemoteProvisionerBase
+  RemoteProvisionerBase <|-- DistributedProvisioner
+  RemoteProvisionerBase <|-- YarnProvisioner
+  RemoteProvisionerBase <|-- ContainerProvisionerBase
+  ContainerProvisionerBase <|-- KubernetesProvisioner
+  ContainerProvisionerBase <|-- DockerSwarmProvisioner
+  ContainerProvisionerBase <|-- DockerProvisioner
+  KubernetesProvisioner <|-- CustomResourceProvisioner
+  CustomResourceProvisioner <|-- SparkOperatorProvisioner
+
+  style KernelProvisionerBase fill:#add8e6
+  style LocalProvisioner fill:#add8e6
 ```
 
 ### `RemoteProvisionerBase`
