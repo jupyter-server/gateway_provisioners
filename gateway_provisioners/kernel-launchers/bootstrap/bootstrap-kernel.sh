@@ -6,6 +6,7 @@ PUBLIC_KEY=${PUBLIC_KEY:-${EG_PUBLIC_KEY}}
 KERNEL_LAUNCHERS_DIR=${KERNEL_LAUNCHERS_DIR:-${install_dir}/kernel-launchers}
 KERNEL_SPARK_CONTEXT_INIT_MODE=${KERNEL_SPARK_CONTEXT_INIT_MODE:-none}
 KERNEL_CLASS_NAME=${KERNEL_CLASS_NAME}
+TRANSPORT_ENCRYPTION=${TRANSPORT_ENCRYPTION:-}
 
 echo $0 env: `env`
 
@@ -22,10 +23,17 @@ launch_python_kernel() {
     kernel_class_option="--kernel-class-name ${KERNEL_CLASS_NAME}"
   fi
 
+  if [ -z "${TRANSPORT_ENCRYPTION}" ]
+  then
+    transport_encryption_option=""
+  else
+    transport_encryption_option="--transport-encryption ${TRANSPORT_ENCRYPTION}"
+  fi
+
 	set -x
 	python ${KERNEL_LAUNCHERS_DIR}/python/scripts/launch_ipykernel.py --kernel-id ${KERNEL_ID} \
 	      --port-range ${PORT_RANGE} --response-address ${RESPONSE_ADDRESS} --public-key ${PUBLIC_KEY} \
-	      --spark-context-initialization-mode ${KERNEL_SPARK_CONTEXT_INIT_MODE}  ${kernel_class_option}
+	      --spark-context-initialization-mode ${KERNEL_SPARK_CONTEXT_INIT_MODE}  ${kernel_class_option} ${transport_encryption_option}
 	{ set +x; } 2>/dev/null
 }
 

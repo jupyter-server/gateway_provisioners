@@ -45,6 +45,7 @@ class ServerListener:
         kernel_id: str,
         public_key: str,
         cluster_type: Optional[str] = None,
+        transport_encryption: Optional[str] = None,
     ):
         # Note, in the R integration, parameters come into Python as strings, so
         # we need to explicitly cast non-strings.
@@ -56,12 +57,20 @@ class ServerListener:
         self.kernel_id: str = kernel_id
         self.public_key: bytes = public_key.encode("utf-8")
         self.cluster_type: str = cluster_type
+        self.transport_encryption: Optional[str] = transport_encryption
 
         # Initialized later...
         self.comm_socket: socket | None = None
 
     def build_connection_file(self) -> int:
         ports: list = self._select_ports(6)
+        # The bytes are consumed by the typed curve parameters of write_connection_file, present
+        # since jupyter_client 8.9 - guaranteed here because key generation requires ipykernel
+        # >= 7.3 (enforced by the launcher), whose floor is jupyter_client >= 8.9.
+        curve_kwargs: dict = {}
+        curve_keypair = self._generate_curve_keypair()
+        if curve_keypair:
+            curve_kwargs["curve_publickey"], curve_kwargs["curve_secretkey"] = curve_keypair
         write_connection_file(
             fname=self.conn_filename,
             ip="0.0.0.0",  # noqa: S104
@@ -71,8 +80,38 @@ class ServerListener:
             stdin_port=ports[2],
             hb_port=ports[3],
             control_port=ports[4],
+            **curve_kwargs,
         )
         return ports[5]
+
+    def _generate_curve_keypair(self) -> Optional[tuple]:
+        """Generates a CurveZMQ keypair when transport encryption was requested by the server.
+
+        Returns a (public, secret) tuple of Z85-encoded bytes, or None when encryption is
+        not in play.  A generation failure is fatal when the policy is 'required' and downgrades
+        to an unencrypted connection when the policy is 'auto'.
+        """
+        if self.transport_encryption not in ("auto", "required"):
+            return None
+        try:
+            import zmq
+
+            if not zmq.has("curve"):
+                err_msg = "libzmq was built without CurveZMQ support"
+                raise RuntimeError(err_msg)
+            return zmq.curve_keypair()
+        except Exception as ex:
+            if self.transport_encryption == "required":
+                err_msg = (
+                    f"Transport encryption is 'required' but CurveZMQ keys could not be "
+                    f"generated: {ex}"
+                )
+                raise RuntimeError(err_msg) from ex
+            logger.warning(
+                f"CurveZMQ keys could not be generated ({ex}) - continuing without transport "
+                "encryption since the policy is 'auto'."
+            )
+            return None
 
     def _encrypt(self, connection_info_bytes: bytes) -> bytes:
         """Encrypt the connection information using a generated AES key that is then encrypted using
@@ -133,7 +172,13 @@ class ServerListener:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.connect((response_ip, response_port))
             json_content = json.dumps(cf_json).encode(encoding="utf-8")
-            logger.debug(f"JSON Payload '{json_content}")
+            # Redact secrets from the logged copy - the launcher logs at DEBUG by default and
+            # kernel logs are far more accessible than the 0600 connection file.
+            redacted = {
+                key: ("***" if key in ("key", "curve_secretkey") else value)
+                for key, value in cf_json.items()
+            }
+            logger.debug(f"JSON Payload '{json.dumps(redacted)}")
             payload = self._encrypt(json_content)
             logger.debug(f"Encrypted Payload '{payload}")
             s.send(payload)
@@ -264,6 +309,7 @@ def setup_server_listener(
     kernel_id: str,
     public_key: str,
     cluster_type: Optional[str] = None,
+    transport_encryption: Optional[str] = None,
 ) -> None:
     """Initializes the server listener sub-process to handle requests from the server."""
 
@@ -279,6 +325,7 @@ def setup_server_listener(
         kernel_id,
         public_key,
         cluster_type,
+        transport_encryption,
     )
     comm_port = sl.build_connection_file()
 

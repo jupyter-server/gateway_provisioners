@@ -52,6 +52,22 @@ from the [Python (and R) kernel launchers](https://github.com/jupyter-server/gat
 The payload is then [sent back on a socket](https://github.com/jupyter-server/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L102-L139)
 identified by the `--response-address` option.
 
+## Transport Encryption of Kernel Channels
+
+When the launcher receives `--transport-encryption` with a value of `auto` or `required`,
+it should generate a CurveZMQ keypair and write it into the connection file as the
+[`curve_publickey` and `curve_secretkey` fields](https://jupyter-client.readthedocs.io/en/stable/kernels.html#connection-files),
+so that the kernel binds its sockets as a CurveZMQ server.
+When encryption cannot be applied (for example, `libzmq` lacks CurveZMQ support):
+
+- `required` must fail the launch, and
+- `auto` should fall back to an unencrypted connection with a warning.
+
+An empty value and an unresolved `{transport_encryption}` placeholder (produced by older servers)
+must be treated as disabled.
+A kernelspec should advertise `"curve"` in `metadata.supported_encryption`
+only when its launcher and target kernel implement this behavior.
+
 ## Invoking the Target Kernel
 
 For the R kernel launcher, the kernel is started using [`IRKernel::main()`](https://github.com/jupyter-server/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/kernel-launchers/R/scripts/launch_IRkernel.R#L232)

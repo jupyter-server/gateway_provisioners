@@ -22,6 +22,7 @@ def launch_docker_kernel(
     public_key,
     spark_context_init_mode,
     kernel_class_name,
+    transport_encryption,
 ):
     # Launches a containerized kernel.
 
@@ -50,6 +51,8 @@ def launch_docker_kernel(
     param_env["KERNEL_SPARK_CONTEXT_INIT_MODE"] = spark_context_init_mode
     if kernel_class_name:
         param_env["KERNEL_CLASS_NAME"] = kernel_class_name
+    if transport_encryption:
+        param_env["TRANSPORT_ENCRYPTION"] = transport_encryption
 
     # Since the environment is specific to the kernel (per env stanza of kernelspec, KERNEL_ and EG_CLIENT_ENVS)
     # just add the env here.
@@ -151,6 +154,13 @@ if __name__ == "__main__":
         nargs="?",
         help="Indicates the name of the kernel class to use.  Must be a subclass of 'ipykernel.kernelbase.Kernel'.",
     )
+    parser.add_argument(
+        "--transport-encryption",
+        dest="transport_encryption",
+        nargs="?",
+        help="Transport encryption policy ('auto' or 'required') requesting that CurveZMQ "
+        "keys be provisioned in the kernel's connection file",
+    )
     arguments = vars(parser.parse_args())
     kernel_id = arguments["kernel_id"]
     port_range = arguments["port_range"]
@@ -158,6 +168,7 @@ if __name__ == "__main__":
     public_key = arguments["public_key"]
     spark_context_init_mode = arguments["spark_context_init_mode"]
     kernel_class_name = arguments["kernel_class_name"]
+    transport_encryption = arguments["transport_encryption"]
 
     launch_docker_kernel(
         kernel_id,
@@ -166,4 +177,5 @@ if __name__ == "__main__":
         public_key,
         spark_context_init_mode,
         kernel_class_name,
+        transport_encryption,
     )

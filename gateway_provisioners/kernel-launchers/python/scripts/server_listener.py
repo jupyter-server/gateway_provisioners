@@ -18,6 +18,7 @@ def setup_server_listener(
     kernel_id: str,
     public_key: str,
     cluster_type: Optional[str] = None,
+    transport_encryption: Optional[str] = None,
     as_thread: Optional[bool] = True,
 ):
     err_msg = "kernel-launcher assembly is required!"

@@ -2,6 +2,7 @@
   "language": "${language}",
   "display_name": "${display_name}",
   "metadata": {
+    "supported_encryption": ["curve"],
     "debugger": true,
     "kernel_provisioner": {
       "provisioner_name": "distributed-provisioner",
@@ -20,6 +21,8 @@
     "{response_address}",
     "--public-key",
     "{public_key}",
+    "--transport-encryption",
+    "{transport_encryption}",
     "--kernel-class-name",
     "${ipykernel_subclass_name}"
   ]

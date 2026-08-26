@@ -55,7 +55,13 @@ def extend_operator_env(op_def: dict, sub_spec: str) -> dict:
 
 
 def launch_custom_resource_kernel(
-    kernel_id, port_range, response_addr, public_key, spark_context_init_mode, kernel_class_name
+    kernel_id,
+    port_range,
+    response_addr,
+    public_key,
+    spark_context_init_mode,
+    kernel_class_name,
+    transport_encryption,
 ):
     config.load_incluster_config()
 
@@ -68,6 +74,7 @@ def launch_custom_resource_kernel(
     keywords["kernel_name"] = os.path.basename(os.path.dirname(os.path.dirname(__file__)))
     keywords["spark_context_initialization_mode"] = spark_context_init_mode
     keywords["kernel_class_name"] = kernel_class_name
+    keywords["transport_encryption"] = transport_encryption or ""
 
     for name, value in os.environ.items():
         if name.startswith("KERNEL_"):
@@ -144,6 +151,13 @@ if __name__ == "__main__":
         nargs="?",
         help="Indicates the name of the kernel class to use.  Must be a subclass of 'ipykernel.kernelbase.Kernel'.",
     )
+    parser.add_argument(
+        "--transport-encryption",
+        dest="transport_encryption",
+        nargs="?",
+        help="Transport encryption policy ('auto' or 'required') requesting that CurveZMQ "
+        "keys be provisioned in the kernel's connection file",
+    )
     arguments = vars(parser.parse_args())
     kernel_id = arguments["kernel_id"]
     port_range = arguments["port_range"]
@@ -151,7 +165,14 @@ if __name__ == "__main__":
     public_key = arguments["public_key"]
     spark_context_init_mode = arguments["spark_context_init_mode"]
     kernel_class_name = arguments["kernel_class_name"]
+    transport_encryption = arguments["transport_encryption"]
 
     launch_custom_resource_kernel(
-        kernel_id, port_range, response_addr, public_key, spark_context_init_mode, kernel_class_name
+        kernel_id,
+        port_range,
+        response_addr,
+        public_key,
+        spark_context_init_mode,
+        kernel_class_name,
+        transport_encryption,
     )

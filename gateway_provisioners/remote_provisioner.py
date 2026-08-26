@@ -16,12 +16,14 @@ from socket import AF_INET, SHUT_WR, SOCK_STREAM, socket, timeout
 from typing import Any, cast
 
 import pexpect
+import zmq
 from jupyter_client import (
     KernelConnectionInfo,
     KernelProvisionerBase,
     launch_kernel,
     localinterfaces,
 )
+from jupyter_client.connect import ConnectionFileMixin
 from overrides import overrides
 from zmq.ssh import tunnel
 
@@ -32,7 +34,7 @@ from .config_mixin import (
     socket_timeout,
     ssh_port,
 )
-from .response_manager import ResponseManager
+from .response_manager import ResponseManager, redact_secrets
 
 # Pop certain env variables that don't need to be logged, e.g. remote_pwd
 env_pop_list = ["GP_REMOTE_PWD", "LS_COLORS"]
@@ -90,6 +92,13 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
         self.kernel_username = None
         self.tunneled_connect_info = None
         self.tunnel_processes = {}
+        self.transport_encryption = "disabled"
+        self.curve_enabled = False
+
+        # KernelProvisionerBase.connection_info is a mutable class attribute, so it must be
+        # rebound per instance - otherwise entries only present in some responses (e.g., the
+        # curve keys) leak between kernels.
+        self.connection_info = {}
 
         # Represents the local process (from popen) if applicable.  This will likely be non-None
         # for a short while until the script has launched the remote process, then will typically
@@ -116,6 +125,8 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
     async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
         self.response_manager.register_event(self.kernel_id)
 
+        self._resolve_transport_encryption(kwargs.pop("transport_encryption", None))
+
         cmd = self.kernel_spec.argv  # Build launch command, provide substitutions
         if self.response_address or self.port_range or self.kernel_id or self.public_key:
             ns = kwargs.copy()
@@ -127,6 +138,8 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
                 ns["port_range"] = self.port_range
             if self.kernel_id:
                 ns["kernel_id"] = self.kernel_id
+            # Always substituted (even when empty) so the placeholder never reaches the launcher.
+            ns["transport_encryption"] = self.transport_encryption if self.curve_enabled else ""
 
             pat = re.compile(r"{([A-Za-z0-9_]+)}")
 
@@ -553,6 +566,109 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
 
         return lower_port, upper_port
 
+    def _resolve_transport_encryption(self, policy: str | None) -> None:
+        """Resolves the effective transport-encryption behavior for this launch.
+
+        The policy ('disabled', 'auto' or 'required') is taken from the launch kwargs when
+        present, else from the kernel manager's `transport_encryption` trait (jupyter_client
+        >= 8.9).  Sets `self.transport_encryption` to the resolved policy and `self.curve_enabled`
+        to True when the launcher should be asked to provision CurveZMQ keys.
+        """
+        if policy is None:
+            policy = getattr(self.parent, "transport_encryption", "disabled") or "disabled"
+        normalized_policy = str(policy).lower()
+        if normalized_policy not in ("disabled", "auto", "required"):
+            self.log_and_raise(
+                ValueError(
+                    f"Invalid transport_encryption value '{policy}' - "
+                    "must be one of: 'disabled', 'auto', 'required'."
+                )
+            )
+        policy = normalized_policy
+        self.transport_encryption = policy
+        self.curve_enabled = False
+        if policy == "disabled":
+            return
+
+        spec_supported = self._kernel_spec_supports_curve()
+        if not spec_supported:
+            if policy == "required":
+                self.log_and_raise(
+                    RuntimeError(
+                        "transport_encryption='required' but kernelspec does not declare "
+                        "'curve' in metadata.supported_encryption."
+                    )
+                )
+            return  # 'auto' with a non-advertising kernelspec launches unencrypted
+
+        failure_reason = None
+        if not zmq.has("curve"):
+            failure_reason = "libzmq was built without CurveZMQ support"
+        elif not hasattr(ConnectionFileMixin, "curve_publickey"):
+            failure_reason = (
+                "jupyter_client does not support CurveZMQ connections "
+                "(jupyter_client >= 8.9 is required)"
+            )
+        if failure_reason:
+            if policy == "required":
+                self.log_and_raise(
+                    RuntimeError(
+                        f"transport_encryption='required' cannot be applied: {failure_reason}."
+                    )
+                )
+            self.log.warning(
+                f"Transport encryption cannot be applied: {failure_reason}.  "
+                f"Kernel '{self.kernel_id}' will start unencrypted since the policy is 'auto'."
+            )
+            return
+        self.curve_enabled = True
+
+    def _kernel_spec_supports_curve(self) -> bool:
+        """Returns True if the kernelspec advertises 'curve' in metadata.supported_encryption."""
+        metadata = getattr(self.kernel_spec, "metadata", None) or {}
+        supported_encryption = metadata.get("supported_encryption")
+        if isinstance(supported_encryption, str):
+            return supported_encryption.strip().lower() == "curve"
+        if isinstance(supported_encryption, list | tuple | set):
+            return "curve" in {str(entry).strip().lower() for entry in supported_encryption}
+        return False
+
+    def _validate_transport_encryption_response(self, connect_info: dict) -> None:
+        """Verifies the launcher's connection info honors the requested transport encryption.
+
+        Remote launchers and kernel images are updated on a different schedule than the server,
+        so a kernelspec can advertise encryption support while the launcher behind it predates
+        it (and silently ignores the request).  When keys were requested but not returned, fail
+        the launch under 'required' and warn under 'auto'.
+        """
+        has_curve_keys = "curve_publickey" in connect_info and "curve_secretkey" in connect_info
+        if self.curve_enabled and not has_curve_keys:
+            if self.transport_encryption == "required":
+                self.log_and_raise(
+                    RuntimeError(
+                        f"transport_encryption='required' but the launcher for kernel "
+                        f"'{self.kernel_id}' did not return CurveZMQ keys.  The remote "
+                        "launcher or kernel image likely predates transport encryption "
+                        "support - update it or remove 'curve' from the kernelspec's "
+                        "metadata.supported_encryption."
+                    )
+                )
+            self.log.warning(
+                f"Transport encryption was requested but the launcher for kernel "
+                f"'{self.kernel_id}' did not return CurveZMQ keys - the connection will "
+                "not be encrypted.  Update the remote launcher or kernel image."
+            )
+        if not has_curve_keys:
+            # A restart that falls back to plaintext must not leave the previous launch's keys
+            # in play: jupyter_client's load_connection_info() only sets the curve traits, never
+            # clears them, and stale entries in this provisioner's connection_info would re-set
+            # them during reconciliation - leaving the manager configuring curve client sockets
+            # against an unencrypted kernel.
+            for curve_key in ("curve_publickey", "curve_secretkey"):
+                self.connection_info.pop(curve_key, None)
+                if getattr(self.parent, curve_key, None) is not None:
+                    setattr(self.parent, curve_key, None)
+
     def _setup_connection_info(self, connect_info: dict) -> None:
         """
         Take connection info (returned from launcher or loaded from session persistence) and properly
@@ -563,6 +679,8 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
         self.log.debug(
             f"Host assigned to the kernel is: '{self.assigned_host}' '{self.assigned_ip}'"
         )
+
+        self._validate_transport_encryption_response(connect_info)
 
         connect_info[
             "ip"
@@ -638,7 +756,7 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
         self._extract_pid_info(connect_info)
         self.log.debug(
             f"Received connection info for KernelID '{self.kernel_id}' "
-            f"from host '{self.assigned_host}': {connect_info}..."
+            f"from host '{self.assigned_host}': {redact_secrets(connect_info)}..."
         )
 
         self.connection_info.update(cast(KernelConnectionInfo, connect_info))

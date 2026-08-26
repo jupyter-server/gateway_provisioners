@@ -93,6 +93,7 @@ def launch_kubernetes_kernel(
     pod_template_file,
     spark_opts_out,
     kernel_class_name,
+    transport_encryption,
 ):
     # Launches a containerized kernel as a kubernetes pod.
 
@@ -121,6 +122,8 @@ def launch_kubernetes_kernel(
         os.environ["KERNEL_SPARK_CONTEXT_INIT_MODE"] = spark_context_init_mode
     if kernel_class_name:
         os.environ["KERNEL_CLASS_NAME"] = kernel_class_name
+    if transport_encryption:
+        os.environ["TRANSPORT_ENCRYPTION"] = transport_encryption
 
     os.environ["KERNEL_NAME"] = os.path.basename(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -323,6 +326,13 @@ if __name__ == "__main__":
         nargs="?",
         help="Indicates the name of the kernel class to use.  Must be a subclass of 'ipykernel.kernelbase.Kernel'.",
     )
+    parser.add_argument(
+        "--transport-encryption",
+        dest="transport_encryption",
+        nargs="?",
+        help="Transport encryption policy ('auto' or 'required') requesting that CurveZMQ "
+        "keys be provisioned in the kernel's connection file",
+    )
 
     arguments = vars(parser.parse_args())
     kernel_id = arguments["kernel_id"]
@@ -333,6 +343,7 @@ if __name__ == "__main__":
     pod_template_file = arguments["pod_template_file"]
     spark_opts_out = arguments["spark_opts_out"]
     kernel_class_name = arguments["kernel_class_name"]
+    transport_encryption = arguments["transport_encryption"]
 
     launch_kubernetes_kernel(
         kernel_id,
@@ -343,4 +354,5 @@ if __name__ == "__main__":
         pod_template_file,
         spark_opts_out,
         kernel_class_name,
+        transport_encryption,
     )

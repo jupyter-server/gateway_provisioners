@@ -171,6 +171,62 @@ def _validate_port_range(port_range: Optional[str]) -> tuple[int, int]:
     return lower_port, upper_port
 
 
+def _validate_transport_encryption(value: Optional[str]) -> Optional[str]:
+    """Normalizes the --transport-encryption value and verifies it can be honored.
+
+    Returns 'auto' or 'required' when CurveZMQ transport encryption should be applied, else None.
+    Unresolved kernelspec placeholders (older servers) and unrecognized values result in None.
+    When encryption cannot be applied in this environment, a policy of 'required' is fatal while
+    'auto' downgrades to an unencrypted connection.
+    """
+    if not value:
+        return None
+    policy = value.strip().lower()
+    if policy == "disabled" or (policy.startswith("{") and policy.endswith("}")):
+        return None
+    if policy not in ("auto", "required"):
+        __logger.warning(
+            f"Unrecognized --transport-encryption value '{value}' - "
+            "continuing without transport encryption."
+        )
+        return None
+
+    failure_reason = None
+    try:
+        import zmq
+
+        if not zmq.has("curve"):
+            failure_reason = "libzmq was built without CurveZMQ support"
+        else:
+            import ipykernel
+
+            # A version check is required here: a capability check via hasattr() would be
+            # fooled by jupyter_client >= 8.9 placing the curve traits on ConnectionFileMixin,
+            # which older ipykernel versions inherit without ever applying them to sockets.
+            try:
+                ipykernel_supported = tuple(ipykernel.version_info[:2]) >= (7, 3)
+            except TypeError:
+                ipykernel_supported = False
+            if not ipykernel_supported:
+                failure_reason = (
+                    "ipykernel does not support CurveZMQ keys in the connection file "
+                    "(ipykernel >= 7.3 is required)"
+                )
+    except ImportError as ie:
+        failure_reason = f"import failure: {ie}"
+
+    if failure_reason:
+        if policy == "required":
+            err_msg = f"Transport encryption is 'required' but cannot be applied: {failure_reason}"
+            raise RuntimeError(err_msg)
+        __logger.warning(
+            f"Transport encryption requested but cannot be applied: {failure_reason}.  "
+            "Continuing without transport encryption since the policy is 'auto'."
+        )
+        return None
+    return policy
+
+
 def determine_connection_file(kid: str) -> str:
     # Create a temporary (and empty) file using kernel-id
     fd, conn_file = tempfile.mkstemp(suffix=".json", prefix=f"kernel-{kid}_")
@@ -298,6 +354,13 @@ if __name__ == "__main__":
         help="Port range to impose for kernel ports",
     )
     parser.add_argument(
+        "--transport-encryption",
+        dest="transport_encryption",
+        nargs="?",
+        help="Transport encryption policy ('auto' or 'required') requesting that CurveZMQ "
+        "keys be provisioned in the kernel's connection file",
+    )
+    parser.add_argument(
         "--spark-context-initialization-mode",
         dest="init_mode",
         nargs="?",
@@ -323,6 +386,7 @@ if __name__ == "__main__":
     response_addr = arguments["response_address"]
     kernel_id = arguments["kernel_id"]
     public_key = arguments["public_key"]
+    transport_encryption = _validate_transport_encryption(arguments["transport_encryption"])
     lower_port, upper_port = _validate_port_range(arguments["port_range"])
     spark_init_mode = arguments["init_mode"]
     cluster_type = arguments["cluster_type"]
@@ -357,6 +421,7 @@ if __name__ == "__main__":
         kernel_id,
         public_key,
         cluster_type,
+        transport_encryption,
     )
 
     # setup sig handler to cancel spark jobs on interrupts

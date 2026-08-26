@@ -39,6 +39,15 @@ connection_interval = (
 prohibited_local_ips = os.getenv("GP_PROHIBITED_LOCAL_IPS", "").split(",")
 
 
+def redact_secrets(connection_info: dict) -> dict:
+    """Returns a copy of the connection info with secret values masked for logging."""
+    redacted = dict(connection_info)
+    for secret in ("key", "curve_secretkey"):
+        if secret in redacted:
+            redacted[secret] = "***"
+    return redacted
+
+
 def _get_local_ip() -> str:
     """
     Honor the prohibited IPs, locating the first not in the list.
@@ -218,7 +227,7 @@ class ResponseManager(SingletonConfigurable):
                 if not buffer:  # send is complete, process payload
                     self.log.debug(f"Received payload '{data}'")
                     payload = self._decode_payload(data)
-                    self.log.debug(f"Decrypted payload '{payload}'")
+                    self.log.debug(f"Decrypted payload '{redact_secrets(payload)}'")
                     self._post_connection(payload)
                     break
                 data = data + buffer.decode(
@@ -333,7 +342,9 @@ class ResponseManager(SingletonConfigurable):
             )
             return
 
-        self.log.debug(f"Connection info received for kernel '{kernel_id}': {connection_info}")
+        self.log.debug(
+            f"Connection info received for kernel '{kernel_id}': {redact_secrets(connection_info)}"
+        )
         self._response_registry[kernel_id].response = connection_info
 
     @staticmethod

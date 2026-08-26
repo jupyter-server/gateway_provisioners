@@ -49,6 +49,8 @@ class ValidatorBase:
         assert "--port-range:0..0" in cmd
         assert f"--response-address:{self.response_manager.response_address}" in cmd
         assert f"--public-key:{self.response_manager.public_key}" in cmd
+        # Encryption is not requested in these tests, so the placeholder resolves to empty.
+        assert "--transport-encryption:" in cmd
 
         env: dict = kwargs.get("env")
         assert env is not None

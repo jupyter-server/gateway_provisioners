@@ -56,6 +56,7 @@ def kernelspec():
             "--response-address:{response_address}",
             "--port-range:{port_range}",
             "--kernel-id:{kernel_id}",
+            "--transport-encryption:{transport_encryption}",
         ]
         kspec.display_name = f"{name}_python"
         kspec.language = "python"
