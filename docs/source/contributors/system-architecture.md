@@ -56,6 +56,7 @@ carrying an `«abstract»` annotation are abstract base classes. The light blue 
 `jupyter_client`, while the others reside in Gateway Provisioners.
 
 ```{mermaid}
+%%{init: {'class': {'hideEmptyMembersBox': true}}}%%
 classDiagram
   direction TB
 
@@ -83,8 +84,8 @@ classDiagram
   KubernetesProvisioner <|-- CustomResourceProvisioner
   CustomResourceProvisioner <|-- SparkOperatorProvisioner
 
-  style KernelProvisionerBase fill:#add8e6
-  style LocalProvisioner fill:#add8e6
+  style KernelProvisionerBase fill:#add8e6,color:#111111
+  style LocalProvisioner fill:#add8e6,color:#111111
 ```
 
 ### `RemoteProvisionerBase`

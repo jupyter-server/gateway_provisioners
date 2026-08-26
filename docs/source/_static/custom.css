@@ -1,0 +1,10 @@
+/*
+ * pydata-sphinx-theme inverts mermaid diagrams in dark mode, on the assumption
+ * that mermaid always renders on a light background. sphinxcontrib-mermaid
+ * already switches mermaid to its own dark theme, so the two double up: the
+ * diagram is rendered dark and then inverted back to light, which washes out
+ * the text and turns explicit fill colours into their complements.
+ */
+html[data-theme="dark"] pre.mermaid > svg {
+  filter: none;
+}
