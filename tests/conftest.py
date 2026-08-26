@@ -2,7 +2,7 @@
 # Distributed under the terms of the Modified BSD License.
 
 import os
-import sys
+from importlib.metadata import EntryPoint, entry_points
 from socket import socket
 
 import pytest
@@ -11,11 +11,6 @@ import yarn_api_client
 os.environ["PYTEST_CURRENT_TEST"] = "1"
 os.environ["JUPYTER_PLATFORM_DIRS"] = "1"  # Avoid deprecation warning and use the platform dirs now
 
-# See compatibility note on `group` keyword in https://docs.python.org/3/library/importlib.metadata.html#entry-points
-if sys.version_info < (3, 10):  # pragma: no cover
-    from importlib_metadata import EntryPoint, entry_points
-else:  # pragma: no cover
-    from importlib.metadata import EntryPoint, entry_points
 from docker.client import DockerClient
 from jupyter_client.kernelspec import KernelSpec
 from jupyter_client.provisioning.factory import KernelProvisionerFactory

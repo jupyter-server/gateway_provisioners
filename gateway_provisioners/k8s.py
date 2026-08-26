@@ -5,13 +5,13 @@
 import logging
 import os
 import re
-from typing import Any, Optional
+from typing import Any
 
 import urllib3
 from overrides import overrides
 
 try:
-    from jinja2 import Environment  # noqa - used by launcher so check presence here
+    import jinja2  # noqa - used by launcher so check presence here
     from kubernetes import client, config  # type:ignore[import-untyped]
     from kubernetes.client.rest import ApiException  # type:ignore[import-untyped]
 except ImportError:
@@ -114,7 +114,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         return {"failed"}
 
     @overrides
-    def get_container_status(self, iteration: Optional[str]) -> str:
+    def get_container_status(self, iteration: str | None) -> str:
         # Locates the kernel pod using the kernel_id selector.  Note that we also include 'component=kernel'
         # in the selector so that executor pods (when Spark is in use) are not considered.
         # If the phase indicates Running, the pod's IP is used for the assigned_ip.
@@ -169,7 +169,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         return result
 
     @overrides
-    def terminate_container_resources(self, restart: bool = False) -> Optional[bool]:
+    def terminate_container_resources(self, restart: bool = False) -> bool | None:
         # Kubernetes objects don't go away on their own - so we need to tear down the namespace
         # and/or pod associated with the kernel.  We'll always target the pod first so that shutdown
         # is perceived as happening more rapidly.  Then, if we created the namespace, and we're not

@@ -2,7 +2,6 @@
 # Distributed under the terms of the Modified BSD License.
 
 from time import time_ns
-from typing import Optional
 
 
 class YarnResource:
@@ -27,7 +26,7 @@ yarn_resources: dict = {}
 
 class MockResponse:
     def __init__(
-        self, apps: Optional[dict] = None, app: Optional[dict] = None, status: Optional[str] = None
+        self, apps: dict | None = None, app: dict | None = None, status: str | None = None
     ):
         self.data = {}
         if apps:
@@ -130,7 +129,7 @@ class MockResourceManager:
         pass
 
     @staticmethod
-    def _locate_resource(app_id: str) -> Optional[YarnResource]:
+    def _locate_resource(app_id: str) -> YarnResource | None:
         for resource in yarn_resources.values():
             if resource.id == app_id:
                 return resource

@@ -10,6 +10,7 @@ import os
 import signal
 import subprocess
 import warnings
+from inspect import signature
 from socket import gethostbyname, gethostname
 from typing import Any, cast
 
@@ -23,6 +24,9 @@ from .remote_provisioner import RemoteProvisionerBase
 
 # would prefer /var/log, but its only writable by root
 kernel_log_dir = os.getenv("GP_KERNEL_LOG_DIR", "/tmp")  # noqa: S108
+
+# GSS-API authentication was removed from paramiko in 5.0.
+paramiko_supports_gss = "gss_auth" in signature(paramiko.SSHClient.connect).parameters
 
 
 class TrackKernelOnHost:
@@ -119,6 +123,13 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
         self.remote_pwd = os.getenv("GP_REMOTE_PWD")
         self.use_gss = os.getenv("GP_REMOTE_GSS_SSH", "False").lower() == "true"
         if self.use_gss:
+            if not paramiko_supports_gss:
+                err_msg = (
+                    "GP_REMOTE_GSS_SSH is enabled, but the installed paramiko "
+                    f"({paramiko.__version__}) does not support GSS-API authentication. "
+                    "Install `paramiko<5` to use GSS-API, or unset GP_REMOTE_GSS_SSH."
+                )
+                raise RuntimeError(err_msg)
             if self.remote_pwd or _remote_user:
                 warnings.warn(
                     "Both `GP_REMOTE_GSS_SSH` and one of `GP_REMOTE_PWD` or `GP_REMOTE_USER` is set. "
@@ -333,7 +344,7 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
             if self.use_gss:
                 self.log.debug("Connecting to remote host via GSS.")
                 ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-                ssh.connect(host_ip, port=ssh_port, gss_auth=True)
+                ssh.connect(host_ip, port=ssh_port, gss_auth=True)  # type:ignore[call-arg]
             else:
                 ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
                 if self.remote_pwd:
@@ -353,7 +364,7 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
                 f"Exception '{type(e).__name__}' occurred when creating a SSHClient at {current_host} connecting "
                 f"to '{host}:{ssh_port}' with user '{self.remote_user}', message='{e}'."
             )
-            if isinstance(e, (paramiko.SSHException, paramiko.AuthenticationException)):
+            if isinstance(e, paramiko.SSHException | paramiko.AuthenticationException):
                 error_message_prefix = "Failed to authenticate SSHClient with password"
                 error_message = error_message_prefix + (
                     " provided" if self.remote_pwd else "-less SSH"

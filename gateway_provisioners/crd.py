@@ -5,7 +5,7 @@
 import logging
 import re
 from contextlib import suppress
-from typing import Any, Optional
+from typing import Any
 
 from overrides import overrides
 
@@ -49,7 +49,7 @@ class CustomResourceProvisioner(KubernetesProvisioner):
         return kwargs
 
     @overrides
-    def get_container_status(self, iteration: Optional[str]) -> str:
+    def get_container_status(self, iteration: str | None) -> str:
         """Determines submitted CRD application status
 
         Submitting a new kernel application CRD will take a while to

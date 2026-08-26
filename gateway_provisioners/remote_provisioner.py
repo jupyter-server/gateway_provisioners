@@ -13,7 +13,7 @@ import time
 from abc import abstractmethod
 from enum import Enum
 from socket import AF_INET, SHUT_WR, SOCK_STREAM, socket, timeout
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 import pexpect
 from jupyter_client import (
@@ -72,7 +72,11 @@ def gp_launch_kernel(cmd: list, **kwargs):
     return launch_kernel(cmd, **kwargs)
 
 
-class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase):
+# mypy cannot see that `KernelProvisionerMeta` derives from `MetaHasTraits` because
+# jupyter_client builds it from the dynamic expression `type(LoggingConfigurable)`.
+class RemoteProvisionerBase(  # type:ignore[metaclass]
+    RemoteProvisionerConfigMixin, KernelProvisionerBase
+):
     """Base class for remote provisioners."""
 
     def __init__(self, **kwargs):
@@ -162,11 +166,11 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
 
     @abstractmethod
     @overrides
-    async def poll(self) -> Optional[int]:
+    async def poll(self) -> int | None:
         pass
 
     @overrides
-    async def wait(self) -> Optional[int]:
+    async def wait(self) -> int | None:
         # If we have a local_proc, call its wait method.  This will cleanup any defunct processes when the kernel
         # is shutdown (when using waitAppCompletion = false).  Otherwise (if no local_proc) we'll use polling to
         # determine if a (remote or revived) process is still active.
@@ -326,7 +330,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 self.local_proc = None
                 self.log_and_raise(RuntimeError(error_message))
 
-    def log_and_raise(self, ex: Exception, chained: Optional[Exception] = None) -> None:
+    def log_and_raise(self, ex: Exception, chained: Exception | None = None) -> None:
         """Helper method that logs the string-ized exception 'ex' and raises that exception.
 
         If a chained exception is provided that exception will be in the raised exception's from clause.
@@ -637,7 +641,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
             f"from host '{self.assigned_host}': {connect_info}..."
         )
 
-        self.connection_info.update(connect_info)
+        self.connection_info.update(cast(KernelConnectionInfo, connect_info))
 
     def _extract_pid_info(self, connect_info: dict) -> None:
         """
@@ -672,7 +676,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 self.local_proc = None
 
     async def _send_listener_request(
-        self, request: dict, shutdown_socket: Optional[bool] = False
+        self, request: dict, shutdown_socket: bool | None = False
     ) -> None:
         """
         Sends the request dictionary to the kernel listener via the comm port.  Caller is responsible for
@@ -719,7 +723,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         connection_info: dict,
         server: str,
         port: int = ssh_port,
-        key: Optional[str] = None,
+        key: str | None = None,
     ):
         """
         Tunnel connections to a kernel over SSH
@@ -758,7 +762,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
                 )
             )
 
-        for lp, rp, kc in zip(lports, rports, channels):
+        for lp, rp, kc in zip(lports, rports, channels, strict=True):
             self._create_ssh_tunnel(kc, lp, rp, remote_ip, server, port, key)
 
         return tuple(lports)
@@ -770,7 +774,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         remote_port: int,
         server: str,
         port: int = ssh_port,
-        key: Optional[str] = None,
+        key: str | None = None,
     ):
         """
         Analogous to _tunnel_to_kernel, but deals with a single port.  This will typically be called for
@@ -791,7 +795,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         remote_ip: str,
         server: str,
         port: int,
-        key: Optional[str] = None,
+        key: str | None = None,
     ):
         """
         Creates an SSH tunnel between the local and remote port/server for the given kernel channel.
@@ -821,7 +825,7 @@ class RemoteProvisionerBase(RemoteProvisionerConfigMixin, KernelProvisionerBase)
         remote_ip: str,
         server: str,
         port: int,
-        key: Optional[str] = None,
+        key: str | None = None,
     ):
         """
         This method spawns a child process to create an SSH tunnel and returns the spawned process.

@@ -1,8 +1,6 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 
-from typing import Optional
-
 from jupyter_client.kernelspec import KernelSpec
 from mocks.response_manager import generate_connection_info
 
@@ -33,7 +31,7 @@ class ValidatorBase:
         self.seed_env: dict = seed_env
         self.kernel_id: str = kwargs.get("kernel_id")
         self.response_manager: ResponseManager = kwargs.get("response_manager")
-        self.kernel_spec: Optional[KernelSpec] = None
+        self.kernel_spec: KernelSpec | None = None
         self.provisioner = None
 
     def validate_provisioner(self, provisioner: RemoteProvisionerBase) -> None:
