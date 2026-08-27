@@ -191,27 +191,24 @@ def _validate_transport_encryption(value: Optional[str]) -> Optional[str]:
         )
         return None
 
+    # The zmq/jupyter_client capability checks live in ServerListener (shared with the R
+    # launcher); this only verifies the piece specific to this launcher - the kernel itself.
     failure_reason = None
     try:
-        import zmq
+        import ipykernel
 
-        if not zmq.has("curve"):
-            failure_reason = "libzmq was built without CurveZMQ support"
-        else:
-            import ipykernel
-
-            # A version check is required here: a capability check via hasattr() would be
-            # fooled by jupyter_client >= 8.9 placing the curve traits on ConnectionFileMixin,
-            # which older ipykernel versions inherit without ever applying them to sockets.
-            try:
-                ipykernel_supported = tuple(ipykernel.version_info[:2]) >= (7, 3)
-            except TypeError:
-                ipykernel_supported = False
-            if not ipykernel_supported:
-                failure_reason = (
-                    "ipykernel does not support CurveZMQ keys in the connection file "
-                    "(ipykernel >= 7.3 is required)"
-                )
+        # A version check is required here: a capability check via hasattr() would be
+        # fooled by jupyter_client >= 8.9 placing the curve traits on ConnectionFileMixin,
+        # which older ipykernel versions inherit without ever applying them to sockets.
+        try:
+            ipykernel_supported = tuple(ipykernel.version_info[:2]) >= (7, 3)
+        except TypeError:
+            ipykernel_supported = False
+        if not ipykernel_supported:
+            failure_reason = (
+                "ipykernel does not support CurveZMQ keys in the connection file "
+                "(ipykernel >= 7.3 is required)"
+            )
     except ImportError as ie:
         failure_reason = f"import failure: {ie}"
 

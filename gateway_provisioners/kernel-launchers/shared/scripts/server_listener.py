@@ -64,9 +64,8 @@ class ServerListener:
 
     def build_connection_file(self) -> int:
         ports: list = self._select_ports(6)
-        # The bytes are consumed by the typed curve parameters of write_connection_file, present
-        # since jupyter_client 8.9 - guaranteed here because key generation requires ipykernel
-        # >= 7.3 (enforced by the launcher), whose floor is jupyter_client >= 8.9.
+        # The bytes are consumed by the typed curve parameters of write_connection_file,
+        # whose presence (jupyter_client >= 8.9) _generate_curve_keypair has verified.
         curve_kwargs: dict = {}
         curve_keypair = self._generate_curve_keypair()
         if curve_keypair:
@@ -94,10 +93,18 @@ class ServerListener:
         if self.transport_encryption not in ("auto", "required"):
             return None
         try:
+            import inspect
+
             import zmq
 
             if not zmq.has("curve"):
                 err_msg = "libzmq was built without CurveZMQ support"
+                raise RuntimeError(err_msg)
+            if "curve_publickey" not in inspect.signature(write_connection_file).parameters:
+                err_msg = (
+                    "jupyter_client does not support CurveZMQ connection files "
+                    "(jupyter_client >= 8.9 is required)"
+                )
                 raise RuntimeError(err_msg)
             return zmq.curve_keypair()
         except Exception as ex:
@@ -175,7 +182,7 @@ class ServerListener:
             # Redact secrets from the logged copy - the launcher logs at DEBUG by default and
             # kernel logs are far more accessible than the 0600 connection file.
             redacted = {
-                key: ("***" if key in ("key", "curve_secretkey") else value)
+                key: ("***" if key in ("key", "curve_secretkey", "curve_publickey") else value)
                 for key, value in cf_json.items()
             }
             logger.debug(f"JSON Payload '{json.dumps(redacted)}")

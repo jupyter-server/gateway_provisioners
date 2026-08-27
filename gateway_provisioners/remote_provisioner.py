@@ -123,9 +123,10 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
 
     @overrides
     async def pre_launch(self, **kwargs: Any) -> dict[str, Any]:
-        self.response_manager.register_event(self.kernel_id)
-
+        # Resolve first: a refused launch must not leave a registration behind.
         self._resolve_transport_encryption(kwargs.pop("transport_encryption", None))
+
+        self.response_manager.register_event(self.kernel_id)
 
         cmd = self.kernel_spec.argv  # Build launch command, provide substitutions
         if self.response_address or self.port_range or self.kernel_id or self.public_key:
@@ -624,7 +625,11 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
         self.curve_enabled = True
 
     def _kernel_spec_supports_curve(self) -> bool:
-        """Returns True if the kernelspec advertises 'curve' in metadata.supported_encryption."""
+        """Returns True if the kernelspec advertises 'curve' in metadata.supported_encryption.
+
+        Mirrors jupyter_client's private KernelManager._kernel_supports_curve_encryption
+        (8.9+); keep the two interpretations in step.
+        """
         metadata = getattr(self.kernel_spec, "metadata", None) or {}
         supported_encryption = metadata.get("supported_encryption")
         if isinstance(supported_encryption, str):
@@ -642,6 +647,12 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
         the launch under 'required' and warn under 'auto'.
         """
         has_curve_keys = "curve_publickey" in connect_info and "curve_secretkey" in connect_info
+        if has_curve_keys and not hasattr(ConnectionFileMixin, "curve_publickey"):
+            self.log.warning(
+                f"The launcher for kernel '{self.kernel_id}' returned CurveZMQ keys but this "
+                "jupyter_client cannot apply them (>= 8.9 is required) - clients will not be "
+                "able to connect to the encrypted kernel."
+            )
         if self.curve_enabled and not has_curve_keys:
             if self.transport_encryption == "required":
                 self.log_and_raise(
@@ -665,6 +676,7 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
             # them during reconciliation - leaving the manager configuring curve client sockets
             # against an unencrypted kernel.
             for curve_key in ("curve_publickey", "curve_secretkey"):
+                connect_info.pop(curve_key, None)  # drop a half-key response entirely
                 self.connection_info.pop(curve_key, None)
                 if getattr(self.parent, curve_key, None) is not None:
                     setattr(self.parent, curve_key, None)

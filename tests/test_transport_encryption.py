@@ -153,6 +153,16 @@ def test_connection_info_is_not_shared_between_provisioners(
     assert KernelProvisionerBase.connection_info == {}
 
 
+def test_response_validation_drops_half_key_response(provisioner):
+    # A response with only one curve field must fall back to plaintext, not fail
+    # reconciliation against the manager's (empty) curve state.
+    provisioner.transport_encryption = "auto"
+    provisioner.curve_enabled = True
+    connect_info = {"shell_port": 1, "curve_publickey": "A" * 40}
+    provisioner._validate_transport_encryption_response(connect_info)
+    assert "curve_publickey" not in connect_info
+
+
 def test_response_validation_purges_stale_connection_info_keys(provisioner):
     # A restart that falls back to plaintext must remove the previous launch's keys from the
     # provisioner's connection info, else reconciliation re-applies them on the manager.

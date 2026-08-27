@@ -2,7 +2,6 @@
   "language": "${language}",
   "display_name": "${display_name}",
   "metadata": {
-    "supported_encryption": ["curve"],
     "debugger": true,
     "kernel_provisioner": {
       "provisioner_name": "kubernetes-provisioner",
@@ -25,8 +24,6 @@
     "{response_address}",
     "--public-key",
     "{public_key}",
-    "--transport-encryption",
-    "{transport_encryption}",
     "--spark-context-initialization-mode",
     "${spark_init_mode}",
     "--kernel-class-name",

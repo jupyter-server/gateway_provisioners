@@ -40,9 +40,13 @@ prohibited_local_ips = os.getenv("GP_PROHIBITED_LOCAL_IPS", "").split(",")
 
 
 def redact_secrets(connection_info: dict) -> dict:
-    """Returns a copy of the connection info with secret values masked for logging."""
+    """Returns a copy of the connection info with secret values masked for logging.
+
+    The curve public key is included because, absent a ZAP authenticator, it alone is
+    sufficient to complete the CurveZMQ handshake and subscribe to the kernel's channels.
+    """
     redacted = dict(connection_info)
-    for secret in ("key", "curve_secretkey"):
+    for secret in ("key", "curve_secretkey", "curve_publickey"):
         if secret in redacted:
             redacted[secret] = "***"
     return redacted

@@ -23,8 +23,10 @@ spec:
     - "{{ public_key }}"
     - "--kernel-class-name"
     - "{{ kernel_class_name }}"
+{% if transport_encryption %}
     - "--transport-encryption"
     - "{{ transport_encryption }}"
+{% endif %}
   driver:
     annotations:
       cluster-autoscaler.kubernetes.io/safe-to-evict: "false"

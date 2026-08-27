@@ -337,6 +337,12 @@ response, uses the corresponding private key to decrypt the AES key, which it th
 information. Both the public and private keys are ephemeral; created upon the initial load of Gateway Provisioners.
 They can be ephemeral because they are only needed during a kernel's startup and never again.
 
+The transport-encryption policy is identified by the optional parameter `--transport-encryption`. Its value
+(`{transport_encryption}`) is `auto` or `required` when the server asks the launcher to provision CurveZMQ keys
+in the kernel's connection file, and empty otherwise. See
+[Transport Encryption of Kernel Channels](../developers/kernel-launcher.md#transport-encryption-of-kernel-channels)
+for the launcher's obligations.
+
 Here's a `kernel.json` file illustrating these parameters...
 
 ```json
