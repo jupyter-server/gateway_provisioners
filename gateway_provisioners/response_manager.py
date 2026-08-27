@@ -206,12 +206,16 @@ class ResponseManager(SingletonConfigurable):
             self._connection_processor.start()
 
     def stop_response_manager(self) -> None:
-        """Stops the connection processor."""
+        """Stops the connection processor and closes the response socket."""
         if self._connection_processor is not None:
             self._connection_processor.stop()
             self._connection_processor = None
 
         if self._response_socket is not None:
+            try:
+                self._response_socket.close()
+            except OSError:
+                pass
             self._response_socket = None
 
     async def _process_connections(self) -> None:

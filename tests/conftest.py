@@ -34,6 +34,10 @@ def response_manager(monkeypatch):
     monkeypatch.setattr(ResponseManager, "get_connection_info", mock_get_connection_info)
     rm = ResponseManager.instance()
     yield rm
+    # Close the bound socket deterministically: relying on garbage collection leaks the
+    # port when the event loop still references the periodic callback (seen on macOS),
+    # and enough leaked ports exhaust the bind retries of subsequent instances.
+    rm.stop_response_manager()
     ResponseManager.clear_instance()
 
 
