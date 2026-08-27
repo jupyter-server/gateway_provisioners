@@ -638,6 +638,16 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
             return "curve" in {str(entry).strip().lower() for entry in supported_encryption}
         return False
 
+    @staticmethod
+    def _is_valid_curve_key(value) -> bool:
+        """Returns True if value looks like a Z85-encoded CurveZMQ key (40 characters).
+
+        Presence alone is insufficient: an empty or placeholder value passes silently here
+        and then fails deep inside pyzmq (ZMQError: Invalid argument) when the client
+        sockets are configured, long after the launch was reported successful.
+        """
+        return isinstance(value, str | bytes) and len(value) == 40
+
     def _validate_transport_encryption_response(self, connect_info: dict) -> None:
         """Verifies the launcher's connection info honors the requested transport encryption.
 
@@ -646,7 +656,10 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
         it (and silently ignores the request).  When keys were requested but not returned, fail
         the launch under 'required' and warn under 'auto'.
         """
-        has_curve_keys = "curve_publickey" in connect_info and "curve_secretkey" in connect_info
+        has_curve_keys = all(
+            RemoteProvisionerBase._is_valid_curve_key(connect_info.get(curve_key))
+            for curve_key in ("curve_publickey", "curve_secretkey")
+        )
         if has_curve_keys and not hasattr(ConnectionFileMixin, "curve_publickey"):
             self.log.warning(
                 f"The launcher for kernel '{self.kernel_id}' returned CurveZMQ keys but this "
@@ -658,7 +671,7 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
                 self.log_and_raise(
                     RuntimeError(
                         f"transport_encryption='required' but the launcher for kernel "
-                        f"'{self.kernel_id}' did not return CurveZMQ keys.  The remote "
+                        f"'{self.kernel_id}' did not return valid CurveZMQ keys.  The remote "
                         "launcher or kernel image likely predates transport encryption "
                         "support - update it or remove 'curve' from the kernelspec's "
                         "metadata.supported_encryption."
@@ -666,7 +679,7 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
                 )
             self.log.warning(
                 f"Transport encryption was requested but the launcher for kernel "
-                f"'{self.kernel_id}' did not return CurveZMQ keys - the connection will "
+                f"'{self.kernel_id}' did not return valid CurveZMQ keys - the connection will "
                 "not be encrypted.  Update the remote launcher or kernel image."
             )
         if not has_curve_keys:

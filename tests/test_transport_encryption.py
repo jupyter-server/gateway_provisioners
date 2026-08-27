@@ -80,7 +80,7 @@ def test_resolve_required_with_spec_support(provisioner):
 def test_response_validation_required_missing_keys(provisioner):
     provisioner.transport_encryption = "required"
     provisioner.curve_enabled = True
-    with pytest.raises(RuntimeError, match="did not return CurveZMQ keys"):
+    with pytest.raises(RuntimeError, match="did not return valid CurveZMQ keys"):
         provisioner._validate_transport_encryption_response({})
 
 
@@ -89,15 +89,35 @@ def test_response_validation_auto_missing_keys_warns(provisioner, caplog):
     provisioner.curve_enabled = True
     with caplog.at_level(logging.WARNING, logger=provisioner.log.name):
         provisioner._validate_transport_encryption_response({})
-    assert any("did not return CurveZMQ keys" in record.message for record in caplog.records)
+    assert any("did not return valid CurveZMQ keys" in record.message for record in caplog.records)
 
 
 def test_response_validation_accepts_returned_keys(provisioner):
     provisioner.transport_encryption = "required"
     provisioner.curve_enabled = True
     provisioner._validate_transport_encryption_response(
-        {"curve_publickey": "pub", "curve_secretkey": "sec"}
+        {"curve_publickey": "A" * 40, "curve_secretkey": "B" * 40}
     )
+
+
+def test_response_validation_rejects_malformed_keys(provisioner):
+    # Presence is not validity: malformed keys would otherwise fail later inside
+    # pyzmq (ZMQError: Invalid argument) after the launch was reported successful.
+    provisioner.transport_encryption = "required"
+    provisioner.curve_enabled = True
+    with pytest.raises(RuntimeError, match="did not return valid CurveZMQ keys"):
+        provisioner._validate_transport_encryption_response(
+            {"curve_publickey": "pub", "curve_secretkey": "sec"}
+        )
+
+
+def test_response_validation_purges_malformed_keys_under_auto(provisioner):
+    provisioner.transport_encryption = "auto"
+    provisioner.curve_enabled = True
+    connect_info = {"shell_port": 1, "curve_publickey": "pub", "curve_secretkey": ""}
+    provisioner._validate_transport_encryption_response(connect_info)
+    assert "curve_publickey" not in connect_info
+    assert "curve_secretkey" not in connect_info
 
 
 def test_response_validation_clears_stale_parent_traits(provisioner):
@@ -112,14 +132,14 @@ def test_response_validation_clears_stale_parent_traits(provisioner):
 
 def test_response_validation_keeps_parent_traits_when_keys_returned(provisioner):
     km = KernelManager()
-    km.curve_publickey = b"pub"
-    km.curve_secretkey = b"sec"
+    km.curve_publickey = b"A" * 40
+    km.curve_secretkey = b"B" * 40
     provisioner.parent = km
     provisioner._validate_transport_encryption_response(
-        {"curve_publickey": "pub", "curve_secretkey": "sec"}
+        {"curve_publickey": "A" * 40, "curve_secretkey": "B" * 40}
     )
-    assert km.curve_publickey == b"pub"
-    assert km.curve_secretkey == b"sec"
+    assert km.curve_publickey == b"A" * 40
+    assert km.curve_secretkey == b"B" * 40
 
 
 async def test_pre_launch_substitutes_transport_encryption(provisioner):
