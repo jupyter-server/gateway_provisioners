@@ -214,8 +214,8 @@ class ResponseManager(SingletonConfigurable):
         if self._response_socket is not None:
             try:
                 self._response_socket.close()
-            except OSError:
-                pass
+            except OSError as ose:
+                self.log.debug(f"Error closing response socket: {ose}")
             self._response_socket = None
 
     async def _process_connections(self) -> None:
