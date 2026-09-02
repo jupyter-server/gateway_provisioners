@@ -614,7 +614,8 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
             failure_reason = (
                 "the kernelspec advertises 'curve' but its argv has no "
                 "'{transport_encryption}' placeholder to pass the policy to the launcher "
-                "(regenerate the kernelspec with the current CLI tooling)"
+                "(regenerate the kernelspec with the current CLI tooling, or add the "
+                "placeholder to its argv)"
             )
         elif not zmq.has("curve"):
             failure_reason = "libzmq was built without CurveZMQ support"

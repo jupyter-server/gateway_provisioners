@@ -163,7 +163,7 @@ and pass the policy to the launcher via the `--transport-encryption` argument.
 A kernel specification generated before this release has no `{transport_encryption}` placeholder in its `argv`,
 so adding `curve` to its metadata by hand cannot enable encryption: the launcher is never asked for keys.
 Such a specification is refused under `required` and starts unencrypted with a warning under `auto`;
-regenerate it with the CLI tooling instead.
+regenerate it with the CLI tooling, or add the placeholder to its `argv` by hand.
 The Spark-on-Kubernetes specifications are the exception:
 their launcher is baked into the kernel image, so they currently start unencrypted.
 For the version and `pyzmq` build requirements, see the
