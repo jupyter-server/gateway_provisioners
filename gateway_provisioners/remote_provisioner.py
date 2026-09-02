@@ -574,6 +574,10 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
         present, else from the kernel manager's `transport_encryption` trait (jupyter_client
         >= 8.9).  Sets `self.transport_encryption` to the resolved policy and `self.curve_enabled`
         to True when the launcher should be asked to provision CurveZMQ keys.
+
+        A kernelspec that advertises support but cannot pass the policy to its launcher (no
+        `{transport_encryption}` placeholder in its argv) counts as unable to apply encryption,
+        just like a server without CurveZMQ support.
         """
         if policy is None:
             policy = getattr(self.parent, "transport_encryption", "disabled") or "disabled"
@@ -603,7 +607,16 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
             return  # 'auto' with a non-advertising kernelspec launches unencrypted
 
         failure_reason = None
-        if not zmq.has("curve"):
+        if not self._kernel_spec_passes_policy():
+            # A kernelspec generated before transport encryption was supported, with 'curve'
+            # added to its metadata by hand: pre_launch has no way to ask the launcher for keys,
+            # so blaming the launcher or the kernel image would send the operator the wrong way.
+            failure_reason = (
+                "the kernelspec advertises 'curve' but its argv has no "
+                "'{transport_encryption}' placeholder to pass the policy to the launcher "
+                "(regenerate the kernelspec with the current CLI tooling)"
+            )
+        elif not zmq.has("curve"):
             failure_reason = "libzmq was built without CurveZMQ support"
         elif not hasattr(ConnectionFileMixin, "curve_publickey"):
             failure_reason = (
@@ -637,6 +650,14 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
         if isinstance(supported_encryption, list | tuple | set):
             return "curve" in {str(entry).strip().lower() for entry in supported_encryption}
         return False
+
+    def _kernel_spec_passes_policy(self) -> bool:
+        """Returns True if the kernelspec's argv carries the '{transport_encryption}' placeholder.
+
+        The placeholder, substituted in pre_launch, is the only way the policy reaches the launcher.
+        """
+        argv = getattr(self.kernel_spec, "argv", None) or []
+        return any("{transport_encryption}" in arg for arg in argv)
 
     @staticmethod
     def _is_valid_curve_key(value) -> bool:

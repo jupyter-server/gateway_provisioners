@@ -3,6 +3,7 @@
 """Tests for the CurveZMQ transport-encryption support in RemoteProvisionerBase."""
 
 import logging
+import re
 from uuid import uuid4
 
 import pytest
@@ -192,3 +193,28 @@ def test_response_validation_purges_stale_connection_info_keys(provisioner):
     provisioner._validate_transport_encryption_response({"shell_port": 1})
     assert "curve_publickey" not in provisioner.connection_info
     assert "curve_secretkey" not in provisioner.connection_info
+
+
+def test_resolve_auto_without_placeholder_warns(provisioner, caplog):
+    # A kernelspec generated before transport encryption, with 'curve' added to its metadata
+    # by hand: the launcher is never asked for keys, so the diagnostic must name the argv
+    # placeholder instead of blaming the launcher or the kernel image.
+    provisioner.kernel_spec.metadata = {"supported_encryption": ["curve"]}
+    provisioner.kernel_spec.argv = ["--kernel-id:{kernel_id}"]
+    with caplog.at_level(logging.WARNING, logger=provisioner.log.name):
+        provisioner._resolve_transport_encryption("auto")
+    assert provisioner.curve_enabled is False
+    assert any("'{transport_encryption}' placeholder" in r.message for r in caplog.records)
+    # Nothing was requested from the launcher, so the response validation stays quiet.
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger=provisioner.log.name):
+        provisioner._validate_transport_encryption_response({})
+    assert not any("did not return valid CurveZMQ keys" in r.message for r in caplog.records)
+
+
+def test_resolve_required_without_placeholder_raises(provisioner):
+    provisioner.kernel_spec.metadata = {"supported_encryption": ["curve"]}
+    provisioner.kernel_spec.argv = ["--kernel-id:{kernel_id}"]
+    with pytest.raises(RuntimeError, match=re.escape("no '{transport_encryption}' placeholder")):
+        provisioner._resolve_transport_encryption("required")
+    assert provisioner.curve_enabled is False
