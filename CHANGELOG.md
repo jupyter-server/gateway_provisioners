@@ -2,6 +2,44 @@
 
 <!-- <START NEW CHANGELOG ENTRY> -->
 
+## 0.5.0
+
+([Full Changelog](https://github.com/jupyter-server/gateway_provisioners/compare/v0.4.0...eaf3bd79d26092aba99554c070130f664e240510))
+
+### Enhancements made
+
+- Implement transport encryption for gateway provisioners [#147](https://github.com/jupyter-server/gateway_provisioners/pull/147) ([@krassowski](https://github.com/krassowski), [@Zsailer](https://github.com/Zsailer))
+
+### Bugs fixed
+
+- Fix on bug causing Kernel launch to timeout [#141](https://github.com/jupyter-server/gateway_provisioners/pull/141) ([@rao23](https://github.com/rao23), [@Zsailer](https://github.com/Zsailer), [@kevin-bates](https://github.com/kevin-bates), [@ojarjur](https://github.com/ojarjur))
+- fix communication port duplicate issue [#134](https://github.com/jupyter-server/gateway_provisioners/pull/134) ([@hjliu0206](https://github.com/hjliu0206), [@huajieliu-gif](https://github.com/huajieliu-gif), [@kevin-bates](https://github.com/kevin-bates))
+
+### Maintenance and upkeep improvements
+
+- Fix release workflow (Step 2) [#150](https://github.com/jupyter-server/gateway_provisioners/pull/150) ([@krassowski](https://github.com/krassowski), [@Carreau](https://github.com/Carreau))
+- Require Python 3.10, fix CI and docs failures [#149](https://github.com/jupyter-server/gateway_provisioners/pull/149) ([@krassowski](https://github.com/krassowski), [@vidartf](https://github.com/vidartf), [@vidartf-jpmc](https://github.com/vidartf-jpmc))
+- Multiple updates to the github action corresponding to upstream changes, including dropping support for Python 3.8 [#143](https://github.com/jupyter-server/gateway_provisioners/pull/143) ([@ojarjur](https://github.com/ojarjur), [@kevin-bates](https://github.com/kevin-bates))
+
+### Documentation improvements
+
+- docs: fix typo [#137](https://github.com/jupyter-server/gateway_provisioners/pull/137) ([@vegetablest](https://github.com/vegetablest), [@kevin-bates](https://github.com/kevin-bates))
+
+### Other merged PRs
+
+- Fix: reset assigned_host to empty string to avoid NoneType IP during kernel restart [#142](https://github.com/jupyter-server/gateway_provisioners/pull/142) ([@Recai93](https://github.com/Recai93), [@kevin-bates](https://github.com/kevin-bates))
+
+### Contributors to this release
+
+The following people contributed discussions, new ideas, code and documentation contributions, and review.
+See [our definition of contributors](https://github-activity.readthedocs.io/en/latest/use/#how-does-this-tool-define-contributions-in-the-reports).
+
+([GitHub contributors page for this release](https://github.com/jupyter-server/gateway_provisioners/graphs/contributors?from=2024-03-25&to=2026-09-07&type=c))
+
+@Carreau ([activity](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3ACarreau+updated%3A2024-03-25..2026-09-07&type=Issues)) | @hjliu0206 ([activity](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Ahjliu0206+updated%3A2024-03-25..2026-09-07&type=Issues)) | @huajieliu-gif ([activity](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Ahuajieliu-gif+updated%3A2024-03-25..2026-09-07&type=Issues)) | @kevin-bates ([activity](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Akevin-bates+updated%3A2024-03-25..2026-09-07&type=Issues)) | @krassowski ([activity](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Akrassowski+updated%3A2024-03-25..2026-09-07&type=Issues)) | @ojarjur ([activity](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Aojarjur+updated%3A2024-03-25..2026-09-07&type=Issues)) | @rao23 ([activity](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Arao23+updated%3A2024-03-25..2026-09-07&type=Issues)) | @Recai93 ([activity](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3ARecai93+updated%3A2024-03-25..2026-09-07&type=Issues)) | @vegetablest ([activity](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Avegetablest+updated%3A2024-03-25..2026-09-07&type=Issues)) | @vidartf ([activity](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Avidartf+updated%3A2024-03-25..2026-09-07&type=Issues)) | @vidartf-jpmc ([activity](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Avidartf-jpmc+updated%3A2024-03-25..2026-09-07&type=Issues)) | @Zsailer ([activity](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3AZsailer+updated%3A2024-03-25..2026-09-07&type=Issues))
+
+<!-- <END NEW CHANGELOG ENTRY> -->
+
 ## 0.4.0
 
 ([Full Changelog](https://github.com/jupyter-server/gateway_provisioners/compare/v0.2.0...b47b9a33ca19e50359248d7cb91dff35f1daf564))
@@ -40,8 +78,6 @@
 ([GitHub contributors page for this release](https://github.com/jupyter-server/gateway_provisioners/graphs/contributors?from=2023-04-20&to=2024-03-25&type=c))
 
 [@BetterLevi](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3ABetterLevi+updated%3A2023-04-20..2024-03-25&type=Issues) | [@blink1073](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Ablink1073+updated%3A2023-04-20..2024-03-25&type=Issues) | [@bsdz](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Absdz+updated%3A2023-04-20..2024-03-25&type=Issues) | [@dependabot](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Adependabot+updated%3A2023-04-20..2024-03-25&type=Issues) | [@kevin-bates](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Akevin-bates+updated%3A2023-04-20..2024-03-25&type=Issues) | [@mmmommm](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Ammmommm+updated%3A2023-04-20..2024-03-25&type=Issues) | [@pre-commit-ci](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Apre-commit-ci+updated%3A2023-04-20..2024-03-25&type=Issues) | [@welcome](https://github.com/search?q=repo%3Ajupyter-server%2Fgateway_provisioners+involves%3Awelcome+updated%3A2023-04-20..2024-03-25&type=Issues)
-
-<!-- <END NEW CHANGELOG ENTRY> -->
 
 ## Gateway Provisioners 0.2.0
 
