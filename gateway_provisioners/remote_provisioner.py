@@ -339,7 +339,7 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
                 self.local_proc.wait()  # FIXME
                 error_message = (
                     f"Error occurred during launch of KernelID: {self.kernel_id}.  "
-                    "Check Enterprise Gateway log for more information."
+                    "Check Jupyter server log for more information."
                 )
                 self.local_proc = None
                 self.log_and_raise(RuntimeError(error_message))
