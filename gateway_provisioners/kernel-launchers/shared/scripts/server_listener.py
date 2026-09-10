@@ -5,6 +5,7 @@ import json
 import logging
 import os
 import random
+import select
 import signal
 import socket
 import uuid
@@ -240,32 +241,30 @@ class ServerListener:
             return 0
         return random.randint(self.lower_port, self.upper_port)
 
-    def get_server_request(self) -> dict:
+    def get_server_request(self) -> Optional[dict]:
         """Gets a request from the server and returns the corresponding dictionary."""
-        conn: socket = None
-        data: str = ""
-        request_info: Optional[dict] = None
+        conn: Optional[socket.socket] = None
         try:
-            conn, addr = self.comm_socket.accept()
-            while True:
-                buffer: bytes = conn.recv(1024)
-                if buffer == b"":  # send is complete
-                    if len(data) > 0:
-                        request_info = json.loads(data)
-                    else:
-                        logger.info("DEBUG: get_server_request: no data received - returning None")
-                    break
-                data = data + buffer.decode(
-                    "utf-8"
-                )  # append what we received until we get no more...
-        except Exception as ex:
-            if type(ex) is not socket.timeout:
-                raise ex
+            # Jupyter server establishes a new connection for every request.
+            # Wait until a new connection is made before accepting and reading.
+            input_ready, _, except_ready = select.select([self.comm_socket], [], [])
+            for sock_ready in input_ready:
+                conn, addr = sock_ready.accept()
+                logger.info(f"Accepted connection on control channel from {addr=}")
+                data = ""
+                while buffer := conn.recv(1024).decode("utf-8"):
+                    data += buffer
+                return json.loads(data) if data else None
+
+            if except_ready:
+                logger.error("Control channel socket reported error state")
+        except Exception:
+            logger.exception("Control channel socket closed unexpectedly")
         finally:
             if conn:
                 conn.close()
 
-        return request_info
+        return None
 
     def process_requests(self, comm_port) -> None:
         """Waits for requests from the server and processes each when received.  Currently,
