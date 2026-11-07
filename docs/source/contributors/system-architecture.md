@@ -193,6 +193,11 @@ def terminate_container_resources(self, restart: bool = False) -> Optional[bool]
     """Terminate any artifacts created on behalf of the container's lifetime."""
 ```
 
+So that a slow container API cannot block the host application's event loop, `get_container_status()` and
+`terminate_container_resources()` are called from a worker thread - one call at a time per provisioner. See
+[Blocking Calls and Threading](../developers/dev-remote-provisioner.md#blocking-calls-and-threading) for what this
+means for implementations.
+
 #### `KubernetesProvisioner`
 
 With the popularity of Kubernetes within the enterprise, Gateway Provisioners provides an implementation

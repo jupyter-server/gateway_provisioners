@@ -133,7 +133,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
         """
         result: int | None = 0
 
-        container_status = self.get_container_status(None)
+        container_status = await self._run_blocking(self.get_container_status, None)
         # Do not check whether container_status is None
         # EG couldn't restart kernels although connections exists.
         # See https://github.com/jupyter/enterprise_gateway/issues/827
@@ -157,9 +157,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
     @overrides
     async def kill(self, restart: bool = False) -> None:
         """Kills a containerized kernel."""
-
-        if self.container_name:  # We only have something to terminate if we have a name
-            self.terminate_container_resources(restart=restart)
+        await self._run_blocking(self._terminate_container, restart)
 
     @overrides
     async def terminate(self, restart: bool = False) -> None:
@@ -173,8 +171,16 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
     @overrides
     async def shutdown_listener(self, restart: bool) -> None:
         await super().shutdown_listener(restart)
+        await self._run_blocking(self._terminate_container, restart)
+
+    def _terminate_container(self, restart: bool) -> None:
+        """Terminates the container's resources, if any remain.
+
+        Runs in a worker thread via _run_blocking(), so the check happens under the provisioner's
+        lock - a termination that was in flight may have already cleared the container name.
+        """
         if self.container_name:  # We only have something to terminate if we have a name
-            self.terminate_container_resources(restart)
+            self.terminate_container_resources(restart=restart)
 
     @overrides
     async def confirm_remote_startup(self):
@@ -187,7 +193,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
             i += 1
             await self.handle_launch_timeout()
 
-            container_status = self.get_container_status(str(i))
+            container_status = await self._run_blocking(self.get_container_status, str(i))
             if container_status:
                 if container_status in self.get_error_states():
                     reason = f"Error starting kernel container; status: '{container_status}'.  Check server logs."

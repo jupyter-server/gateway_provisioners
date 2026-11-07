@@ -130,7 +130,7 @@ class MockK8sClient:
         pass
 
     @classmethod
-    def V1RoleRef(cls, api_group, name) -> dict:
+    def V1RoleRef(cls, api_group, kind, name) -> dict:
         pass
 
     @classmethod

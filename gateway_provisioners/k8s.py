@@ -85,7 +85,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
                 kwargs["env"][key] = os.environ[key]
         # Determine pod name and namespace - creating the latter if necessary
         self.kernel_pod_name = self._determine_kernel_pod_name(**kwargs)
-        self.kernel_namespace = self._determine_kernel_namespace(**kwargs)
+        self.kernel_namespace = await self._run_blocking(self._determine_kernel_namespace, **kwargs)
         return kwargs
 
     @overrides

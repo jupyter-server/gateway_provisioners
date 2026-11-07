@@ -10,7 +10,6 @@ import logging
 import os
 import signal
 import socket
-import time
 from typing import Any
 
 from overrides import overrides
@@ -146,11 +145,11 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
 
         kwargs = await super().pre_launch(**kwargs)
 
-        self._initialize_resource_manager(**kwargs)
+        await self._run_blocking(self._initialize_resource_manager, **kwargs)
 
         # checks to see if the queue resource is available
         # if not available, kernel startup is not attempted
-        self._confirm_yarn_queue_availability(**kwargs)
+        await self._confirm_yarn_queue_availability(**kwargs)
 
         return kwargs
 
@@ -176,9 +175,9 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
 
         result = 0
 
-        if self._get_application_id():
-            assert self.application_id is not None
-            state = self._query_app_state_by_id(self.application_id)
+        application_id = await self._run_blocking(self._get_application_id)
+        if application_id:
+            state = await self._run_blocking(self._query_app_state_by_id, application_id)
             if state in YarnProvisioner.initial_states:
                 result = None
 
@@ -203,7 +202,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
     async def kill(self, restart: bool = False) -> None:
         state = None
         result = False
-        if self._get_application_id():
+        if await self._run_blocking(self._get_application_id):
             result, state = await self._shutdown_application()
 
         if result is False:  # We couldn't terminate via Yarn, try remote signal
@@ -218,7 +217,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
     @overrides
     async def terminate(self, restart: bool = False) -> None:
         state = None
-        if self._get_application_id():
+        if await self._run_blocking(self._get_application_id):
             result, state = await self._shutdown_application()
 
         self.log.debug(
@@ -238,7 +237,8 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
 
             if self.local_proc.poll():
                 self.local_proc.kill()
-            self.local_proc.wait()
+            # Unlike the API calls, waiting touches no provisioner state, so it doesn't take the lock.
+            await asyncio.to_thread(self.local_proc.wait)
             self.local_proc = None
 
         # reset application id and assigned host to force new query - handles kernel restarts/interrupts
@@ -268,9 +268,9 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             i += 1
             await self.handle_launch_timeout()
 
-            if self._get_application_id(True):
+            if await self._run_blocking(self._get_application_id, True):
                 # Once we have an application ID, start monitoring state, obtain assigned host and get connection info
-                app_state = self._get_application_state()
+                app_state = await self._run_blocking(self._get_application_state)
 
                 if app_state in YarnProvisioner.final_states:
                     error_message = (
@@ -315,17 +315,18 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
                 f"{self.launch_timeout} seconds.  Check server log for more information."
             )
 
-            if self._get_application_id(True):
-                assert self.application_id is not None
-                if self._query_app_state_by_id(self.application_id) != "RUNNING":
+            application_id = await self._run_blocking(self._get_application_id, True)
+            if application_id:
+                app_state = await self._run_blocking(self._query_app_state_by_id, application_id)
+                if app_state != "RUNNING":
                     reason = (
                         f"YARN resources unavailable after {time_interval} seconds for "
-                        f"app {self.application_id}, launch timeout: {self.launch_timeout}!  "
+                        f"app {application_id}, launch timeout: {self.launch_timeout}!  "
                         "Check YARN configuration."
                     )
                 else:
                     reason = (
-                        f"App {self.application_id} is RUNNING, but waited too long "
+                        f"App {application_id} is RUNNING, but waited too long "
                         f"({self.launch_timeout} secs) to get connection file.  "
                         f"Check YARN logs for more information."
                     )
@@ -336,15 +337,16 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
     async def _shutdown_application(self) -> tuple[bool | None, str]:
         """Shuts down the YARN application, returning None if final state is confirmed, False otherwise."""
         result = False
-        assert self.application_id is not None
-        self._kill_app_by_id(self.application_id)
+        application_id = self.application_id
+        assert application_id is not None
+        await self._run_blocking(self._kill_app_by_id, application_id)
         # Check that state has moved to a final state (most likely KILLED)
         i = 1
-        state = self._query_app_state_by_id(self.application_id)
+        state = await self._run_blocking(self._query_app_state_by_id, application_id)
         assert state is not None
         while state not in YarnProvisioner.final_states and i <= max_poll_attempts:
             await asyncio.sleep(poll_interval)
-            state = self._query_app_state_by_id(self.application_id)
+            state = await self._run_blocking(self._query_app_state_by_id, application_id)
             i += 1
 
         if state in YarnProvisioner.final_states:
@@ -353,7 +355,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         assert state is not None
         return result, state
 
-    def _confirm_yarn_queue_availability(self, **kwargs: dict[str, Any]) -> None:
+    async def _confirm_yarn_queue_availability(self, **kwargs: dict[str, Any]) -> None:
         """
         Submitting jobs to yarn queue and then checking till the jobs are in running state
         will lead to orphan jobs being created in some scenarios.
@@ -392,7 +394,9 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         driver_memory = int(env_dict.get("KERNEL_DRIVER_MEMORY", 0))
 
         if executor_memory * driver_memory > 0:
-            container_memory = self.resource_mgr.cluster_node_container_memory()
+            container_memory = await self._run_blocking(
+                self.resource_mgr.cluster_node_container_memory
+            )
             if max(executor_memory, driver_memory) > container_memory:
                 self.log_and_raise(
                     ValueError("Container Memory not sufficient for a executor/driver allocation")
@@ -409,7 +413,9 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         # become available. start  a timeout process
 
         self.start_time = RemoteProvisionerBase.get_current_time()
-        self.candidate_queue = self.resource_mgr.cluster_scheduler_queue(candidate_queue_name)
+        self.candidate_queue = await self._run_blocking(
+            self.resource_mgr.cluster_scheduler_queue, candidate_queue_name
+        )
 
         if self.candidate_queue is None:
             self.log.warning(
@@ -418,8 +424,8 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             )
             return
 
-        self.candidate_partition = self.resource_mgr.cluster_queue_partition(
-            self.candidate_queue, node_label
+        self.candidate_partition = await self._run_blocking(
+            self.resource_mgr.cluster_queue_partition, self.candidate_queue, node_label
         )
 
         if self.candidate_partition is None:
@@ -434,24 +440,28 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             f"has used capacity <= {partition_availability_threshold}%"
         )
 
-        yarn_available = self.resource_mgr.cluster_scheduler_queue_availability(
-            self.candidate_partition, partition_availability_threshold
+        yarn_available = await self._run_blocking(
+            self.resource_mgr.cluster_scheduler_queue_availability,
+            self.candidate_partition,
+            partition_availability_threshold,
         )
         if not yarn_available:
             self.log.debug(
                 f"Retrying for {self.yarn_resource_check_wait_time} ms since resources are not available"
             )
             while not yarn_available:
-                self._handle_yarn_queue_timeout()
-                yarn_available = self.resource_mgr.cluster_scheduler_queue_availability(
-                    self.candidate_partition, partition_availability_threshold
+                await self._handle_yarn_queue_timeout()
+                yarn_available = await self._run_blocking(
+                    self.resource_mgr.cluster_scheduler_queue_availability,
+                    self.candidate_partition,
+                    partition_availability_threshold,
                 )
 
         # subtracting the total amount of time spent for polling for queue availability
         self.launch_timeout -= RemoteProvisionerBase.get_time_diff(self.start_time)
 
-    def _handle_yarn_queue_timeout(self) -> None:
-        time.sleep(poll_interval)
+    async def _handle_yarn_queue_timeout(self) -> None:
+        await asyncio.sleep(poll_interval)
         time_interval = RemoteProvisionerBase.get_time_diff(
             self.start_time  # type:ignore[arg-type]
         )

@@ -165,7 +165,7 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
             f"DistributedProvisioner.launch_kernel() env: {launch_kwargs.get('env', {})}"
         )
         try:
-            result_pid = self._launch_remote_process(cmd, **launch_kwargs)
+            result_pid = await self._run_blocking(self._launch_remote_process, cmd, **launch_kwargs)
             self.pid = int(result_pid)
         except Exception as e:
             error_message = (
