@@ -119,6 +119,16 @@ version of `0.6.0-dev0`. `make helm-chart` stamps the current package version in
 and `make helm-chart-version` rewrites `Chart.yaml` to match the package (jupyter-releaser runs it
 automatically when it bumps the version for a release).
 
+### Images
+
+- `application.image` defaults to `elyra/gp-jkg:dev`, which is what `make gp-jkg` produces during a
+  development cycle. The Gateway Provisioners release process publishes Python packages but not
+  images, so this default does not follow the chart's `appVersion`. Build the image (see above), push
+  it to a registry your cluster can pull from, and set `application.image` to an immutable tag.
+- `kip.image` defaults to `elyra/kernel-image-puller:dev`. The Kernel Image Puller is built and
+  published by [Jupyter Enterprise Gateway](https://github.com/jupyter-server/enterprise_gateway) and
+  is versioned with Enterprise Gateway releases, so pin it to one of those release tags.
+
 ### Pod Security
 
 PodSecurityPolicy was removed in Kubernetes 1.25 and the chart no longer creates one (the
@@ -152,6 +162,19 @@ to Kubernetes 1.25, the release's stored manifest still references the removed `
 and `helm upgrade` will fail. See Helm's guidance on
 [deprecated Kubernetes APIs](https://helm.sh/docs/topics/kubernetes_apis/) (for example, the
 `helm-mapkubeapis` plugin) to repair the release before upgrading.
+
+### Production Considerations
+
+Some defaults in `values.yaml` favor development and should be reviewed before deploying to production:
+
+- `application.logLevel` and `kip.logLevel` default to `DEBUG`, which is verbose. Consider `INFO`.
+- `kip.criSocket` defaults to `/var/run/docker.sock`, which only exists on nodes running Docker
+  Engine. Kubernetes removed dockershim in 1.24 and most clusters now use containerd, in which case
+  set it to `/run/containerd/containerd.sock`.
+- `kip.server.validate_cert` defaults to `false`. If the Kernel Image Puller reaches the application
+  over `https` (`kip.server.protocol`), enable certificate validation.
+- `application.authToken` is placed in the Deployment's environment in plain text, so anyone who can
+  read the Deployment can read the token.
 
 ### Deploying Kubernetes Applications
 
