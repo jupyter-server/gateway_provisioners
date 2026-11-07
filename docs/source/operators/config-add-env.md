@@ -95,6 +95,15 @@ also be used to influence functionality:
     (GP_RESPONSE_PORT) is found to be in-use.  This value should be
     set to 0 (zero) if no port retries are desired.
 
+  GP_RESPONSE_READ_TIMEOUT=10.0
+    The time (in seconds) the host server will wait for a launched kernel to send
+    its complete connection information over the response port (GP_RESPONSE_PORT)
+    and close the connection.  Each connection is processed independently, so a
+    slow or stalled connection does not delay the responses of other kernels.
+    Connections exceeding this time, or sending more than 64 KiB, are logged and
+    closed.  Should a kernel's response be discarded, its launch will fail once
+    GP_KERNEL_LAUNCH_TIMEOUT expires.
+
   GP_SHARED_NAMESPACE=True
     Kubernetes Provisioners only. This value indicates whether (True) or not (False) all
     kernel pods should reside in the same namespace as the hosting server.  If the server

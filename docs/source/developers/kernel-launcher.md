@@ -50,7 +50,10 @@ structure that also include the launcher's version information and base64-encode
 from the [Python (and R) kernel launchers](https://github.com/jupyter-server/gateway_provisioners/blob/main/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L77-L100).
 
 The payload is then [sent back on a socket](https://github.com/jupyter-server/gateway_provisioners/blob/9de8af8a361aa779f8eb4d10585c0d917bb3731f/gateway_provisioners/kernel-launchers/shared/scripts/server_listener.py#L102-L139)
-identified by the `--response-address` option.
+identified by the `--response-address` option. The server reads the payload until the launcher closes the socket,
+so the launcher must close it once the payload is sent. The server discards payloads larger than 64 KiB, as well as
+those that have not been completely received within `GP_RESPONSE_READ_TIMEOUT` seconds (10 by default) of
+connecting.
 
 ## Transport Encryption of Kernel Channels
 
