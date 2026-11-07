@@ -1,6 +1,7 @@
 .PHONY: clean-test clean-pyc clean-build docs help \
 	gp-spark-base gp-kernel-py gp-kernel-py gp-kernel-spark-py \
-	gp-kernel-r gp-kernel-spark-r gp-kernel-scala
+	gp-kernel-r gp-kernel-spark-r gp-kernel-scala \
+	helm-chart helm-install helm-lint helm-clean helm-chart-version
 .DEFAULT_GOAL := help
 
 help:
@@ -52,7 +53,9 @@ TOREE_LAUNCHER_FILES:=$(shell find gateway_provisioners/kernel-launchers/scala/t
 WHICH_SBT:=which sbt >> /dev/null
 
 HELM_DESIRED_VERSION:=v3.8.2  # Pin the version of helm to use (v3.8.2 is latest as of 4/21/22)
-HELM_CHART_VERSION:=$(shell grep version: gateway_provisioners/app-support/kubernetes/helm/gateway-provisioners/Chart.yaml | sed 's/version: //')
+# The chart is versioned in lockstep with the package. Helm requires SemVer, so convert the PEP 440
+# pre-release separator (e.g., 0.6.0.dev0 -> 0.6.0-dev0, 0.6.0rc1 -> 0.6.0-rc1, 0.6.0 -> 0.6.0).
+HELM_CHART_VERSION:=$(shell echo $(VERSION) | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)\.?(.+)$$/\1-\2/')
 HELM_CHART_PACKAGE:=dist/gateway-provisioners-$(HELM_CHART_VERSION).tgz
 HELM_CHART:=dist/gateway_provisioners_helm-$(VERSION).tar.gz
 HELM_CHART_DIR:=gateway_provisioners/app-support/kubernetes/helm/gateway-provisioners
@@ -146,9 +149,15 @@ helm-lint: helm-clean
 helm-clean: # Remove any .DS_Store files that might wind up in the package
 	$(shell find gateway_provisioners/app-support/kubernetes/helm -type f -name '.DS_Store' -exec rm -f {} \;)
 
+# Run by jupyter-releaser after it bumps the package version (see [tool.jupyter-releaser.hooks]).
+helm-chart-version: # Sync the chart's version and appVersion with gateway_provisioners/_version.py
+	sed -i.bak -E -e 's/^version: .*/version: $(HELM_CHART_VERSION)/' \
+		-e 's/^appVersion: .*/appVersion: "$(VERSION)"/' $(HELM_CHART_DIR)/Chart.yaml
+	rm -f $(HELM_CHART_DIR)/Chart.yaml.bak
+
 $(HELM_CHART): $(HELM_CHART_FILES)
 	make helm-lint
-	helm package $(HELM_CHART_DIR) -d dist
+	helm package $(HELM_CHART_DIR) --version $(HELM_CHART_VERSION) --app-version $(VERSION) -d dist
 	mv $(HELM_CHART_PACKAGE) $(HELM_CHART)  # Rename output to match other assets
 
 BASE_IMAGES := gp-spark-base

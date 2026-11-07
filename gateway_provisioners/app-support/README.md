@@ -109,6 +109,14 @@ the application.
 
 The helm chart requires Kubernetes 1.25 or later (enforced by `kubeVersion` in `Chart.yaml`).
 
+### Chart Versioning
+
+The chart's `version` and `appVersion` track the Gateway Provisioners package version. Because chart
+versions must be [SemVer](https://semver.org/), a package version of `0.6.0.dev0` corresponds to a chart
+version of `0.6.0-dev0`. `make helm-chart` stamps the current package version into the packaged chart,
+and `make helm-chart-version` rewrites `Chart.yaml` to match the package (jupyter-releaser runs it
+automatically when it bumps the version for a release).
+
 ### Pod Security
 
 PodSecurityPolicy was removed in Kubernetes 1.25 and the chart no longer creates one (the

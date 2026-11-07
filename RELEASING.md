@@ -4,6 +4,12 @@
 
 The recommended way to make a release is to use [`jupyter_releaser`](https://jupyter-releaser.readthedocs.io/en/latest/get_started/making_release_from_repo.html).
 
+The Helm chart's `version` and `appVersion` (in `gateway_provisioners/app-support/kubernetes/helm/gateway-provisioners/Chart.yaml`)
+track the package version. jupyter-releaser runs `make helm-chart-version` after it bumps the release version
+(see `[tool.jupyter-releaser.hooks]` in `pyproject.toml`), so the release commit includes the updated chart.
+The post-release bump to the next dev version does not run hooks, so `Chart.yaml` keeps the release version
+until the next release; `make helm-chart` always stamps the current package version into the packaged chart.
+
 ## Manual Release
 
 To create a manual release, perform the following steps:
@@ -22,6 +28,7 @@ git clean -dffx
 echo "Enter new version"
 read new_version
 hatch version ${new_version}
+make helm-chart-version
 git commit -a -m "Release ${new_version}"
 git tag -a ${new_version} -m "Release ${new_version}"
 ```
@@ -50,6 +57,7 @@ make test
 echo "Enter dev version"
 read dev_version
 hatch version ${dev_version}
+make helm-chart-version
 git commit -a -m "Back to dev"
 git push origin $(git branch --show-current)
 ```
