@@ -56,7 +56,7 @@ WHICH_SBT:=which sbt >> /dev/null
 HELM_DESIRED_VERSION:=v3.22.1
 # The chart is versioned in lockstep with the package. Helm requires SemVer, so convert the PEP 440
 # pre-release separator (e.g., 0.6.0.dev0 -> 0.6.0-dev0, 0.6.0rc1 -> 0.6.0-rc1, 0.6.0 -> 0.6.0).
-HELM_CHART_VERSION:=$(shell echo $(VERSION) | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)\.?(.+)$$/\1-\2/')
+HELM_CHART_VERSION:=$(shell echo $(VERSION) | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)\.?([^0-9.].*)$$/\1-\2/')
 HELM_CHART_PACKAGE:=dist/gateway-provisioners-$(HELM_CHART_VERSION).tgz
 HELM_CHART:=dist/gateway_provisioners_helm-$(VERSION).tar.gz
 HELM_CHART_DIR:=gateway_provisioners/app-support/kubernetes/helm/gateway-provisioners
