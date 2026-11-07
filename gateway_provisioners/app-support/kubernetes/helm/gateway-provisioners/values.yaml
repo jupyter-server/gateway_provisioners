@@ -158,6 +158,10 @@ ingress:
   #       - myhost.example.com
 
 # Kernel Image Puller (daemonset)
+# The KIP mounts the node's container runtime socket via a hostPath volume, so its pods are only
+# admitted by namespaces whose Pod Security Admission level is `privileged`. Set kip.enabled to
+# false if the release namespace enforces `baseline` or `restricted`. See the Application Support
+# README for details.
 kip:
   enabled: true
   serviceAccountName: "kernel-image-puller-sa"
@@ -166,13 +170,6 @@ kip:
     protocol: http
     port: 8888
     validate_cert: false
-  podSecurityPolicy:
-    # Note: PodSecurityPolicy is deprecated as of 1.21 and removed in 1.25.
-    # Operators deploying into k8s clusters >= 1.25 that require PSP equivalency will need to
-    # look into alternatives like Gatekeeper (https://github.com/open-policy-agent/gatekeeper).
-    # Creation of PSP in KIP is disabled by default.
-    create: false
-    annotations: {}
   # Log output level.
   logLevel: DEBUG
   # Kernel Image Puller image name and tag to use.

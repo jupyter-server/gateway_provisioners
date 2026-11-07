@@ -265,6 +265,30 @@ rules:
     verbs: ["list"]
 ```
 
+## Pod Security Admission
+
+PodSecurityPolicy was removed in Kubernetes 1.25. Clusters now restrict pods with
+[Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/), which
+applies a [Pod Security Standard](https://kubernetes.io/docs/concepts/security/pod-security-standards/)
+(`privileged`, `baseline`, or `restricted`) according to labels on each namespace, for example:
+
+```bash
+kubectl label namespace <namespace> pod-security.kubernetes.io/enforce=baseline
+```
+
+Kernel pods are admitted according to the labels of the namespace they are launched into:
+
+- The default `kernel-pod.yaml.j2` template satisfies the `baseline` standard (provided clients don't
+  request volumes that `baseline` prohibits, such as `hostPath`), but not `restricted`. Customize the
+  template's `securityContext` if kernels must run in `restricted` namespaces.
+- Namespaces that Gateway Provisioners creates for kernels ([Automatic Namespace](#automatic-namespace))
+  carry no Pod Security labels, so the cluster's default Pod Security admission configuration applies
+  to them.
+
+See the Pod Security section of our
+[_Application Support_ page](https://github.com/jupyter-server/gateway_provisioners/tree/main/gateway_provisioners/app-support/README.md)
+for the requirements of the pods deployed by the example helm chart.
+
 ## Unconditional Volume Mounts
 
 Unconditional volume mounts can be added in the `kernel-pod.yaml.j2` template. An example of these unconditional

@@ -26,4 +26,6 @@ type: application
 
 sources:
   - https://github.com/jupyter-server/gateway_provisioners
-kubeVersion: ">=1.18.0-0"
+# 1.25 is the first release without PodSecurityPolicy (replaced by Pod Security Admission, GA in 1.25).
+# The "-0" suffix also matches provider builds whose versions carry a pre-release suffix (e.g., EKS, GKE).
+kubeVersion: ">=1.25.0-0"
