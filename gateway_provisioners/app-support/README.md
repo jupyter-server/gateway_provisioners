@@ -107,7 +107,9 @@ the application.
 
 ### Requirements
 
-The helm chart requires Kubernetes 1.25 or later (enforced by `kubeVersion` in `Chart.yaml`).
+The helm chart requires Kubernetes 1.25 or later (enforced by `kubeVersion` in `Chart.yaml`). It is
+linted and packaged with Helm 3; `make helm-install` installs the Helm release pinned by
+`HELM_DESIRED_VERSION` in the `Makefile`.
 
 ### Chart Versioning
 

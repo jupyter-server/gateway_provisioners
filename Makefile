@@ -52,7 +52,8 @@ TOREE_LAUNCHER_FILES:=$(shell find gateway_provisioners/kernel-launchers/scala/t
 
 WHICH_SBT:=which sbt >> /dev/null
 
-HELM_DESIRED_VERSION:=v3.8.2  # Pin the version of helm to use (v3.8.2 is latest as of 4/21/22)
+# Pin the version of helm to install via `make helm-install` (stay on Helm 3 until the chart is validated with Helm 4)
+HELM_DESIRED_VERSION:=v3.22.1
 # The chart is versioned in lockstep with the package. Helm requires SemVer, so convert the PEP 440
 # pre-release separator (e.g., 0.6.0.dev0 -> 0.6.0-dev0, 0.6.0rc1 -> 0.6.0-rc1, 0.6.0 -> 0.6.0).
 HELM_CHART_VERSION:=$(shell echo $(VERSION) | sed -E 's/^([0-9]+\.[0-9]+\.[0-9]+)\.?(.+)$$/\1-\2/')
@@ -137,11 +138,12 @@ helm-chart: helm-install $(HELM_CHART) ## Make helm chart distribution
 
 helm-install: $(HELM_INSTALL_DIR)/helm
 
+# The installer script is fetched from the same tag as the helm release it installs.
 $(HELM_INSTALL_DIR)/helm: # Download and install helm
-	curl https://raw.githubusercontent.com/helm/helm/master/scripts/get-helm-3 -o /tmp/get_helm.sh \
-	&& chmod +x /tmp/get_helm.sh \
-	&& DESIRED_VERSION=$(HELM_DESIRED_VERSION) /tmp/get_helm.sh \
-	&& rm -f /tmp/get_helm.sh
+	script=$$(mktemp) \
+	&& curl -fsSL https://raw.githubusercontent.com/helm/helm/$(HELM_DESIRED_VERSION)/scripts/get-helm-3 -o $$script \
+	&& HELM_INSTALL_DIR=$(HELM_INSTALL_DIR) DESIRED_VERSION=$(HELM_DESIRED_VERSION) bash $$script \
+	&& rm -f $$script
 
 helm-lint: helm-clean
 	helm lint $(HELM_CHART_DIR)
