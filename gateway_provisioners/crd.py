@@ -10,7 +10,7 @@ from typing import Any
 from overrides import overrides
 
 try:
-    from kubernetes import client  # type:ignore[import-untyped]
+    from kubernetes import client
 except ImportError:
     logging.warning(
         "At least one of the extra packages 'kubernetes' or 'jinja2' are not installed in "
@@ -71,6 +71,12 @@ class CustomResourceProvisioner(KubernetesProvisioner):
         application_state = ""
 
         with suppress(Exception):
+            # group, version and plural are set by subclasses, the others by pre_launch()
+            assert self.group is not None
+            assert self.version is not None
+            assert self.kernel_namespace is not None
+            assert self.plural is not None
+            assert self.kernel_resource_name is not None
             custom_resource = client.CustomObjectsApi().get_namespaced_custom_object(
                 self.group,
                 self.version,
@@ -79,7 +85,8 @@ class CustomResourceProvisioner(KubernetesProvisioner):
                 self.kernel_resource_name,
             )
 
-            if custom_resource:
+            # Custom objects are returned as the decoded JSON dictionary
+            if isinstance(custom_resource, dict) and custom_resource:
                 application_state = custom_resource["status"]["applicationState"]["state"].lower()
 
                 if application_state in self.get_error_states():
@@ -113,6 +120,12 @@ class CustomResourceProvisioner(KubernetesProvisioner):
 
         Note: the caller is responsible for handling exceptions.
         """
+        # group, version and plural are set by subclasses, the others by pre_launch()
+        assert self.group is not None
+        assert self.version is not None
+        assert self.kernel_namespace is not None
+        assert self.plural is not None
+        assert self.kernel_resource_name is not None
         delete_status = client.CustomObjectsApi().delete_namespaced_custom_object(
             self.group,
             self.version,
@@ -123,7 +136,11 @@ class CustomResourceProvisioner(KubernetesProvisioner):
             propagation_policy="Background",
         )
 
-        result = delete_status and delete_status.get("status", None) in termination_stati
+        # Custom objects are returned as the decoded JSON dictionary
+        result = (
+            isinstance(delete_status, dict)
+            and delete_status.get("status", None) in termination_stati
+        )
 
         return result
 

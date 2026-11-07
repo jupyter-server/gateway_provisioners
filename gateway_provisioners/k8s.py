@@ -12,8 +12,8 @@ from overrides import overrides
 
 try:
     import jinja2  # noqa - used by launcher so check presence here
-    from kubernetes import client, config  # type:ignore[import-untyped]
-    from kubernetes.client.rest import ApiException  # type:ignore[import-untyped]
+    from kubernetes import client, config
+    from kubernetes.client.rest import ApiException
 except ImportError:
     logging.warning(
         "At least one of the extra packages 'kubernetes' or 'jinja2' are not installed in "
@@ -120,13 +120,17 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         # If the phase indicates Running, the pod's IP is used for the assigned_ip.
         pod_status = ""
         kernel_label_selector = f"kernel_id={self.kernel_id},component=kernel"
-        ret = client.CoreV1Api().list_namespaced_pod(
+        assert self.kernel_namespace is not None  # set by pre_launch() or load_provisioner_info()
+        # Typed as optional to retain the defensive check for a missing response
+        ret: client.V1PodList | None = client.CoreV1Api().list_namespaced_pod(
             namespace=self.kernel_namespace, label_selector=kernel_label_selector
         )
         if ret and ret.items:
             pod_info = ret.items[0]
+            assert pod_info.metadata is not None  # always populated for API-returned pods
             self.container_name = pod_info.metadata.name
             if pod_info.status:
+                assert pod_info.status.phase is not None  # always populated for API-returned pods
                 pod_status = pod_info.status.phase.lower()
                 if pod_status == "running" and not self.assigned_host:
                     # Pod is running, capture IP
@@ -157,7 +161,10 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         # Deleting a Pod will return a v1.Pod if found and its status will be a PodStatus containing
         # a phase string property
         # https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.21/#podstatus-v1-core
-        v1_pod = client.CoreV1Api().delete_namespaced_pod(
+        assert self.kernel_namespace is not None  # set by pre_launch() or load_provisioner_info()
+        assert self.container_name is not None  # callers only terminate named containers
+        # Typed as optional to retain the defensive check for a missing response
+        v1_pod: client.V1Pod | None = client.CoreV1Api().delete_namespaced_pod(
             namespace=self.kernel_namespace, body=body, name=self.container_name
         )
         status = None
@@ -205,6 +212,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
                 body = client.V1DeleteOptions(
                     grace_period_seconds=0, propagation_policy="Background"
                 )
+                assert self.kernel_namespace is not None  # implied by delete_kernel_namespace
                 v1_status = client.CoreV1Api().delete_namespace(
                     name=self.kernel_namespace, body=body
                 )
@@ -311,6 +319,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         # delete the RoleBinding when deleting the namespace (no need to record that via another member variable).
 
         namespace = self.kernel_pod_name
+        assert namespace is not None  # set by pre_launch() before the namespace is determined
 
         # create the namespace ...
         labels = {"app": app_name, "component": "kernel", "kernel_id": self.kernel_id}
@@ -339,10 +348,10 @@ class KubernetesProvisioner(ContainerProvisionerBase):
                         f"Error occurred creating role binding for namespace '{namespace}': {err}"
                     )
                     # delete the namespace since we'll be using the EG namespace...
-                    body = client.V1DeleteOptions(
+                    delete_options = client.V1DeleteOptions(
                         grace_period_seconds=0, propagation_policy="Background"
                     )
-                    client.CoreV1Api().delete_namespace(name=namespace, body=body)
+                    client.CoreV1Api().delete_namespace(name=namespace, body=delete_options)
                     self.log.warning(f"Deleted kernel namespace: {namespace}")
                 else:
                     reason = f"Error occurred creating namespace '{namespace}': {err}"
