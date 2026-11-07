@@ -1,6 +1,7 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Kernel managers that operate against a remote process."""
+
 import asyncio
 import errno
 import getpass
@@ -729,9 +730,8 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
 
         self._validate_transport_encryption_response(connect_info)
 
-        connect_info[
-            "ip"
-        ] = self.assigned_ip  # Set connection to IP address of system where the kernel was launched
+        # Set connection to IP address of system where the kernel was launched
+        connect_info["ip"] = self.assigned_ip
 
         if tunneling_enabled is True:
             # Capture the current(tunneled) connect_info relative to the IP and ports (including the
