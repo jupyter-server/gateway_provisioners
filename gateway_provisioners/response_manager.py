@@ -27,6 +27,11 @@ desired_response_port = int(os.getenv("GP_RESPONSE_PORT", 8877))
 response_port_retries = int(os.getenv("GP_RESPONSE_PORT_RETRIES", 10))
 response_addr_any = bool(os.getenv("GP_RESPONSE_ADDR_ANY", "False").lower() == "true")
 
+# The time (in seconds) a kernel launcher has, once connected, to send its complete response.
+# Launchers send a few KB immediately after connecting, so this leaves ample room for slow
+# networks while ensuring a stalled connection doesn't hold its resources for long.
+response_read_timeout = float(os.getenv("GP_RESPONSE_READ_TIMEOUT", "10.0"))
+
 connection_interval = (
     poll_interval / 100.0
 )  # already polling, so make connection timeout a fraction of outer poll
@@ -72,6 +77,10 @@ local_ip = _get_local_ip()
 random.seed()
 
 
+class PayloadTooLargeError(Exception):
+    """Raised when a kernel launcher's response exceeds ResponseManager.MAX_PAYLOAD_SIZE."""
+
+
 class Response(Event):
     """Combines the event behavior with the kernel launch response."""
 
@@ -100,7 +109,8 @@ class ResponseManager(SingletonConfigurable):
     used to decrypt the AES key from the response - which it then uses to decrypt
     the connection information.
     2. Creates a single socket based on the configuration settings that is listened on
-    via a periodic callback.
+    via a periodic callback, which hands each accepted connection to its own task so that
+    a slow or stalled connection cannot delay the processing of others.
     3. On receipt, it decrypts the response (key then connection info) and posts the
     response payload to a map identified by the kernel_id embedded in the response.
     4. Provides a wait mechanism for callers to poll to get their connection info
@@ -108,6 +118,9 @@ class ResponseManager(SingletonConfigurable):
     """
 
     KEY_SIZE = 1024  # Can be small since its' only used to {en,de}crypt the AES key.
+    # Responses are around 2 KB, so this leaves ample headroom while bounding the memory
+    # a misbehaving client can consume.  (It matches asyncio's default stream buffer limit.)
+    MAX_PAYLOAD_SIZE = 64 * 1024
     _instance = None
 
     def __init__(self, **kwargs: Any):
@@ -116,6 +129,9 @@ class ResponseManager(SingletonConfigurable):
         self._response_port = None
         self._response_socket = None
         self._connection_processor = None
+        # Tasks processing accepted connections.  Holding them prevents their garbage
+        # collection mid-flight and allows their cancellation on stop.
+        self._connection_tasks: set[asyncio.Task] = set()
 
         # Create encryption keys...
         self._private_key = RSA.generate(ResponseManager.KEY_SIZE)
@@ -210,10 +226,17 @@ class ResponseManager(SingletonConfigurable):
             self._connection_processor.start()
 
     def stop_response_manager(self) -> None:
-        """Stops the connection processor and closes the response socket."""
+        """Stops the connection processor and closes the response socket.
+
+        In-flight connections are cancelled; their tasks close them the next time the event
+        loop runs.
+        """
         if self._connection_processor is not None:
             self._connection_processor.stop()
             self._connection_processor = None
+
+        for task in list(self._connection_tasks):
+            task.cancel()
 
         if self._response_socket is not None:
             try:
@@ -223,33 +246,69 @@ class ResponseManager(SingletonConfigurable):
             self._response_socket = None
 
     async def _process_connections(self) -> None:
-        """Checks the socket for data, if found, decrypts the payload and posts to 'wait map'."""
-        loop = asyncio.get_event_loop()
-        data = ""
-        conn = None
+        """Accepts a pending connection, if any, and processes it in a task of its own."""
+        loop = asyncio.get_running_loop()
         try:
             assert self._response_socket is not None
-            conn, _addr = await loop.sock_accept(self._response_socket)
-            while True:
-                buffer = await loop.sock_recv(conn, 1024)
-                if not buffer:  # send is complete, process payload
-                    self.log.debug(f"Received payload '{data}'")
-                    payload = self._decode_payload(data)
-                    self.log.debug(f"Decrypted payload '{redact_secrets(payload)}'")
-                    self._post_connection(payload)
-                    break
-                data = data + buffer.decode(
-                    encoding="utf-8"
-                )  # append what we received until we get no more...
+            conn, addr = await loop.sock_accept(self._response_socket)
         except TimeoutError:
-            # No connection is pending; the periodic callback checks again on its next run.
-            pass
+            return  # No pending connection
+        except OSError as ose:
+            self.log.error(f"Failure occurred accepting connection: {ose}")
+            return
+
+        task = loop.create_task(self._handle_connection(conn, addr))
+        self._connection_tasks.add(task)
+        task.add_done_callback(self._connection_tasks.discard)
+
+    async def _handle_connection(self, conn: socket, addr: tuple[str, int]) -> None:
+        """Receives a kernel launcher's response, decrypts it and posts it to the 'wait map'.
+
+        The connection is closed upon return, including when the response is not completely
+        received within GP_RESPONSE_READ_TIMEOUT seconds or exceeds MAX_PAYLOAD_SIZE bytes.
+        """
+        peer = f"{addr[0]}:{addr[1]}"
+        try:
+            data = await asyncio.wait_for(self._receive_payload(conn), response_read_timeout)
+            if not data:
+                self.log.debug(f"Connection from {peer} closed without sending a response.")
+                return
+            self.log.debug(f"Received {len(data)}-byte payload from {peer}.")
+            payload = self._decode_payload(data)
+            self.log.debug(f"Decrypted payload '{redact_secrets(payload)}'")
+            self._post_connection(payload)
+        except TimeoutError:
+            self.log.warning(
+                f"Timed out after {response_read_timeout} seconds receiving the response "
+                f"from {peer} - closing the connection."
+            )
+        except PayloadTooLargeError:
+            self.log.warning(
+                f"Response from {peer} exceeded {ResponseManager.MAX_PAYLOAD_SIZE} bytes "
+                "- closing the connection."
+            )
         except Exception as ex:
-            self.log.error(f"Failure occurred processing connection: {ex}")
-        if conn:
+            # Any client can connect, so decrypting what it sends can fail in many ways (base64,
+            # JSON, crypto, unexpected structure).  Log those failures here rather than leaving
+            # them unretrieved in the task.
+            self.log.error(f"Failure occurred processing connection from {peer}: {ex}")
+        finally:
             conn.close()
 
-    def _decode_payload(self, data) -> dict:
+    async def _receive_payload(self, conn: socket) -> bytes:
+        """Reads from the connection until the kernel launcher closes its end.
+
+        Raises PayloadTooLargeError once more than MAX_PAYLOAD_SIZE bytes have been received.
+        """
+        loop = asyncio.get_running_loop()
+        data = bytearray()
+        while chunk := await loop.sock_recv(conn, 4096):
+            data += chunk
+            if len(data) > ResponseManager.MAX_PAYLOAD_SIZE:
+                raise PayloadTooLargeError
+        return bytes(data)
+
+    def _decode_payload(self, data: bytes) -> dict:
         """
         Decodes the payload.
 
