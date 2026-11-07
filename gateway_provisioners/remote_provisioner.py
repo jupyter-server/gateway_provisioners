@@ -201,9 +201,8 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
                 break
         else:
             self.log.warning(
-                "Wait timeout of {} seconds exhausted. Continuing...".format(
-                    max_poll_attempts * poll_interval
-                )
+                f"Wait timeout of {max_poll_attempts * poll_interval} seconds exhausted. "
+                "Continuing..."
             )
         return poll_val
 
@@ -1012,17 +1011,9 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
             ssh_server = server + ":" + str(port)
             return tunnel.paramiko_tunnel(local_port, remote_port, ssh_server, remote_ip, key)
         else:
-            ssh = "ssh -p %s -o ServerAliveInterval=%i" % (
-                port,
-                max_keep_alive_interval,
-            )
-            cmd = "%s -S none -L 127.0.0.1:%i:%s:%i %s" % (
-                ssh,
-                local_port,
-                remote_ip,
-                remote_port,
-                server,
-            )
+            # Ports and the keep-alive interval must be integers; ":d" rejects anything else
+            ssh = f"ssh -p {port} -o ServerAliveInterval={max_keep_alive_interval:d}"
+            cmd = f"{ssh} -S none -L 127.0.0.1:{local_port:d}:{remote_ip}:{remote_port:d} {server}"
             env = os.environ.copy()
             env.pop("SSH_ASKPASS", None)
             return pexpect.spawn(cmd, env=cast(os._Environ, env))

@@ -10,7 +10,7 @@ import os
 import random
 import re
 from asyncio import Event
-from socket import AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET, socket, timeout
+from socket import AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET, socket
 from typing import Any
 
 from Cryptodome.Cipher import AES, PKCS1_v1_5
@@ -229,7 +229,7 @@ class ResponseManager(SingletonConfigurable):
         conn = None
         try:
             assert self._response_socket is not None
-            conn, addr = await loop.sock_accept(self._response_socket)
+            conn, _addr = await loop.sock_accept(self._response_socket)
             while True:
                 buffer = await loop.sock_recv(conn, 1024)
                 if not buffer:  # send is complete, process payload
@@ -241,7 +241,7 @@ class ResponseManager(SingletonConfigurable):
                 data = data + buffer.decode(
                     encoding="utf-8"
                 )  # append what we received until we get no more...
-        except timeout:
+        except TimeoutError:
             pass
         except Exception as ex:
             self.log.error(f"Failure occurred processing connection: {ex}")

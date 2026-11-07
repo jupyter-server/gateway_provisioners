@@ -92,7 +92,7 @@ the `kernel.json` file's `argv` stanza. Gateway Provisioner's Python launcher wi
 a parameter to `IPKernelApp.initialize()`.
 
 ````{tip}
-When generating kernel specfiications via the CLI tooling, this option is available via the
+When generating kernel specifications via the CLI tooling, this option is available via the
 `--ipykernel-subclass-name` parameter.
 
 For example, to generate the equivalent of the JSON below, enter:

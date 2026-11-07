@@ -246,7 +246,7 @@ class ServerListener:
         data: str = ""
         request_info: Optional[dict] = None
         try:
-            conn, addr = self.comm_socket.accept()
+            conn, _addr = self.comm_socket.accept()
             while True:
                 buffer: bytes = conn.recv(1024)
                 if buffer == b"":  # send is complete
