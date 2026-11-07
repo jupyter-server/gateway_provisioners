@@ -44,7 +44,7 @@ with a custom organization and tag of the form `my-custom-org/gp-spark-base:my-c
 make DOCKER_ORG=my-custom-org TAG=my-custom-tag gp-spark-base
 ```
 
-Other arguments that can be specified are `SPARK_VERSION` (default is `3.3.1`), `HADOOP_VERSION` (`2`), `SCALA_VERSION`
+Other arguments that can be specified are `SPARK_VERSION` (default is `3.4.4`), `HADOOP_VERSION` (`3`), `SCALA_VERSION`
 (`2.12`), `OPENJDK_VERSION` (`17`), and `SPARK_CHECKSUM` (depends on `SPARK_VERSION`).
 
 ```{tip}

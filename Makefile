@@ -35,9 +35,9 @@ NO_CACHE?=
 # All ARGs following SPARK_VERSION have values that must correspond to
 # that version of Spark.  See https://spark.apache.org/downloads.html
 # (OPENJDK_VERSION can be any of 8, 11, 17)
-SPARK_VERSION?=3.3.1
-SPARK_CHECKSUM?=817f89d83ffacda1c2075d28d4a649bc007a0dd4b8edeac4b2c5e0365efc34fafceff0afedc809faa0e687c6aabf0ff6dbcda329e9045692d700c63018d93171
-HADOOP_VERSION?=2
+SPARK_VERSION?=3.4.4
+SPARK_CHECKSUM?=882a33ce116390a458b76e5e3ddc0d9cb8ac3402d01425e70653032f137df82f52f6a21f9789cd70f22f8c7225bb752a675ece8279f679c2571e8d4055bdadeb
+HADOOP_VERSION?=3
 SCALA_VERSION?=2.12
 OPENJDK_VERSION?=17
 
