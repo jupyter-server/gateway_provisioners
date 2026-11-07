@@ -8,7 +8,8 @@ KERNEL_SPARK_CONTEXT_INIT_MODE=${KERNEL_SPARK_CONTEXT_INIT_MODE:-none}
 KERNEL_CLASS_NAME=${KERNEL_CLASS_NAME}
 TRANSPORT_ENCRYPTION=${TRANSPORT_ENCRYPTION:-}
 
-echo $0 env: `env`
+# Print only the names - values commonly carry credentials (cloud keys, tokens, passwords).
+echo "$0 env: $(compgen -e | sort | tr '\n' ' ')"
 
 launch_python_kernel() {
   # Launch the python kernel launcher - which embeds the IPython kernel and listens for interrupts
