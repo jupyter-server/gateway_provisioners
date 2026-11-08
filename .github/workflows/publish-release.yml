@@ -19,7 +19,12 @@ jobs:
     permissions:
       id-token: write
     steps:
-      # required to build Scala (Toree) kernel launcher jar
+      # required to build Scala (Toree) kernel launcher jar; pin the JDK since the runner's
+      # default can be newer than the Scala 2.12 compiler supports (keep in sync with check_release)
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 17
       - uses: sbt/setup-sbt@c7d2d6258b4bd0d3ec5129e6b3453199d3c79729 # v1.5.8
 
       - uses: jupyterlab/maintainer-tools/.github/actions/base-setup@v1
