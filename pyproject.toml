@@ -157,9 +157,18 @@ fmt = [
 
 [tool.hatch.envs.typing]
 features = ["test"]
-dependencies = ["mypy>=1.5.1"]
+dependencies = [
+  "mypy>=2.4",
+  # Stubs for dependencies that don't ship inline type information.  Listed
+  # explicitly (rather than using --install-types) so runs are reproducible.
+  "types-docker",
+  "types-paramiko",
+  "types-pexpect",
+  # PyYAML is used by the kubernetes and operator kernel launchers
+  "types-PyYAML",
+]
 [tool.hatch.envs.typing.scripts]
-test = "mypy --install-types --non-interactive {args}"
+test = "mypy {args}"
 
 [tool.jupyter-releaser.hooks]
 before-build-python = ["pip install -e .[dev]", "make clean lint dist install"]
