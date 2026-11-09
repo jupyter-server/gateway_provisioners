@@ -104,7 +104,8 @@ def initialize_namespace(namespace: dict, cluster_type: str = "spark") -> None:
         cluster = dask_yarn.YarnCluster.from_current()
         namespace.update({"cluster": cluster})
     elif cluster_type != "none":
-        raise RuntimeError("Unknown cluster_type: %r" % cluster_type)
+        err_msg = f"Unknown cluster_type: {cluster_type!r}"
+        raise RuntimeError(err_msg)
 
 
 class WaitingForSparkSessionToBeInitialized:

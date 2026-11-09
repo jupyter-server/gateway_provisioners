@@ -347,7 +347,7 @@ export GP_LOAD_BALANCING_ALGORITHM=least-connection
 
 A kernel's start request can specify a specific remote host on which to run by specifying that
 host in the `KERNEL_REMOTE_HOST` environment variable within the request's body. When specified,
-the configured load-balancing algorithm will be by-passed and the kernel will be started on the
+the configured load-balancing algorithm will be bypassed and the kernel will be started on the
 specified host.
 
 ## Spark Support

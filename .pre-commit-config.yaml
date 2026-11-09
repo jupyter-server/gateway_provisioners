@@ -1,17 +1,17 @@
 ci:
   autoupdate_schedule: monthly
   autoupdate_commit_msg: "chore: update pre-commit hooks"
+  autofix_commit_msg: "style: pre-commit fixes"
 
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.4.0
+    rev: v6.0.0
     hooks:
       - id: check-case-conflict
       - id: check-ast
       - id: check-docstring-first
       - id: check-executables-have-shebangs
       - id: check-added-large-files
-      - id: check-case-conflict
       - id: check-merge-conflict
       - id: check-json
       - id: check-toml
@@ -22,37 +22,27 @@ repos:
       - id: trailing-whitespace
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.26.3
+    rev: 0.39.0
     hooks:
       - id: check-github-workflows
 
-  - repo: https://github.com/executablebooks/mdformat
-    rev: 0.7.22
+  - repo: https://github.com/hukkin/mdformat
+    rev: 1.0.0
     hooks:
       - id: mdformat
         additional_dependencies:
           [mdformat-gfm, mdformat-frontmatter, mdformat-footnote]
 
-  - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: "v3.0.2"
+  # pre-commit/mirrors-prettier is archived; this is the maintained fork
+  - repo: https://github.com/rbubley/mirrors-prettier
+    rev: "v3.9.10"
     hooks:
       - id: prettier
         types_or: [yaml, html, json]
         exclude: gateway_provisioners/app-support/kubernetes/.*.yaml
 
-  - repo: https://github.com/adamchainz/blacken-docs
-    rev: "1.16.0"
-    hooks:
-      - id: blacken-docs
-        additional_dependencies: [black==23.7.0]
-
-  - repo: https://github.com/psf/black-pre-commit-mirror
-    rev: 23.9.1
-    hooks:
-      - id: black
-
   - repo: https://github.com/codespell-project/codespell
-    rev: "v2.2.5"
+    rev: "v2.4.3"
     hooks:
       - id: codespell
         args: ["-L", "sur,nd"]
@@ -65,13 +55,16 @@ repos:
       - id: rst-inline-touching-normal
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.0.287
+    rev: v0.17.4
     hooks:
-      - id: ruff
+      # Lint fixes go first since they can leave code that needs reformatting
+      - id: ruff-check
         args: ["--fix", "--show-fixes"]
+      # Also formats Python code blocks in Markdown files, replacing blacken-docs
+      - id: ruff-format
 
   - repo: https://github.com/scientific-python/cookie
-    rev: "2023.08.23"
+    rev: "2026.08.14"
     hooks:
       - id: sp-repo-review
         additional_dependencies: ["repo-review[cli]"]

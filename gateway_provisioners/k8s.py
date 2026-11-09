@@ -341,7 +341,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
             if isinstance(err, ApiException) and err.status == 409 and self.restarting:
                 self.restarting = False
                 self.delete_kernel_namespace = True  # still mark for delete
-                self.log.info(f"Re-using kernel namespace: {namespace}")
+                self.log.info(f"Reusing kernel namespace: {namespace}")
             else:
                 if self.delete_kernel_namespace:
                     reason = (
@@ -362,7 +362,7 @@ class KubernetesProvisioner(ContainerProvisionerBase):
     def _create_role_binding(self, namespace, service_account_name):
         # Creates RoleBinding instance for the given namespace.  The role used will be the ClusterRole named by
         # EG_KERNEL_CLUSTER_ROLE.
-        # Note that roles referenced in RoleBindings are scoped to the namespace so re-using the cluster role prevents
+        # Note that roles referenced in RoleBindings are scoped to the namespace so reusing the cluster role prevents
         # the need for creating a new role with each kernel.
         # The ClusterRole will be bound to the kernel service user identified by KERNEL_SERVICE_ACCOUNT_NAME then
         # EG_DEFAULT_KERNEL_SERVICE_ACCOUNT_NAME, respectively.

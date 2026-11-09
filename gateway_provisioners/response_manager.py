@@ -10,7 +10,7 @@ import os
 import random
 import re
 from asyncio import Event
-from socket import AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET, socket, timeout
+from socket import AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET, socket
 from typing import Any
 
 from Cryptodome.Cipher import AES, PKCS1_v1_5
@@ -229,7 +229,7 @@ class ResponseManager(SingletonConfigurable):
         conn = None
         try:
             assert self._response_socket is not None
-            conn, addr = await loop.sock_accept(self._response_socket)
+            conn, _addr = await loop.sock_accept(self._response_socket)
             while True:
                 buffer = await loop.sock_recv(conn, 1024)
                 if not buffer:  # send is complete, process payload
@@ -241,7 +241,8 @@ class ResponseManager(SingletonConfigurable):
                 data = data + buffer.decode(
                     encoding="utf-8"
                 )  # append what we received until we get no more...
-        except timeout:
+        except TimeoutError:
+            # No connection is pending; the periodic callback checks again on its next run.
             pass
         except Exception as ex:
             self.log.error(f"Failure occurred processing connection: {ex}")
@@ -291,7 +292,8 @@ class ResponseManager(SingletonConfigurable):
                 cipher = AES.new(aes_key, AES.MODE_ECB)
                 encrypted_connection_info = base64.b64decode(payload["conn_info"].encode())
                 connection_info_str = unpad(
-                    cipher.decrypt(encrypted_connection_info), 16  # type:ignore[call-arg]
+                    cipher.decrypt(encrypted_connection_info),  # type:ignore[call-arg]
+                    16,
                 ).decode()
             else:
                 err_msg = f"Unexpected version indicator received: {version}!"

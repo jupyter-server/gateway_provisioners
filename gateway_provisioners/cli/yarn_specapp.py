@@ -172,9 +172,8 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         if self.dask:
             if self.language != PYTHON:
                 self.log.warning(
-                    "Dask support only works with Python, changing language from {} to Python.".format(
-                        entered_language
-                    )
+                    f"Dask support only works with Python, changing language from "
+                    f"{entered_language} to Python."
                 )
                 self.language = PYTHON
             # if kernel and display names are still defaulted, silently change to dask defaults

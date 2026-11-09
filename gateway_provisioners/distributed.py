@@ -1,6 +1,7 @@
 # Copyright (c) Jupyter Development Team.
 # Distributed under the terms of the Modified BSD License.
 """Code related to managing kernels running in YARN clusters."""
+
 from __future__ import annotations
 
 import asyncio
@@ -64,7 +65,7 @@ class TrackKernelOnHost:
 
     def init_host_kernels(self, hosts) -> None:
         if len(self._host_kernels) == 0:
-            self._host_kernels.update({key: 0 for key in hosts})
+            self._host_kernels.update(dict.fromkeys(hosts, 0))
 
 
 class DistributedProvisioner(RemoteProvisionerBase):
@@ -222,9 +223,8 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
             await self.handle_launch_timeout()
 
             self.log.debug(
-                "{}: Waiting to connect.  Host: '{}', KernelID: '{}'".format(
-                    i, self.assigned_host, self.kernel_id
-                )
+                f"{i}: Waiting to connect.  Host: '{self.assigned_host}', "
+                f"KernelID: '{self.kernel_id}'"
             )
 
             if self.assigned_host != "":
@@ -343,7 +343,9 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
             host_ip = gethostbyname(host)
             if self.use_gss:
                 self.log.debug("Connecting to remote host via GSS.")
-                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                # Unknown host keys are accepted for GSS-API connections.  This is long-standing
+                # behavior, so S507 is suppressed here until the policy is revisited.
+                ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())  # noqa: S507
                 ssh.connect(host_ip, port=ssh_port, gss_auth=True)  # type:ignore[call-arg]
             else:
                 ssh.set_missing_host_key_policy(paramiko.RejectPolicy())
@@ -395,7 +397,7 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
         if not ssh:
             return
         try:
-            stdin, stdout, stderr = ssh.exec_command(command, timeout=30)
+            _stdin, stdout, stderr = ssh.exec_command(command, timeout=30)
             lines = stdout.readlines()
             if len(lines) == 0:  # if nothing in stdout, return stderr
                 lines = stderr.readlines()
