@@ -356,3 +356,176 @@ async def test_failed_call_releases_lock(docker_provisioner, monkeypatch):
 
     monkeypatch.setattr(docker_provisioner, "get_container_status", lambda iteration: "running")
     assert await asyncio.wait_for(docker_provisioner.poll(), timeout=PROBE_TIMEOUT) is None
+
+
+# The longest the event loop may stall while a cancelled call waits for its worker thread.
+MAX_STALL = 0.1
+
+
+class BlockingCall:
+    """Stands in for a blocking call that runs in its worker thread until released.
+
+    This lets a test cancel the caller while the call is still in progress.
+    """
+
+    def __init__(self, result=None):
+        self.result = result
+        self.started = threading.Event()
+        self.release = threading.Event()
+
+    def __call__(self, *args, **kwargs):
+        self.started.set()
+        assert self.release.wait(5 * PROBE_TIMEOUT), "the blocking call was never released"
+        return self.result
+
+    async def wait_started(self) -> None:
+        assert await asyncio.to_thread(self.started.wait, PROBE_TIMEOUT), "call never started"
+
+
+async def cancel_while_blocked(coro, blocking_call: BlockingCall) -> None:
+    """Cancels 'coro' while 'blocking_call' runs, then releases the call.
+
+    Cancellation must wait for the worker thread - without stalling the event loop - so its
+    result can be rolled back before the cancellation reaches the caller.
+    """
+    task = asyncio.create_task(coro)
+    await blocking_call.wait_started()
+    async with max_loop_stall() as stall:
+        task.cancel()
+        await asyncio.sleep(0.05)
+        assert not task.done(), "cancellation should wait for the worker thread to finish"
+        blocking_call.release.set()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    assert stall[0] < MAX_STALL, f"event loop stalled for {stall[0]:.3f}s"
+
+
+@pytest.fixture
+def remote_launch(response_manager, get_provisioner, monkeypatch):
+    """A DistributedProvisioner that takes the SSH launch path, recording remote commands."""
+    monkeypatch.setattr(RemoteProvisionerBase, "ip_is_local", staticmethod(lambda ip: False))
+    provisioner = get_provisioner("distributed", str(uuid4()))
+    provisioner.rsh_commands = []
+
+    def record_rsh(host, command):
+        provisioner.rsh_commands.append((host, command))
+        return []
+
+    monkeypatch.setattr(provisioner, "_rsh", record_rsh)
+    monkeypatch.setattr(provisioner, "confirm_remote_startup", AsyncMock())
+    return provisioner
+
+
+def launch_kernel(provisioner):
+    return provisioner.launch_kernel(["python"], env={"KERNEL_ID": provisioner.kernel_id})
+
+
+async def test_cancelled_remote_launch_kills_launched_process(remote_launch, monkeypatch):
+    """A launch cancelled while SSH starts the kernel must not orphan the remote process.
+
+    The launcher has not reported its communication port yet, so kill() could not reach it.
+    """
+    launch = BlockingCall(result="4242")
+    monkeypatch.setattr(remote_launch, "_launch_remote_process", launch)
+
+    await cancel_while_blocked(launch_kernel(remote_launch), launch)
+
+    assert remote_launch.rsh_commands == [(remote_launch.ip, "pkill -9 -P 4242; kill -9 4242")]
+
+
+async def test_timed_out_remote_launch_kills_launched_process(remote_launch, monkeypatch):
+    launch = BlockingCall(result="4242")
+    monkeypatch.setattr(remote_launch, "_launch_remote_process", launch)
+    asyncio.get_running_loop().call_later(0.2, launch.release.set)
+
+    with pytest.raises(asyncio.TimeoutError):
+        await asyncio.wait_for(launch_kernel(remote_launch), timeout=0.05)
+
+    assert remote_launch.rsh_commands == [(remote_launch.ip, "pkill -9 -P 4242; kill -9 4242")]
+
+
+async def test_cancelled_local_launch_kills_launched_process(
+    response_manager, get_provisioner, monkeypatch
+):
+    provisioner = get_provisioner("distributed", str(uuid4()))  # localhost: launched locally
+    killed = []
+    local_proc = SimpleNamespace(pid=4242, kill=lambda: killed.append(True), wait=lambda: -9)
+    launch = BlockingCall(result="4242")
+
+    def launch_locally(cmd, **kwargs):
+        provisioner.local_proc = local_proc
+        return launch(cmd, **kwargs)
+
+    monkeypatch.setattr(provisioner, "_launch_remote_process", launch_locally)
+    monkeypatch.setattr(provisioner, "confirm_remote_startup", AsyncMock())
+
+    await cancel_while_blocked(launch_kernel(provisioner), launch)
+
+    assert killed == [True]
+    assert provisioner.local_proc is None
+
+
+async def test_failed_cancelled_launch_needs_no_rollback(remote_launch, monkeypatch):
+    launch = BlockingCall()
+
+    def failing_launch(cmd, **kwargs):
+        launch(cmd, **kwargs)
+        msg = "ssh: connect to host failed"
+        raise OSError(msg)
+
+    monkeypatch.setattr(remote_launch, "_launch_remote_process", failing_launch)
+
+    await cancel_while_blocked(launch_kernel(remote_launch), launch)
+
+    assert remote_launch.rsh_commands == []
+
+
+async def test_failed_rollback_does_not_mask_cancellation(remote_launch, monkeypatch, caplog):
+    launch = BlockingCall(result="4242")
+    monkeypatch.setattr(remote_launch, "_launch_remote_process", launch)
+
+    def unreachable_host(host, command):
+        msg = "host unreachable"
+        raise OSError(msg)
+
+    monkeypatch.setattr(remote_launch, "_rsh", unreachable_host)
+
+    await cancel_while_blocked(launch_kernel(remote_launch), launch)
+
+    assert "host unreachable" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "shared,env,expect_deleted",
+    [
+        (False, {}, True),
+        (True, {}, False),
+        (False, {"KERNEL_NAMESPACE": "team-namespace"}, False),
+    ],
+    ids=["created", "shared", "client-provided"],
+)
+async def test_cancelled_k8s_pre_launch_deletes_only_created_namespace(
+    init_api_mocks, response_manager, get_provisioner, monkeypatch, shared, env, expect_deleted
+):
+    """A launch cancelled while its namespace is set up must not leave a namespace behind."""
+    monkeypatch.setattr(gateway_provisioners.k8s, "shared_namespace", shared)
+    deleted = []
+    monkeypatch.setattr(
+        MockCoreV1Api, "delete_namespace", lambda self, name, body: deleted.append(name)
+    )
+    provisioner = get_provisioner("kubernetes", str(uuid4()))
+    determine_namespace = provisioner._determine_kernel_namespace
+    blocked = BlockingCall()
+
+    def determine_namespace_then_block(**kwargs):
+        blocked.result = determine_namespace(**kwargs)
+        return blocked(**kwargs)
+
+    monkeypatch.setattr(provisioner, "_determine_kernel_namespace", determine_namespace_then_block)
+
+    await cancel_while_blocked(
+        provisioner.pre_launch(env={"KERNEL_USERNAME": TEST_USER, **env}), blocked
+    )
+
+    assert deleted == ([f"{TEST_USER}-{provisioner.kernel_id}"] if expect_deleted else [])
+    assert provisioner.delete_kernel_namespace is False

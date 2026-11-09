@@ -68,6 +68,14 @@ If you override one of the asynchronous methods (e.g., `poll()` or `confirm_remo
 blocking call, offload that call with `await self._run_blocking(func, *args, **kwargs)` so that it does not block
 the event loop and does not overlap with the provisioner's other blocking calls.
 
+A worker thread cannot be stopped, so a blocking call keeps running when the task awaiting it is cancelled (e.g.,
+by an `asyncio.wait_for()` timeout or server shutdown). For calls that create an external resource - launching a
+remote process, creating a namespace - use
+`await self._run_blocking_with_rollback(func, rollback, *args, **kwargs)` instead: when cancelled, it waits for
+`func` to finish (without blocking the event loop) and passes its result to `rollback`, also run in a worker thread,
+before re-raising the cancellation. This is how the distributed provisioner terminates a kernel whose launch was
+cancelled, and how the Kubernetes provisioner deletes a kernel namespace it created.
+
 Once the gateway provisioner has been implemented, construct an appropriate kernel specification that references your
 gateway provisioner and iterate until you are satisfied with how your remote kernels behave.
 

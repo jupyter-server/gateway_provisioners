@@ -85,7 +85,9 @@ class KubernetesProvisioner(ContainerProvisionerBase):
                 kwargs["env"][key] = os.environ[key]
         # Determine pod name and namespace - creating the latter if necessary
         self.kernel_pod_name = self._determine_kernel_pod_name(**kwargs)
-        self.kernel_namespace = await self._run_blocking(self._determine_kernel_namespace, **kwargs)
+        self.kernel_namespace = await self._run_blocking_with_rollback(
+            self._determine_kernel_namespace, self._abandon_kernel_namespace, **kwargs
+        )
         return kwargs
 
     @overrides
@@ -274,6 +276,20 @@ class KubernetesProvisioner(ContainerProvisionerBase):
         kwargs["env"]["KERNEL_POD_NAME"] = pod_name
 
         return pod_name
+
+    def _abandon_kernel_namespace(self, namespace: str | None) -> None:
+        """Deletes the namespace created for a launch that was cancelled before it was recorded.
+
+        Called from a worker thread by `_run_blocking_with_rollback()`.  Only a namespace created
+        for this launch is deleted - along with the role binding inside it; shared and
+        client-provided namespaces are left alone.
+        """
+        if not self.delete_kernel_namespace or namespace is None:
+            return
+        body = client.V1DeleteOptions(grace_period_seconds=0, propagation_policy="Background")
+        client.CoreV1Api().delete_namespace(name=namespace, body=body)
+        self.delete_kernel_namespace = False
+        self.log.info(f"Deleted kernel namespace '{namespace}' after its launch was cancelled.")
 
     def _determine_kernel_namespace(self, **kwargs):
         # Since we need the service account name regardless of whether we're creating the namespace or not,
