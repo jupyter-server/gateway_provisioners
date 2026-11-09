@@ -25,6 +25,10 @@ from gateway_provisioners.k8s import client  # noqa: F401
 from gateway_provisioners.remote_provisioner import RemoteProvisionerBase
 from gateway_provisioners.response_manager import ResponseManager
 
+# Runs the coroutine tests.  It replaces the unmaintained pytest-tornasync plugin, whose
+# deprecated @pytest.yield_fixture fails plugin loading on current pytest.
+pytest_plugins = ["pytest_jupyter.jupyter_core"]
+
 
 @pytest.fixture
 def response_manager(monkeypatch):

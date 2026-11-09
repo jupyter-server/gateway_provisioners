@@ -9,8 +9,8 @@ import sys
 import urllib3
 import yaml
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from kubernetes import client, config  # type:ignore[import-untyped]
-from kubernetes.client.rest import ApiException  # type:ignore[import-untyped]
+from kubernetes import client, config
+from kubernetes.client.rest import ApiException
 
 urllib3.disable_warnings()
 
@@ -79,7 +79,11 @@ def _parse_k8s_exception(exc: ApiException) -> str:
     """
     # more exception can be parsed, but at the time of implementation we only need this one
     if exc.status == 409:
-        if exc.reason == "Conflict" and f'"reason":{K8S_ALREADY_EXIST_REASON}' in exc.body:
+        if (
+            exc.reason == "Conflict"
+            and exc.body is not None
+            and f'"reason":{K8S_ALREADY_EXIST_REASON}' in exc.body
+        ):
             return K8S_ALREADY_EXIST_REASON
     return ""
 
