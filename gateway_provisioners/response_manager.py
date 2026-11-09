@@ -242,6 +242,7 @@ class ResponseManager(SingletonConfigurable):
                     encoding="utf-8"
                 )  # append what we received until we get no more...
         except TimeoutError:
+            # No connection is pending; the periodic callback checks again on its next run.
             pass
         except Exception as ex:
             self.log.error(f"Failure occurred processing connection: {ex}")
