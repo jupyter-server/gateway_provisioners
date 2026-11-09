@@ -1,7 +1,7 @@
-name: "Enterprise Gateway CodeQL config"
+name: "Gateway Provisioners CodeQL config"
 
 queries:
   - uses: security-and-quality
 
 paths-ignore:
-  - gateway_provisioners/tests
+  - tests
