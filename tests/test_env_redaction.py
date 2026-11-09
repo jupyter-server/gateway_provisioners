@@ -13,7 +13,11 @@ import pytest
 from validators import TEST_USER
 
 from gateway_provisioners.distributed import DistributedProvisioner
-from gateway_provisioners.remote_provisioner import env_log_allowlist, redact_env
+from gateway_provisioners.remote_provisioner import (
+    RemoteProvisionerBase,
+    env_log_allowlist,
+    redact_env,
+)
 
 BOOTSTRAP_SCRIPT = (
     Path(__file__).parent.parent
@@ -161,6 +165,43 @@ async def test_distributed_launch_does_not_log_env_values(
     assert "AWS_SECRET_ACCESS_KEY" in env_messages[0]
     assert f"'KERNEL_ID': '{kernel_id}'" in env_messages[0]
     assert f"'KERNEL_USERNAME': '{TEST_USER}'" in env_messages[0]
+
+
+async def test_distributed_remote_launch_does_not_log_kernelspec_env(
+    response_manager, get_provisioner, caplog, monkeypatch
+):
+    """SSH launches embed the kernelspec's env values in the startup command they assemble."""
+
+    async def mock_confirm_remote_startup(self):
+        pass
+
+    def mock_rsh(self, host, command):
+        return ["4242"]  # The remote shell echoes the launched process id
+
+    # Take the SSH launch path without connecting anywhere: the startup command is still built
+    # from the kernelspec, only the remote shell is replaced.
+    monkeypatch.setattr(RemoteProvisionerBase, "ip_is_local", staticmethod(lambda ip: False))
+    monkeypatch.setattr(DistributedProvisioner, "_rsh", mock_rsh)
+    monkeypatch.setattr(
+        DistributedProvisioner, "confirm_remote_startup", mock_confirm_remote_startup
+    )
+    kernel_id = str(uuid4())
+    provisioner = get_provisioner("distributed", kernel_id)
+    provisioner.kernel_spec.env = {
+        "AWS_SECRET_ACCESS_KEY": SECRET_ENV["AWS_SECRET_ACCESS_KEY"],
+        "SPARK_OPTS": SECRET_ENV["KERNEL_EXTRA_SPARK_OPTS"],
+    }
+    env = {"KERNEL_USERNAME": TEST_USER, "KERNEL_ID": kernel_id}
+
+    with caplog.at_level(logging.DEBUG, logger=provisioner.log.name):
+        await provisioner.launch_kernel(["run.sh"], env=env, kernel_id=kernel_id)
+    await provisioner.cleanup(restart=False)
+
+    assert provisioner.pid == 4242  # The SSH launch path was taken
+    _assert_no_secret_logged(caplog.records)
+    assert _messages_containing(
+        caplog.records, f"Invoking kernel launch on host: {provisioner.assigned_host}"
+    )
 
 
 @pytest.mark.skipif(BASH is None, reason="bash is required")

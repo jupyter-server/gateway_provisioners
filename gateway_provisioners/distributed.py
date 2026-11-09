@@ -250,7 +250,9 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
         """
 
         cmd = self._build_startup_command(cmd, **kwargs)
-        self.log.debug(f"Invoking cmd: '{cmd}' on host: {self.assigned_host}")
+        # Log only the host: for SSH launches the startup command embeds the kernelspec's env
+        # values, which can carry credentials.  log_kernel_launch() records the kernel's argv.
+        self.log.debug(f"Invoking kernel launch on host: {self.assigned_host}")
         result_pid = "bad_pid"  # purposely initialize to bad int value
 
         if RemoteProvisionerBase.ip_is_local(self.ip):
