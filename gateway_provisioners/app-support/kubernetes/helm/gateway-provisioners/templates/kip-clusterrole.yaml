@@ -16,14 +16,4 @@ rules:
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "watch", "list", "create", "delete"]
-  {{- if .Values.kip.podSecurityPolicy.create }}
-  - apiGroups:
-      - policy
-    resources:
-      - podsecuritypolicies
-    resourceNames:
-      - "kip-psp"
-    verbs:
-      - use
-  {{- end }}
 {{- end }}

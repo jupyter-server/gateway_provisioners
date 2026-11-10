@@ -1,15 +1,17 @@
 apiVersion: v2
 name: gateway-provisioners
 description: A helm chart to deploy applications using Gateway Provisioners
-# This is the chart version. This version number should be incremented each time you make changes
-# to the chart and its templates, including the app version.
-# Versions are expected to follow Semantic Versioning (https://semver.org/)
-version: 0.0.1-dev0
+# The chart is versioned in lockstep with the gateway_provisioners package (gateway_provisioners/_version.py).
+# Do not edit version or appVersion by hand: `make helm-chart-version` rewrites both from the package
+# version (jupyter-releaser runs it when it bumps the release version), and `make helm-chart` stamps
+# the current package version into the packaged chart.
+#
+# This is the chart version. It must be Semantic Versioning (https://semver.org/), so the PEP 440 package
+# version is converted (for example, 0.6.0.dev0 becomes 0.6.0-dev0).
+version: 0.6.0-dev0
 
-# This is the version number of the application being deployed. This version number should be
-# incremented each time you make changes to the application. Versions are not expected to
-# follow Semantic Versioning. They should reflect the version the application is using.
-appVersion: 0.2.0.dev0
+# This is the version of the application being deployed, i.e., the gateway_provisioners package version.
+appVersion: "0.6.0.dev0"
 
 icon: https://avatars1.githubusercontent.com/u/7388996?s=200&v=4
 home: https://jupyter.org
@@ -26,4 +28,6 @@ type: application
 
 sources:
   - https://github.com/jupyter-server/gateway_provisioners
-kubeVersion: ">=1.18.0-0"
+# 1.25 is the first release without PodSecurityPolicy (replaced by Pod Security Admission, GA in 1.25).
+# The "-0" suffix also matches provider builds whose versions carry a pre-release suffix (e.g., EKS, GKE).
+kubeVersion: ">=1.25.0-0"

@@ -82,6 +82,9 @@ application:
   # Application image name and tag to use - this image should have Gateway Provisioners
   # installed and kernelspecs configured.
   # See https://github.com/jupyter-server/gateway_provisioners/tree/main/gateway_provisioners/app-support/README.md
+  # The default matches what `make gp-jkg` builds during a development cycle. The tag is not derived
+  # from the chart's appVersion because this project's release process does not publish application
+  # images. Build and push your own image, then set this to an immutable tag (avoid `dev` in production).
   image: elyra/gp-jkg:dev
   # Application image pull policy.
   imagePullPolicy: IfNotPresent
@@ -91,7 +94,7 @@ application:
   name: "Jupyter Kernel Gateway"
   cmd: jupyter-kernelgateway
 
-  # Log output level.
+  # Log output level. DEBUG is verbose; consider INFO for production deployments.
   logLevel: DEBUG
 
   # Optional authorization token passed in all requests - application specific.  For
@@ -145,7 +148,8 @@ nfs:
   internalServerIPAddress:
 
 ingress:
-  ingressClassName: # available since k8s 1.18. Depending on the ingress controller, you can use annotation as alternative
+  # Name of the IngressClass to use. Leave empty to use the cluster's default IngressClass.
+  ingressClassName:
   enabled: false
   hostName: "" # Ingress resource host
   pathType: "Prefix"
@@ -158,6 +162,10 @@ ingress:
   #       - myhost.example.com
 
 # Kernel Image Puller (daemonset)
+# The KIP mounts the node's container runtime socket via a hostPath volume, so its pods are only
+# admitted by namespaces whose Pod Security Admission level is `privileged`. Set kip.enabled to
+# false if the release namespace enforces `baseline` or `restricted`. See the Application Support
+# README for details.
 kip:
   enabled: true
   serviceAccountName: "kernel-image-puller-sa"
@@ -165,17 +173,14 @@ kip:
   server: # KIP properties.
     protocol: http
     port: 8888
+    # Only used when protocol is https. Enable certificate validation in production.
     validate_cert: false
-  podSecurityPolicy:
-    # Note: PodSecurityPolicy is deprecated as of 1.21 and removed in 1.25.
-    # Operators deploying into k8s clusters >= 1.25 that require PSP equivalency will need to
-    # look into alternatives like Gatekeeper (https://github.com/open-policy-agent/gatekeeper).
-    # Creation of PSP in KIP is disabled by default.
-    create: false
-    annotations: {}
-  # Log output level.
+  # Log output level. DEBUG is verbose; consider INFO for production deployments.
   logLevel: DEBUG
-  # Kernel Image Puller image name and tag to use.
+  # Kernel Image Puller image name and tag to use. This image is built and published by Jupyter
+  # Enterprise Gateway (https://github.com/jupyter-server/enterprise_gateway), not by this project,
+  # and is versioned with Enterprise Gateway releases. Pin it to an Enterprise Gateway release tag
+  # in production rather than `dev`.
   image: elyra/kernel-image-puller:dev
   # Kernel Image Puller image pull policy.
   imagePullPolicy: IfNotPresent
@@ -183,7 +188,9 @@ kip:
   pullPolicy: IfNotPresent
   # The interval (in seconds) at which the Kernel Image Puller fetches kernelspecs to pull kernel images.
   interval: 300
-  # The container runtime interface socket, use /run/containerd/containerd.sock for containerd installations
+  # The container runtime socket on each node. /var/run/docker.sock only exists on nodes that run
+  # Docker Engine (e.g., via cri-dockerd). Kubernetes removed dockershim in 1.24 and most clusters
+  # now use containerd, so set this to /run/containerd/containerd.sock for containerd installations.
   criSocket: /var/run/docker.sock
   # Prefix to use if a registry is not already specified on image name (e.g., quay.io/elyra/kernel-py:2.5.0)
   defaultContainerRegistry: docker.io

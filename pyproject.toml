@@ -171,6 +171,9 @@ dependencies = [
 test = "mypy {args}"
 
 [tool.jupyter-releaser.hooks]
+# Keep the Helm chart's version and appVersion in step with the release version.  This runs for
+# the release bump only; the post-release "dev" bump does not trigger hooks.
+after-bump-version = ["make helm-chart-version"]
 before-build-python = ["pip install -e .[dev]", "make clean lint dist install"]
 
 [tool.jupyter-releaser.options]

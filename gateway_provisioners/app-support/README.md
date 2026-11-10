@@ -105,6 +105,77 @@ Other values that are more applicable to the _application_ rather than the _kern
 in the `provisioner` stanza. These are values that are used by Gateway Provisioners _within_
 the application.
 
+### Requirements
+
+The helm chart requires Kubernetes 1.25 or later (enforced by `kubeVersion` in `Chart.yaml`). It is
+linted and packaged with Helm 3; `make helm-install` installs the Helm release pinned by
+`HELM_DESIRED_VERSION` in the `Makefile`.
+
+### Chart Versioning
+
+The chart's `version` and `appVersion` track the Gateway Provisioners package version. Because chart
+versions must be [SemVer](https://semver.org/), a package version of `0.6.0.dev0` corresponds to a chart
+version of `0.6.0-dev0`. `make helm-chart` stamps the current package version into the packaged chart,
+and `make helm-chart-version` rewrites `Chart.yaml` to match the package (jupyter-releaser runs it
+automatically when it bumps the version for a release).
+
+### Images
+
+- `application.image` defaults to `elyra/gp-jkg:dev`, which is what `make gp-jkg` produces during a
+  development cycle. The Gateway Provisioners release process publishes Python packages but not
+  images, so this default does not follow the chart's `appVersion`. Build the image (see above), push
+  it to a registry your cluster can pull from, and set `application.image` to an immutable tag.
+- `kip.image` defaults to `elyra/kernel-image-puller:dev`. The Kernel Image Puller is built and
+  published by [Jupyter Enterprise Gateway](https://github.com/jupyter-server/enterprise_gateway) and
+  is versioned with Enterprise Gateway releases, so pin it to one of those release tags.
+
+### Pod Security
+
+PodSecurityPolicy was removed in Kubernetes 1.25 and the chart no longer creates one (the
+`kip.podSecurityPolicy` values have been removed). Use
+[Pod Security Admission](https://kubernetes.io/docs/concepts/security/pod-security-admission/) instead,
+by labeling the release namespace with the
+[Pod Security Standard](https://kubernetes.io/docs/concepts/security/pod-security-standards/) to enforce:
+
+- The application pod does not set a `securityContext`. It satisfies the `baseline` standard but not
+  `restricted`.
+- The Kernel Image Puller DaemonSet (`kip.enabled: true`, the default) mounts the node's container
+  runtime socket (`kip.criSocket`) through a `hostPath` volume, which only the `privileged` standard
+  allows. Because it is deployed into the release namespace, that namespace must allow `privileged`
+  pods, or the Kernel Image Puller must be disabled.
+
+```bash
+# Kernel Image Puller enabled (default)
+kubectl label namespace gateway-provisioners pod-security.kubernetes.io/enforce=privileged
+
+# Kernel Image Puller disabled (--set kip.enabled=false)
+kubectl label namespace gateway-provisioners pod-security.kubernetes.io/enforce=baseline
+```
+
+Kernel pods are subject to the labels of the namespace they are launched into. Namespaces that
+Gateway Provisioners creates for kernels (when `provisioner.shareNamespace` is `false` and the client
+does not provide `KERNEL_NAMESPACE`) carry no Pod Security labels, so the cluster's default Pod
+Security admission configuration applies to them.
+
+If a release was installed with `kip.podSecurityPolicy.create=true` before its cluster was upgraded
+to Kubernetes 1.25, the release's stored manifest still references the removed `policy/v1beta1` API
+and `helm upgrade` will fail. See Helm's guidance on
+[deprecated Kubernetes APIs](https://helm.sh/docs/topics/kubernetes_apis/) (for example, the
+`helm-mapkubeapis` plugin) to repair the release before upgrading.
+
+### Production Considerations
+
+Some defaults in `values.yaml` favor development and should be reviewed before deploying to production:
+
+- `application.logLevel` and `kip.logLevel` default to `DEBUG`, which is verbose. Consider `INFO`.
+- `kip.criSocket` defaults to `/var/run/docker.sock`, which only exists on nodes running Docker
+  Engine. Kubernetes removed dockershim in 1.24 and most clusters now use containerd, in which case
+  set it to `/run/containerd/containerd.sock`.
+- `kip.server.validate_cert` defaults to `false`. If the Kernel Image Puller reaches the application
+  over `https` (`kip.server.protocol`), enable certificate validation.
+- `application.authToken` is placed in the Deployment's environment in plain text, so anyone who can
+  read the Deployment can read the token.
+
 ### Deploying Kubernetes Applications
 
 Once the appropriate values within the `values.yaml` file have been updated, the application
@@ -116,6 +187,8 @@ that value is up to you:
 ```bash
 kubectl create namespace gateway-provisioners
 ```
+
+Then label the namespace with the Pod Security Standard to enforce (see [Pod Security](#pod-security)).
 
 Next, you are ready to deploy the application. From the repo's root, issue the following (note:
 we're using a deployment name of `gateway-provisioners`:
