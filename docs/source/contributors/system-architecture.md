@@ -336,7 +336,8 @@ a string of the form `<IPV4:port>` where the IPV4 address points back to the Gat
 listening for a response on the provided port. The port's default value is `8877`, but can be specified via the
 environment variable `GP_RESPONSE_PORT`. The server processes each connection to this port independently, so a slow
 or stalled connection cannot delay other kernels' responses, and drops connections whose payload is not completely
-received within `GP_RESPONSE_READ_TIMEOUT` seconds (10 by default).
+received within `GP_RESPONSE_READ_TIMEOUT` seconds (10 by default). To bound the resources such connections can hold,
+it processes at most `GP_RESPONSE_MAX_CONNECTIONS` connections (128 by default) at once, closing any others immediately.
 
 The public key is identified by the parameter `--public-key`. Its value (`{public_key}`) is used to encrypt an
 AES key created by the launcher to encrypt the kernel's connection information. The server, upon receipt of the

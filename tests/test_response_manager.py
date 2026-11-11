@@ -98,6 +98,16 @@ def expected_connection_info(connection_info: dict) -> dict:
     return {**connection_info, "key": connection_info["key"].encode()}
 
 
+def client_peer(writer: asyncio.StreamWriter) -> str:
+    """How the server identifies this client in its log messages."""
+    host, port = writer.get_extra_info("sockname")[:2]
+    return f"{host}:{port}"
+
+
+def warning_messages(caplog: pytest.LogCaptureFixture) -> list[str]:
+    return [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
+
+
 async def stall(writer: asyncio.StreamWriter) -> None:
     """Sends nothing and keeps the connection open, like a hung launcher or a port scanner."""
 
@@ -172,8 +182,7 @@ async def test_misbehaving_connection_is_closed(
     caplog.set_level(logging.WARNING, logger=rm.log.name)
 
     reader, writer = await connect(rm)
-    host, port = writer.get_extra_info("sockname")[:2]
-    peer = f"{host}:{port}"  # how the server identifies this client in its log messages
+    peer = client_peer(writer)
     try:
         await misbehave(writer)
         # The server closing its end of the connection is observed as end-of-file.
@@ -181,8 +190,8 @@ async def test_misbehaving_connection_is_closed(
     finally:
         await close(writer)
 
-    warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
-    assert any(reason in message and peer in message for message in warnings), warnings
+    warned = warning_messages(caplog)
+    assert any(reason in message and peer in message for message in warned), warned
 
 
 async def test_connection_is_closed_when_its_handler_never_runs(live_response_manager):
@@ -207,3 +216,75 @@ async def test_connection_is_closed_when_its_handler_never_runs(live_response_ma
     # Garbage collection closing the socket, rather than the server, warns of the leak.
     leaks = [str(w.message) for w in caught if issubclass(w.category, ResourceWarning)]
     assert not leaks, leaks
+
+
+async def test_connections_beyond_the_limit_are_closed_until_capacity_frees(
+    live_response_manager, monkeypatch, caplog
+):
+    rm = live_response_manager
+    max_connections = 2
+    monkeypatch.setattr(rm_module, "response_max_connections", max_connections)
+    # Stalled connections are held for the duration of the test, unless their client drops them.
+    monkeypatch.setattr(rm_module, "response_read_timeout", 30.0)
+    caplog.set_level(logging.WARNING, logger=rm.log.name)
+    kernel_id = str(uuid4())
+    rm.register_event(kernel_id)
+    connection_info = kernel_connection_info(kernel_id)
+
+    stalled = [await connect(rm) for _ in range(max_connections)]
+    try:
+        # Connections are accepted in arrival order, so this one is accepted at capacity and
+        # closed right away, while the server still holds the stalled connections.
+        reader, writer = await connect(rm)
+        peer = client_peer(writer)
+        try:
+            assert await asyncio.wait_for(reader.read(), DELIVERY_TIMEOUT) == b""
+        finally:
+            await close(writer)
+        assert len(rm._connection_tasks) == max_connections
+        warned = warning_messages(caplog)
+        assert any(
+            "GP_RESPONSE_MAX_CONNECTIONS" in message and peer in message for message in warned
+        ), warned
+
+        # Capacity frees up once a stalled connection is dropped.  Its client half-closes the
+        # connection, then observes the server closing its end once processing has ended.
+        dropped_reader, dropped_writer = stalled[0]
+        dropped_writer.write_eof()
+        assert await asyncio.wait_for(dropped_reader.read(), DELIVERY_TIMEOUT) == b""
+        await send_payload(rm, build_payload(rm.public_key, connection_info))
+        received = await wait_for_connection_info(rm, kernel_id)
+    finally:
+        for _, stalled_writer in stalled:
+            await close(stalled_writer)
+
+    assert received == expected_connection_info(connection_info)
+
+
+async def test_connection_rejections_do_not_flood_the_log(
+    live_response_manager, monkeypatch, caplog
+):
+    rm = live_response_manager
+    monkeypatch.setattr(rm_module, "response_max_connections", 1)
+    monkeypatch.setattr(rm_module, "response_read_timeout", 30.0)
+    caplog.set_level(logging.DEBUG, logger=rm.log.name)
+
+    rejected_peers: list[str] = []
+    _, stalled_writer = await connect(rm)
+    try:
+        for _ in range(3):
+            reader, writer = await connect(rm)
+            rejected_peers.append(client_peer(writer))
+            try:
+                assert await asyncio.wait_for(reader.read(), DELIVERY_TIMEOUT) == b""
+            finally:
+                await close(writer)
+    finally:
+        await close(stalled_writer)
+
+    # Every rejection is logged, but only the first as a warning.
+    warned = warning_messages(caplog)
+    warned_peers = [peer for peer in rejected_peers if any(peer in m for m in warned)]
+    assert warned_peers == rejected_peers[:1], warned
+    messages = [r.getMessage() for r in caplog.records]
+    assert all(any(peer in m for m in messages) for peer in rejected_peers), messages
