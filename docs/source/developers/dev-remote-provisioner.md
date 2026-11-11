@@ -69,12 +69,14 @@ blocking call, offload that call with `await self._run_blocking(func, *args, **k
 the event loop and does not overlap with the provisioner's other blocking calls.
 
 A worker thread cannot be stopped, so a blocking call keeps running when the task awaiting it is cancelled (e.g.,
-by an `asyncio.wait_for()` timeout or server shutdown). For calls that create an external resource - launching a
-remote process, creating a namespace - use
-`await self._run_blocking_with_rollback(func, rollback, *args, **kwargs)` instead: when cancelled, it waits for
-`func` to finish (without blocking the event loop) and passes its result to `rollback`, also run in a worker thread,
-before re-raising the cancellation. This is how the distributed provisioner terminates a kernel whose launch was
-cancelled, and how the Kubernetes provisioner deletes a kernel namespace it created.
+by an `asyncio.wait_for()` timeout, or by server shutdown cancelling every pending task). The provisioner's lock stays
+held until the thread finishes, so the next blocking call cannot overlap it. For calls that create an external
+resource - launching a remote process, creating a namespace - use
+`await self._run_blocking_with_rollback(func, rollback, *args, **kwargs)` instead: when cancelled, even during
+shutdown, it waits for `func` to finish (without blocking the event loop) and passes its result to `rollback`, also
+run in a worker thread, before re-raising the cancellation. Make `rollback` undo everything `func` started: the
+distributed provisioner kills the whole process tree of a kernel whose launch was cancelled - its launcher may already
+have started a listener - and the Kubernetes provisioner deletes a kernel namespace it created.
 
 Once the gateway provisioner has been implemented, construct an appropriate kernel specification that references your
 gateway provisioner and iterate until you are satisfied with how your remote kernels behave.

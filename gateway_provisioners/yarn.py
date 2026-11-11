@@ -123,6 +123,9 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         # 20% of kernel_launch_timeout is used to wait
         # and retry at fixed interval before pronouncing as not feasible to launch.
         self.yarn_resource_check_wait_time = 0.20 * self.launch_timeout
+        # Seconds the current launch spent waiting for queue capacity, which count against its
+        # launch timeout (see _confirm_yarn_queue_availability()).
+        self.queue_wait_time = 0.0
 
     @property
     @overrides
@@ -135,6 +138,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         self.last_known_state = None
         self.candidate_queue = None
         self.candidate_partition = None
+        self.queue_wait_time = 0.0
 
         # Transfer impersonation enablement to env.  It is assumed that the kernelspec
         # logic will take the appropriate steps to impersonate the user identified by
@@ -309,7 +313,8 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             self.start_time  # type:ignore[arg-type]
         )
 
-        if time_interval > self.launch_timeout:
+        # Any time spent waiting for queue capacity during pre_launch() counts against the timeout.
+        if time_interval > self.launch_timeout - self.queue_wait_time:
             reason = (
                 f"Application ID is None. Failed to submit a new application to YARN within "
                 f"{self.launch_timeout} seconds.  Check server log for more information."
@@ -355,7 +360,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         assert state is not None
         return result, state
 
-    async def _confirm_yarn_queue_availability(self, **kwargs: dict[str, Any]) -> None:
+    async def _confirm_yarn_queue_availability(self, **kwargs: Any) -> None:
         """
         Submitting jobs to yarn queue and then checking till the jobs are in running state
         will lead to orphan jobs being created in some scenarios.
@@ -457,8 +462,19 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
                     partition_availability_threshold,
                 )
 
-        # subtracting the total amount of time spent for polling for queue availability
-        self.launch_timeout -= RemoteProvisionerBase.get_time_diff(self.start_time)
+        # The time spent waiting for capacity counts against this launch's timeout.  It is tracked
+        # apart from launch_timeout, an integer trait whose full value every launch starts with -
+        # including restarts, which reuse this provisioner.  A wait that used up the timeout fails
+        # the launch here, rather than submitting an application only to kill it straight away.
+        self.queue_wait_time = RemoteProvisionerBase.get_time_diff(self.start_time)
+        if self.queue_wait_time >= self.launch_timeout:
+            self.log_and_raise(
+                TimeoutError(
+                    f"Waiting {self.queue_wait_time:.1f} seconds for capacity in YARN queue "
+                    f"'{candidate_queue_name}' left no time of the {self.launch_timeout} second "
+                    f"launch timeout to start KernelID '{self.kernel_id}'."
+                )
+            )
 
     async def _handle_yarn_queue_timeout(self) -> None:
         await asyncio.sleep(poll_interval)
@@ -470,7 +486,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             reason = f"Yarn Compute Resource is unavailable after {self.yarn_resource_check_wait_time} seconds"
             self.log_and_raise(TimeoutError(reason))
 
-    def _initialize_resource_manager(self, **kwargs: dict[str, Any] | None) -> None:
+    def _initialize_resource_manager(self, **kwargs: Any) -> None:
         """Initialize the Hadoop YARN Resource Manager instance used for this kernel's lifecycle."""
 
         endpoints = None

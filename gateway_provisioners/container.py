@@ -157,7 +157,8 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
     @overrides
     async def kill(self, restart: bool = False) -> None:
         """Kills a containerized kernel."""
-        await self._run_blocking(self._terminate_container, restart)
+        if self._may_have_container():
+            await self._run_blocking(self._terminate_container, restart)
 
     @overrides
     async def terminate(self, restart: bool = False) -> None:
@@ -171,7 +172,18 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
     @overrides
     async def shutdown_listener(self, restart: bool) -> None:
         await super().shutdown_listener(restart)
-        await self._run_blocking(self._terminate_container, restart)
+        if self._may_have_container():
+            await self._run_blocking(self._terminate_container, restart)
+
+    def _may_have_container(self) -> bool:
+        """Returns False when there is certainly no container to terminate.
+
+        Lets kill() and shutdown_listener() skip the worker thread - and the provisioner's lock -
+        when there is nothing to terminate, as during shutdown storms.  A blocking call in flight
+        may yet name the container (e.g., the status check that first finds it), so its presence
+        defers the decision to _terminate_container().
+        """
+        return bool(self.container_name) or self._blocking_call_lock.locked()
 
     def _terminate_container(self, restart: bool) -> None:
         """Terminates the container's resources, if any remain.

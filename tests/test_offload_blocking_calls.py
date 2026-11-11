@@ -4,8 +4,17 @@
 
 import asyncio
 import contextlib
+import contextvars
+import os
+import select
+import shlex
+import shutil
+import signal
+import subprocess
+import sys
 import threading
 import time
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -159,12 +168,59 @@ async def test_container_startup_does_not_block_loop(
     probe.assert_loop_responsive()
 
 
-async def test_container_kill_skipped_without_container(docker_provisioner, monkeypatch):
+@pytest.mark.parametrize(
+    "invoke",
+    [
+        lambda p: p.kill(),
+        lambda p: p.terminate(),
+        lambda p: p.shutdown_listener(restart=False),
+    ],
+    ids=["kill", "terminate", "shutdown_listener"],
+)
+async def test_container_termination_skipped_without_container(
+    docker_provisioner, monkeypatch, invoke
+):
+    """Without a container there is nothing to terminate, so no worker thread is scheduled."""
     probe = LoopProbe()
-    monkeypatch.setattr(docker_provisioner, "terminate_container_resources", probe)
+    monkeypatch.setattr(docker_provisioner, "_terminate_container", probe)
     docker_provisioner.container_name = None
-    await docker_provisioner.kill()
+    await invoke(docker_provisioner)
     probe.assert_loop_responsive(expected_calls=0)
+
+
+async def test_container_kill_during_status_check_terminates_found_container(
+    docker_provisioner, monkeypatch
+):
+    """kill() must not skip termination while a status check that may find the container runs.
+
+    The status check names the container only when it returns, so a kill() deciding there is
+    nothing to terminate before then would leave the container running.
+    """
+    container_name = docker_provisioner.container_name
+    docker_provisioner.container_name = None
+    status = BlockingCall(result="running")
+
+    def find_container(iteration):
+        result = status(iteration)
+        docker_provisioner.container_name = container_name
+        return result
+
+    terminated = []
+    monkeypatch.setattr(docker_provisioner, "get_container_status", find_container)
+    monkeypatch.setattr(
+        docker_provisioner,
+        "terminate_container_resources",
+        lambda restart=False: terminated.append(container_name),
+    )
+
+    poll = asyncio.create_task(docker_provisioner.poll())
+    await status.wait_started()
+    kill = asyncio.create_task(docker_provisioner.kill())
+    await asyncio.sleep(0.05)
+    status.release.set()
+    await asyncio.gather(poll, kill)
+
+    assert terminated == [container_name]
 
 
 async def test_wait_on_local_process_does_not_block_loop(docker_provisioner):
@@ -251,12 +307,12 @@ async def test_yarn_queue_wait_does_not_block_loop(
 ):
     """Waiting for queue capacity sleeps between checks without blocking the event loop.
 
-    Capacity never frees up here, so the wait ends in a timeout.
+    Capacity frees up on the third check, well within the wait time however loaded the machine.
     """
-    poll_interval = 0.2
+    poll_interval = 0.5
     monkeypatch.setattr("gateway_provisioners.yarn.poll_interval", poll_interval)
-    yarn_provisioner.yarn_resource_check_wait_time = 2.5 * poll_interval
-    availability = LoopProbe(False)
+    yarn_provisioner.yarn_resource_check_wait_time = 60
+    availability = LoopProbe(False, False, True)
     resource_mgr = fake_resource_manager(
         cluster_scheduler_queue=LoopProbe({"queueName": "default"}),
         cluster_queue_partition=LoopProbe({"partitionName": "gpu"}),
@@ -265,14 +321,93 @@ async def test_yarn_queue_wait_does_not_block_loop(
     install_resource_manager(lambda **kwargs: resource_mgr)
 
     async with max_loop_stall() as stall:
-        with pytest.raises(TimeoutError, match="Yarn Compute Resource is unavailable"):
-            await yarn_provisioner.pre_launch(env=dict(QUEUE_ENV))
+        await yarn_provisioner.pre_launch(env=dict(QUEUE_ENV))
 
     resource_mgr.cluster_scheduler_queue.assert_loop_responsive()
     resource_mgr.cluster_queue_partition.assert_loop_responsive()
-    availability.assert_loop_responsive(expected_calls=None)
-    assert len(availability.loop_responsive) > 1, "availability should be checked repeatedly"
+    availability.assert_loop_responsive(expected_calls=3)
+    # Sleeping on the event loop between checks would stall it for a whole poll interval.
     assert stall[0] < poll_interval / 2, f"event loop stalled for {stall[0]:.3f}s"
+
+
+async def test_yarn_queue_wait_times_out(yarn_provisioner, install_resource_manager, monkeypatch):
+    monkeypatch.setattr("gateway_provisioners.yarn.poll_interval", 0.01)
+    yarn_provisioner.yarn_resource_check_wait_time = 0
+    resource_mgr = fake_resource_manager(
+        cluster_scheduler_queue=lambda queue_name: {"queueName": queue_name},
+        cluster_queue_partition=lambda queue, node_label: {"partitionName": node_label},
+        cluster_scheduler_queue_availability=lambda partition, threshold: False,
+    )
+    install_resource_manager(lambda **kwargs: resource_mgr)
+
+    with pytest.raises(TimeoutError, match="Yarn Compute Resource is unavailable"):
+        await yarn_provisioner.pre_launch(env=dict(QUEUE_ENV))
+
+
+def available_queue(*availability) -> SimpleNamespace:
+    """A ResourceManager whose queue partition reports the given availability, check by check."""
+    return fake_resource_manager(
+        cluster_scheduler_queue=lambda queue_name: {"queueName": queue_name},
+        cluster_queue_partition=lambda queue, node_label: {"partitionName": node_label},
+        cluster_scheduler_queue_availability=LoopProbe(*availability),
+    )
+
+
+async def test_yarn_queue_wait_keeps_configured_launch_timeout(
+    yarn_provisioner, install_resource_manager, monkeypatch
+):
+    """The queue wait counts against this launch alone: restarts reuse the provisioner."""
+    monkeypatch.setattr("gateway_provisioners.yarn.poll_interval", 0.01)
+    yarn_provisioner.yarn_resource_check_wait_time = 60
+    resource_mgr = available_queue(False, True)
+    install_resource_manager(lambda **kwargs: resource_mgr)
+    launch_timeout = yarn_provisioner.launch_timeout
+
+    await yarn_provisioner.pre_launch(env=dict(QUEUE_ENV))
+
+    assert yarn_provisioner.launch_timeout == launch_timeout
+    assert 0 < yarn_provisioner.queue_wait_time < launch_timeout
+
+
+async def test_yarn_queue_wait_using_up_launch_timeout_fails_launch(
+    yarn_provisioner, install_resource_manager, monkeypatch
+):
+    """A queue wait as long as the launch timeout leaves no time for startup.
+
+    The launch fails before an application is submitted, rather than going on with no time left.
+    """
+    yarn_provisioner.launch_timeout = 30
+    resource_mgr = available_queue(True)
+    install_resource_manager(lambda **kwargs: resource_mgr)
+    # The clock reads 30 seconds since the queue check started, whenever it is read.
+    monkeypatch.setattr(RemoteProvisionerBase, "get_time_diff", staticmethod(lambda start: 30.0))
+
+    with pytest.raises(TimeoutError, match="left no time of the 30 second launch timeout"):
+        await yarn_provisioner.pre_launch(env=dict(QUEUE_ENV))
+
+    resource_mgr.cluster_scheduler_queue_availability.assert_loop_responsive()  # check completed
+    assert yarn_provisioner.launch_timeout == 30
+
+
+@pytest.mark.parametrize(
+    "startup_seconds,timed_out", [(4, False), (6, True)], ids=["within", "exceeded"]
+)
+async def test_yarn_launch_timeout_counts_queue_wait(
+    yarn_provisioner, monkeypatch, startup_seconds, timed_out
+):
+    """After a 25 second queue wait, a 30 second launch timeout leaves 5 seconds for startup."""
+    monkeypatch.setattr("gateway_provisioners.yarn.poll_interval", 0.01)
+    yarn_provisioner.launch_timeout = 30
+    yarn_provisioner.queue_wait_time = 25.0
+    yarn_provisioner.start_time = RemoteProvisionerBase.get_current_time() - 1000 * startup_seconds
+    monkeypatch.setattr(yarn_provisioner, "_get_application_id", lambda ignore_final_states: None)
+    kill = AsyncMock()
+    monkeypatch.setattr(yarn_provisioner, "kill", kill)
+
+    with pytest.raises(TimeoutError) if timed_out else contextlib.nullcontext():
+        await yarn_provisioner.handle_launch_timeout()
+
+    assert kill.called is timed_out
 
 
 async def test_yarn_cleanup_wait_does_not_block_loop(yarn_provisioner):
@@ -358,8 +493,11 @@ async def test_failed_call_releases_lock(docker_provisioner, monkeypatch):
     assert await asyncio.wait_for(docker_provisioner.poll(), timeout=PROBE_TIMEOUT) is None
 
 
-# The longest the event loop may stall while a cancelled call waits for its worker thread.
-MAX_STALL = 0.1
+# The longest the event loop may stall while a cancelled call waits for its worker thread.  A loop
+# blocked on the worker would stall until the call gives up waiting for release (5 x
+# PROBE_TIMEOUT), so this leaves room for scheduling delays on a loaded machine without letting
+# that through.
+MAX_STALL = PROBE_TIMEOUT
 
 
 class BlockingCall:
@@ -368,8 +506,9 @@ class BlockingCall:
     This lets a test cancel the caller while the call is still in progress.
     """
 
-    def __init__(self, result=None):
+    def __init__(self, result=None, start_timeout: float = PROBE_TIMEOUT):
         self.result = result
+        self.start_timeout = start_timeout
         self.started = threading.Event()
         self.release = threading.Event()
 
@@ -379,7 +518,8 @@ class BlockingCall:
         return self.result
 
     async def wait_started(self) -> None:
-        assert await asyncio.to_thread(self.started.wait, PROBE_TIMEOUT), "call never started"
+        started = await asyncio.to_thread(self.started.wait, self.start_timeout)
+        assert started, "call never started"
 
 
 async def cancel_while_blocked(coro, blocking_call: BlockingCall) -> None:
@@ -420,6 +560,25 @@ def launch_kernel(provisioner):
     return provisioner.launch_kernel(["python"], env={"KERNEL_ID": provisioner.kernel_id})
 
 
+# The command run over SSH to roll back a cancelled remote launch whose process id is 4242.
+KILL_PROCESS_TREE_4242 = (
+    "sh -c '"
+    "pid=4242; "
+    '[ "$pid" -gt 1 ] || exit 0; '
+    'pgid=$(ps -o pgid= -p "$pid" | tr -d " "); '
+    'my_pgid=$(ps -o pgid= -p $$ | tr -d " "); '
+    "kill_group=; "
+    'if [ "$pgid" -gt 1 ] 2>/dev/null && [ -n "$my_pgid" ] && [ "$pgid" != "$my_pgid" ]; then '
+    'if [ "$pgid" = "$pid" ] || [ -z "$(ps -o pid= -p "$pgid")" ]; then kill_group=1; fi; '
+    "fi; "
+    'kill_tree() ( [ "$1" -gt 1 ] || exit 0; kill -STOP "$1" 2>/dev/null; '
+    'for child in $(pgrep -P "$1"); do kill_tree "$child"; done; kill -9 "$1" 2>/dev/null ); '
+    'kill_tree "$pid"; '
+    'if [ -n "$kill_group" ]; then kill -9 "-$pgid" 2>/dev/null; fi'
+    "'"
+)
+
+
 async def test_cancelled_remote_launch_kills_launched_process(remote_launch, monkeypatch):
     """A launch cancelled while SSH starts the kernel must not orphan the remote process.
 
@@ -430,7 +589,7 @@ async def test_cancelled_remote_launch_kills_launched_process(remote_launch, mon
 
     await cancel_while_blocked(launch_kernel(remote_launch), launch)
 
-    assert remote_launch.rsh_commands == [(remote_launch.ip, "pkill -9 -P 4242; kill -9 4242")]
+    assert remote_launch.rsh_commands == [(remote_launch.ip, KILL_PROCESS_TREE_4242)]
 
 
 async def test_timed_out_remote_launch_kills_launched_process(remote_launch, monkeypatch):
@@ -441,28 +600,248 @@ async def test_timed_out_remote_launch_kills_launched_process(remote_launch, mon
     with pytest.raises(asyncio.TimeoutError):
         await asyncio.wait_for(launch_kernel(remote_launch), timeout=0.05)
 
-    assert remote_launch.rsh_commands == [(remote_launch.ip, "pkill -9 -P 4242; kill -9 4242")]
+    assert remote_launch.rsh_commands == [(remote_launch.ip, KILL_PROCESS_TREE_4242)]
 
 
-async def test_cancelled_local_launch_kills_launched_process(
-    response_manager, get_provisioner, monkeypatch
+@pytest.mark.parametrize("result_pid", ["bad_pid", "", "-1", "0", "1"])
+async def test_cancelled_remote_launch_without_valid_pid_runs_no_command(
+    remote_launch, monkeypatch, caplog, result_pid
 ):
+    """Only a launched process is killed: pids of 1 and below address init or process groups."""
+    launch = BlockingCall(result=result_pid)
+    monkeypatch.setattr(remote_launch, "_launch_remote_process", launch)
+
+    await cancel_while_blocked(launch_kernel(remote_launch), launch)
+
+    assert remote_launch.rsh_commands == []
+    assert f"invalid process id '{result_pid}'" in caplog.text
+
+
+needs_process_groups = pytest.mark.skipif(
+    sys.platform == "win32", reason="requires POSIX process groups"
+)
+needs_process_tools = pytest.mark.skipif(
+    sys.platform == "win32" or not (shutil.which("ps") and shutil.which("pgrep")),
+    reason="requires a POSIX shell with ps and pgrep",
+)
+
+# Stands in for a kernel launcher (argv: <report fd> <lifeline fd> <mode>).  It starts a child
+# and, in "orphan" mode, a process whose parent exits straight away - as the R launcher's
+# listener does - so it is reparented away from the launcher.  Every process holds the report
+# pipe's write end, to which the launcher writes their pids once all of them are running, and
+# waits on the lifeline pipe: each exits once the test closes the lifeline (or after 60s).
+LAUNCHER_SCRIPT = """\
+import os
+import select
+import subprocess
+import sys
+
+report_fd, lifeline_fd, mode = int(sys.argv[1]), int(sys.argv[2]), sys.argv[3]
+inherited_fds = (report_fd, lifeline_fd)
+wait_for_lifeline = "import select, sys; select.select([int(sys.argv[1])], [], [], 60)"
+
+
+def start_child():
+    child = [sys.executable, "-c", wait_for_lifeline, str(lifeline_fd)]
+    return subprocess.Popen(child, stdout=subprocess.DEVNULL, pass_fds=inherited_fds).pid
+
+
+if mode == "detach":  # report the child's pid and exit, leaving the child behind
+    print(start_child())
+    sys.exit()
+
+pids = [os.getpid(), start_child()]
+if mode == "orphan":
+    detach = [sys.executable, sys.argv[0], *sys.argv[1:3], "detach"]
+    pids.append(int(subprocess.run(detach, stdout=subprocess.PIPE, pass_fds=inherited_fds).stdout))
+os.write(report_fd, " ".join(map(str, pids)).encode() + b"\\n")
+select.select([lifeline_fd], [], [], 60)
+"""
+
+
+class LaunchedProcessTree:
+    """Observes the processes started from LAUNCHER_SCRIPT through the pipes they all hold.
+
+    Reading the report pipe reaches EOF only once every process holding its write end has
+    exited - including any reparented away from the launcher - so no process table needs
+    polling.  Closing the lifeline pipe makes any process still running exit.
+    """
+
+    def __init__(self, script: Path):
+        self.script = script
+        self.read_fd, self.write_fd = os.pipe()
+        self.lifeline_fd, self._lifeline_write_fd = os.pipe()
+        self._open_fds = {self.read_fd, self.write_fd, self.lifeline_fd, self._lifeline_write_fd}
+        self.pids: list[int] = []
+        self.exited = False
+
+    @property
+    def pass_fds(self) -> tuple[int, int]:
+        """The descriptors whatever starts the launcher must pass on to it."""
+        return self.write_fd, self.lifeline_fd
+
+    def argv(self, mode: str) -> list[str]:
+        """The launcher command."""
+        return [sys.executable, str(self.script), *map(str, self.pass_fds), mode]
+
+    def wait_running(self, timeout: float = 20.0) -> None:
+        """Waits for the launcher to report its processes, then closes this process's write end."""
+        report = b""
+        while not report.endswith(b"\n"):
+            chunk = self._read(timeout)
+            assert chunk, "the launcher exited before starting its processes"
+            report += chunk
+        self.pids = [int(pid) for pid in report.split()]
+        self._close(self.write_fd)
+
+    def wait_exited(self, timeout: float = 10.0) -> bool:
+        """Returns True once every process has exited, or False if any outlives the timeout."""
+        self._close(self.write_fd)
+        try:
+            self.exited = self._read(timeout) == b""
+        except TimeoutError:
+            return False
+        return self.exited
+
+    def close(self) -> None:
+        """Makes every process left behind (by a failing test) exit, then closes the pipes."""
+        self._close(self._lifeline_write_fd)
+        if not self.exited and not self.wait_exited() and self.pids:
+            # Still running despite the lifeline, so stopped: kill what the launcher reported.
+            for pid in self.pids:
+                with contextlib.suppress(ProcessLookupError, PermissionError):
+                    os.kill(pid, signal.SIGKILL)
+            self.wait_exited()
+        for fd in list(self._open_fds):
+            self._close(fd)
+
+    def _read(self, timeout: float) -> bytes:
+        ready, _, _ = select.select([self.read_fd], [], [], timeout)
+        if not ready:
+            msg = f"nothing to read from the process tree after {timeout}s"
+            raise TimeoutError(msg)
+        return os.read(self.read_fd, 1024)
+
+    def _close(self, fd: int) -> None:
+        # Close each descriptor once: its number may be reused as soon as it is closed.
+        if fd in self._open_fds:
+            self._open_fds.remove(fd)
+            os.close(fd)
+
+
+@pytest.fixture
+def process_tree(tmp_path):
+    script = tmp_path / "launcher.py"
+    script.write_text(LAUNCHER_SCRIPT)
+    tree = LaunchedProcessTree(script)
+    yield tree
+    tree.close()
+
+
+@needs_process_groups
+@pytest.mark.parametrize("mode", ["child", "orphan"], ids=["child", "reparented-descendant"])
+async def test_cancelled_local_launch_kills_launcher_process_group(
+    response_manager, get_provisioner, monkeypatch, tmp_path, process_tree, mode
+):
+    """A local launch cancelled after the launcher started its listener must not orphan it.
+
+    jupyter_client starts the launcher in a new session, so it leads a process group holding
+    every process it starts - even those reparented when their own parent exits.
+    """
+    monkeypatch.setattr("gateway_provisioners.distributed.kernel_log_dir", str(tmp_path))
     provisioner = get_provisioner("distributed", str(uuid4()))  # localhost: launched locally
-    killed = []
-    local_proc = SimpleNamespace(pid=4242, kill=lambda: killed.append(True), wait=lambda: -9)
-    launch = BlockingCall(result="4242")
+    launch_remote_process = provisioner._launch_remote_process
+    blocked = BlockingCall(start_timeout=30)
 
-    def launch_locally(cmd, **kwargs):
-        provisioner.local_proc = local_proc
-        return launch(cmd, **kwargs)
+    def launch_then_block(cmd, **kwargs):
+        blocked.result = launch_remote_process(cmd, **kwargs)
+        process_tree.wait_running()
+        return blocked(cmd, **kwargs)
 
-    monkeypatch.setattr(provisioner, "_launch_remote_process", launch_locally)
+    monkeypatch.setattr(provisioner, "_launch_remote_process", launch_then_block)
     monkeypatch.setattr(provisioner, "confirm_remote_startup", AsyncMock())
+    launch = provisioner.launch_kernel(
+        process_tree.argv(mode),
+        env={"KERNEL_ID": provisioner.kernel_id},
+        pass_fds=process_tree.pass_fds,
+    )
+    try:
+        await cancel_while_blocked(launch, blocked)
 
-    await cancel_while_blocked(launch_kernel(provisioner), launch)
+        assert await asyncio.to_thread(process_tree.wait_exited), "processes outlived the launch"
+        assert provisioner.local_proc is None
+    finally:
+        blocked.release.set()
+        if provisioner.local_proc is not None:  # not rolled back: reap the launcher regardless
+            provisioner.local_proc.kill()
+            provisioner.local_proc.wait(timeout=10)
+        if provisioner.local_stdout:
+            provisioner.local_stdout.close()
 
-    assert killed == [True]
-    assert provisioner.local_proc is None
+
+@pytest.fixture
+def rsh_on_this_host(remote_launch, monkeypatch):
+    """Makes remote_launch run its remote commands on this host, through a shell as sshd does."""
+    remote_launch.rsh_results = []
+
+    def run_here(host, command):
+        result = subprocess.run(  # noqa: S602 - runs the provisioner's own fixed command
+            command, shell=True, capture_output=True, text=True, timeout=30, check=False
+        )
+        remote_launch.rsh_results.append(result)
+        return result.stdout.splitlines(keepends=True)
+
+    monkeypatch.setattr(remote_launch, "_rsh", run_here)
+    return remote_launch
+
+
+@needs_process_tools
+def test_rollback_kills_remote_launch_process_group(rsh_on_this_host, process_tree, tmp_path):
+    """Rolling back a remote launch kills every process it started, even reparented ones.
+
+    sshd runs the startup command in a shell it makes a process group leader, which starts the
+    launcher in the background, echoes its pid and exits - so that group holds the launch's
+    processes and nothing else, wherever they were reparented to.
+    """
+    log = shlex.quote(str(tmp_path / "kernel.log"))
+    startup_cmd = f"{shlex.join(process_tree.argv('orphan'))} >> {log} 2>&1 & echo $!"
+    with subprocess.Popen(  # noqa: S603 - a fixed command built by the test
+        ["/bin/sh", "-c", startup_cmd],
+        start_new_session=True,
+        stdout=subprocess.PIPE,
+        pass_fds=process_tree.pass_fds,
+        text=True,
+    ) as shell:
+        result_pid = shell.communicate(timeout=30)[0].strip()
+    process_tree.wait_running()
+
+    rsh_on_this_host._abandon_launched_process(result_pid)
+
+    assert [result.stderr for result in rsh_on_this_host.rsh_results] == [""]
+    assert process_tree.wait_exited(), "processes of the cancelled launch survived"
+
+
+@needs_process_tools
+def test_rollback_spares_remote_process_group_it_does_not_own(rsh_on_this_host, process_tree):
+    """A launcher sharing a process group led by another live process is killed with its
+    descendants, but the rest of the group is left alone."""
+    sleeper = [sys.executable, "-c", "import time; time.sleep(60)"]
+    leader = subprocess.Popen(sleeper, process_group=0)  # noqa: S603
+    launcher = subprocess.Popen(  # noqa: S603
+        process_tree.argv("child"), process_group=leader.pid, pass_fds=process_tree.pass_fds
+    )
+    try:
+        process_tree.wait_running()
+
+        rsh_on_this_host._abandon_launched_process(str(launcher.pid))
+
+        assert [result.stderr for result in rsh_on_this_host.rsh_results] == [""]
+        assert process_tree.wait_exited(), "the launcher or its child survived"
+        assert leader.poll() is None, "another process in the launcher's group was killed"
+    finally:
+        for process in (launcher, leader):
+            process.kill()
+            process.wait(timeout=10)
 
 
 async def test_failed_cancelled_launch_needs_no_rollback(remote_launch, monkeypatch):
@@ -529,3 +908,67 @@ async def test_cancelled_k8s_pre_launch_deletes_only_created_namespace(
 
     assert deleted == ([f"{TEST_USER}-{provisioner.kernel_id}"] if expect_deleted else [])
     assert provisioner.delete_kernel_namespace is False
+
+
+def cancel_tasks_created_since(tasks_before: set[asyncio.Task]) -> None:
+    """Cancels every pending task created since 'tasks_before' was taken.
+
+    This is what event-loop teardown does (e.g., when asyncio.run() returns): it cancels every
+    pending task at once - not just the one awaiting a blocking call.
+    """
+    for task in asyncio.all_tasks() - tasks_before:
+        task.cancel()
+
+
+async def test_loop_teardown_keeps_lock_until_worker_finishes(docker_provisioner, monkeypatch):
+    """Teardown releases a blocking call's caller at once, but not the lock its worker holds."""
+    tasks_before = asyncio.all_tasks()
+    status = BlockingCall(result="running")
+    monkeypatch.setattr(docker_provisioner, "get_container_status", status)
+    poll = asyncio.create_task(docker_provisioner.poll())
+    await status.wait_started()
+    lock = docker_provisioner._blocking_call_lock
+    try:
+        cancel_tasks_created_since(tasks_before)
+        await asyncio.wait({poll}, timeout=PROBE_TIMEOUT)
+        assert poll.cancelled(), "the cancelled caller should not wait for the worker"
+        assert lock.locked(), "the lock was released while the worker still runs"
+    finally:
+        status.release.set()
+
+    await asyncio.wait_for(lock.acquire(), timeout=PROBE_TIMEOUT)
+    lock.release()
+
+
+async def test_loop_teardown_still_rolls_back_cancelled_launch(remote_launch, monkeypatch):
+    """Teardown must not skip the rollback of a launch whose worker is still running.
+
+    asyncio.run() waits for the tasks it cancels, so the launch can still wait for its worker
+    and kill the process it started.
+    """
+    tasks_before = asyncio.all_tasks()
+    launch = BlockingCall(result="4242")
+    monkeypatch.setattr(remote_launch, "_launch_remote_process", launch)
+    task = asyncio.create_task(launch_kernel(remote_launch))
+    await launch.wait_started()
+    try:
+        cancel_tasks_created_since(tasks_before)
+        await asyncio.sleep(0.05)
+        assert not task.done(), "the cancelled launch should wait for its worker to finish"
+        assert remote_launch._blocking_call_lock.locked(), "lock released while the worker runs"
+    finally:
+        launch.release.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert remote_launch.rsh_commands == [(remote_launch.ip, KILL_PROCESS_TREE_4242)]
+    assert not remote_launch._blocking_call_lock.locked()
+
+
+REQUEST_ID: contextvars.ContextVar[str] = contextvars.ContextVar("request_id")
+
+
+async def test_blocking_call_runs_in_callers_context(docker_provisioner):
+    """Like asyncio.to_thread(), a blocking call sees the caller's context variables."""
+    REQUEST_ID.set("request-1")
+    assert await docker_provisioner._run_blocking(REQUEST_ID.get) == "request-1"

@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import getpass
 import json
 import os
@@ -28,6 +29,64 @@ kernel_log_dir = os.getenv("GP_KERNEL_LOG_DIR", "/tmp")  # noqa: S108
 
 # GSS-API authentication was removed from paramiko in 5.0.
 paramiko_supports_gss = "gss_auth" in signature(paramiko.SSHClient.connect).parameters
+
+# Kills a remote kernel launcher - whose pid is assigned to `pid` ahead of this script - along
+# with every process it started.  sshd runs the startup command in a shell it makes a process
+# group leader, and that shell exits once it has started the launcher in the background, so the
+# launcher shares that group with everything it starts - even processes reparented when their own
+# parent exits, like the R launcher's listener.  The script first walks the launcher's
+# descendants, stopping each process before listing its children so none can fork unseen, and
+# kills them deepest first.  It then kills the group, but only if it is the launch's own: a pgid
+# greater than 1, other than the group the script itself runs in, and led either by the launcher
+# or by a process that has exited.  Every expansion is quoted, and the script refuses pids <= 1.
+_KILL_PROCESS_TREE_SCRIPT = (
+    '[ "$pid" -gt 1 ] || exit 0; '
+    'pgid=$(ps -o pgid= -p "$pid" | tr -d " "); '
+    'my_pgid=$(ps -o pgid= -p $$ | tr -d " "); '
+    "kill_group=; "
+    'if [ "$pgid" -gt 1 ] 2>/dev/null && [ -n "$my_pgid" ] && [ "$pgid" != "$my_pgid" ]; then '
+    'if [ "$pgid" = "$pid" ] || [ -z "$(ps -o pid= -p "$pgid")" ]; then kill_group=1; fi; '
+    "fi; "
+    'kill_tree() ( [ "$1" -gt 1 ] || exit 0; kill -STOP "$1" 2>/dev/null; '
+    'for child in $(pgrep -P "$1"); do kill_tree "$child"; done; kill -9 "$1" 2>/dev/null ); '
+    'kill_tree "$pid"; '
+    'if [ -n "$kill_group" ]; then kill -9 "-$pgid" 2>/dev/null; fi'
+)
+
+
+def _kill_process_tree_command(pid: int) -> str:
+    """Returns the command that kills remote process 'pid' and its descendants (see above).
+
+    The script is fixed text, run by `sh` whatever the remote user's login shell is; only the pid
+    varies, and it is formatted as an integer.
+
+    :param pid : int
+        The id of the process to kill, which must be greater than 1
+    :returns: The command to run on the remote host
+    :raises ValueError: If 'pid' is not greater than 1
+    """
+    if pid <= 1:
+        msg = f"Refusing to kill process tree of pid {pid}"
+        raise ValueError(msg)
+    return f"sh -c 'pid={pid:d}; {_KILL_PROCESS_TREE_SCRIPT}'"
+
+
+def _launcher_process_group(pid: int) -> int | None:
+    """Returns the process group the local launcher 'pid' leads, if it is safe to signal.
+
+    That is only a group whose id is the launcher's own pid - one it created - and never the
+    group of this server or of init.  Returns None on platforms without process groups and once
+    the launcher has exited (`getpgid()` fails for a zombie on some platforms, e.g. macOS).
+    """
+    if not hasattr(os, "killpg"):
+        return None
+    try:
+        pgid = os.getpgid(pid)
+    except ProcessLookupError:
+        return None
+    if pgid != pid or pgid <= 1 or pgid == os.getpgrp():
+        return None
+    return pgid
 
 
 class TrackKernelOnHost:
@@ -273,12 +332,11 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
         """Terminates a kernel whose launch was cancelled before its process could be recorded.
 
         Called from a worker thread by `_run_blocking_with_rollback()`.  The launcher has not yet
-        reported its communication port, so `kill()` cannot signal it; terminate the process (and
-        any children, such as the launcher's listener) directly instead.
+        reported its communication port, so `kill()` cannot signal it; terminate the launcher and
+        every process it started, such as its listener, directly instead.
         """
         if self.local_proc is not None:
-            self.local_proc.kill()
-            self.local_proc.wait()
+            DistributedProvisioner._kill_local_launch(self.local_proc)
             self.local_proc = None
             if self.local_stdout:
                 self.local_stdout.close()
@@ -288,16 +346,35 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
         try:
             pid = int(result_pid)
         except ValueError:
+            pid = 0
+        if pid <= 1:  # 1 is init, while 0 and negative pids address whole process groups
             self.log.warning(
                 f"Unable to terminate the cancelled kernel launch on '{self.assigned_host}': "
                 f"invalid process id '{result_pid}'."
             )
             return
-        self._rsh(self.ip, f"pkill -9 -P {pid}; kill -9 {pid}")
+        self._rsh(self.ip, _kill_process_tree_command(pid))
         self.log.info(
             f"Terminated process {pid} on '{self.assigned_host}' after its kernel launch was "
             f"cancelled, KernelID: '{self.kernel_id}'."
         )
+
+    @staticmethod
+    def _kill_local_launch(proc: subprocess.Popen) -> None:
+        """Kills the local kernel launcher 'proc' along with every process it started, then reaps it.
+
+        jupyter_client starts kernels in a new session on POSIX, so the launcher leads a process
+        group holding every process it starts - even those reparented when their own parent
+        exits, like the R launcher's listener.  Killing just the launcher would leave them running.
+        """
+        pgid = _launcher_process_group(proc.pid)
+        if pgid is not None:
+            # The launcher is reaped only below, so its pid - the group's id - cannot have been
+            # reused since _launcher_process_group() checked it.
+            with contextlib.suppress(ProcessLookupError):  # the group has exited meanwhile
+                os.killpg(pgid, signal.SIGKILL)
+        proc.kill()  # in case it leads no group of its own; a no-op once it has exited
+        proc.wait()
 
     def _build_startup_command(self, cmd: list[str], **kwargs: Any) -> list[str]:
         """
