@@ -3,7 +3,9 @@
 """Kernel managers that operate against a remote process."""
 
 import asyncio
+import contextvars
 import errno
+import functools
 import getpass
 import json
 import os
@@ -90,6 +92,19 @@ async def _wait_absorbing_cancellation(future: asyncio.Future) -> None:
             await asyncio.wait({future})
         except asyncio.CancelledError:
             continue
+
+
+async def _acquire_absorbing_cancellation(lock: asyncio.Lock) -> None:
+    """Acquires 'lock', absorbing any cancellation of the waiting task meanwhile.
+
+    Callers must re-raise the cancellation that led them here once they are done.
+    """
+    while True:
+        try:
+            await lock.acquire()
+        except asyncio.CancelledError:
+            continue
+        return
 
 
 # mypy cannot see that `KernelProvisionerMeta` derives from `MetaHasTraits` because
@@ -396,7 +411,8 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
         Calls are serialized per provisioner: the callables update shared state (e.g., `assigned_ip`,
         `container_name`) without synchronization of their own, so at most one runs at a time.  The
         lock is held until the thread finishes, even if the awaiting task is cancelled (e.g., by an
-        `asyncio.wait_for()` timeout), since cancellation cannot stop the thread.
+        `asyncio.wait_for()` timeout, or by event-loop teardown cancelling every pending task),
+        since cancellation cannot stop the thread.  The cancelled caller itself is released at once.
 
         The lock covers only the call itself and is never held while a coroutine awaits anything
         else, so lifecycle coroutines can call one another (e.g., `confirm_remote_startup()` ->
@@ -408,8 +424,8 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
             The arguments to pass to 'func'
         :returns: The return value of 'func', whose exceptions propagate to the caller.
         """
-        call = await self._start_blocking(func, *args, **kwargs)
-        return await asyncio.shield(call)
+        work = await self._start_blocking(func, *args, **kwargs)
+        return await asyncio.shield(work)
 
     async def _run_blocking_with_rollback(
         self,
@@ -427,6 +443,8 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
         caller has given up - and nothing would record it for cleanup.  When cancelled, this
         waits for the call to finish (asynchronously - the event loop stays responsive), passes
         its result to `rollback` in a worker thread, and only then re-raises the cancellation.
+        This holds during event-loop teardown too, which cancels every pending task at once:
+        `asyncio.run()`, for one, waits for the tasks it cancels to finish.
 
         Rollback is best-effort: a failure is logged rather than masking the cancellation.
 
@@ -438,32 +456,69 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
             The arguments to pass to 'func'
         :returns: The return value of 'func', whose exceptions propagate to the caller.
         """
-        call = await self._start_blocking(func, *args, **kwargs)
+        work = await self._start_blocking(func, *args, **kwargs)
         try:
-            return await asyncio.shield(call)
+            return await asyncio.shield(work)
         except asyncio.CancelledError:
-            await _wait_absorbing_cancellation(call)
-            if not call.cancelled() and call.exception() is None:
-                undo = asyncio.ensure_future(self._run_blocking(rollback, call.result()))
-                await _wait_absorbing_cancellation(undo)
-                if not undo.cancelled() and undo.exception() is not None:
-                    self.log.warning(
-                        f"Failed to roll back a cancelled launch step for KernelID "
-                        f"'{self.kernel_id}': {undo.exception()}"
-                    )
+            await _wait_absorbing_cancellation(work)
+            if not work.cancelled() and work.exception() is None:
+                await self._roll_back(rollback, work.result())
             raise
+
+    async def _roll_back(self, rollback: Callable[[_T], object], result: _T) -> None:
+        """Runs 'rollback(result)' in a worker thread, absorbing cancellation until it finishes.
+
+        Like the call it undoes, the rollback runs under the provisioner's lock.  A failure is
+        logged rather than raised - see `_run_blocking_with_rollback()`.
+        """
+        await _acquire_absorbing_cancellation(self._blocking_call_lock)
+        try:
+            undo = self._submit_blocking(rollback, result)
+        except RuntimeError as e:  # The event loop's executor has been shut down
+            error: BaseException | None = e
+        else:
+            await _wait_absorbing_cancellation(undo)
+            error = None if undo.cancelled() else undo.exception()
+        if error is not None:
+            self.log.warning(
+                f"Failed to roll back a cancelled launch step for KernelID "
+                f"'{self.kernel_id}': {error}"
+            )
 
     async def _start_blocking(
         self, func: Callable[_P, _T], /, *args: _P.args, **kwargs: _P.kwargs
-    ) -> asyncio.Task[_T]:
+    ) -> asyncio.Future[_T]:
         """Starts 'func' in a worker thread once the provisioner's lock is acquired.
 
-        The lock is released when the thread finishes - see `_run_blocking()`.
+        See `_submit_blocking()`.
         """
         await self._blocking_call_lock.acquire()
-        call = asyncio.create_task(asyncio.to_thread(func, *args, **kwargs))
-        call.add_done_callback(lambda _: self._blocking_call_lock.release())
-        return call
+        return self._submit_blocking(func, *args, **kwargs)
+
+    def _submit_blocking(
+        self, func: Callable[_P, _T], /, *args: _P.args, **kwargs: _P.kwargs
+    ) -> asyncio.Future[_T]:
+        """Submits 'func' to the event loop's default executor, which runs it in a worker thread.
+
+        The caller must hold the provisioner's lock, which is released when 'func' finishes.  As
+        with `asyncio.to_thread()`, 'func' runs in a copy of the caller's context.
+
+        The returned future - unlike a Task wrapping it - is not cancelled when every pending task
+        is (as during event-loop teardown), so it completes only when the thread does.  Callers
+        must await it through `asyncio.shield()`, since cancelling the awaiting task would
+        otherwise cancel it too.
+
+        :raises RuntimeError: If the executor has been shut down; the lock is released.
+        """
+        loop = asyncio.get_running_loop()
+        call = functools.partial(contextvars.copy_context().run, func, *args, **kwargs)
+        try:
+            work = loop.run_in_executor(None, call)
+        except BaseException:
+            self._blocking_call_lock.release()
+            raise
+        work.add_done_callback(lambda _: self._blocking_call_lock.release())
+        return work
 
     async def shutdown_listener(self, restart: bool) -> None:
         """
