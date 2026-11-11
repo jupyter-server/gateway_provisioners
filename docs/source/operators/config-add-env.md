@@ -26,13 +26,15 @@ also be used to influence functionality:
     not set this value, the KubernetesProvisioner will then use 'cluster-admin'.  It is
     recommended this value be set to something other than 'cluster-admin'.
 
-  GP_KERNEL_LAUNCH_TIMEOUT=30
-    The time (in seconds) hosting application will wait for a remote kernel's startup
-    completion status before deeming the startup a failure.
-
   GP_KERNEL_LOG_DIR=/tmp
     The directory used during remote kernel launches of DistributedProvisioner
     kernels.  Files in this directory will be of the form kernel-<kernel_id>.log.
+
+  GP_LAUNCH_TIMEOUT=30
+    The time (in seconds) the hosting application will wait for a remote kernel's
+    startup completion status before deeming the startup a failure.  This sets the
+    default value of the launch_timeout configurable option.  When not set, the
+    hosting application's KERNEL_LAUNCH_TIMEOUT is used (if set).
 
   GP_MAX_PORT_RANGE_RETRIES=5
     The number of attempts made to locate an available port within the specified
@@ -86,6 +88,15 @@ also be used to influence functionality:
     (for example).  It's value may also need to be set in cases where the computed
     (default) is not correct for the current topology.
 
+  GP_RESPONSE_MAX_CONNECTIONS=128
+    The maximum number of connections to the response port (GP_RESPONSE_PORT) that
+    are processed at once.  Connections arriving while this many are being processed
+    are closed immediately, so the corresponding kernel launches will fail.  These
+    rejections are logged as a warning at most once a minute (otherwise at debug
+    level).  Since launched kernels hold their connection only briefly, the default
+    comfortably exceeds what even many simultaneous launches need, while limiting the
+    file descriptors stalled connections can hold to a fraction of typical limits.
+
   GP_RESPONSE_PORT=8877
     The single response port used to receive connection information from
     launched kernels.
@@ -94,6 +105,15 @@ also be used to influence functionality:
     The number of retries to attempt when the original response port
     (GP_RESPONSE_PORT) is found to be in-use.  This value should be
     set to 0 (zero) if no port retries are desired.
+
+  GP_RESPONSE_READ_TIMEOUT=10.0
+    The time (in seconds) the host server will wait for a launched kernel to send
+    its complete connection information over the response port (GP_RESPONSE_PORT)
+    and close the connection.  Each connection is processed independently, so a
+    slow or stalled connection does not delay the responses of other kernels.
+    Connections exceeding this time, or sending more than 64 KiB, are logged and
+    closed.  Should a kernel's response be discarded, its launch will fail once
+    the launch timeout (GP_LAUNCH_TIMEOUT) expires.
 
   GP_SHARED_NAMESPACE=True
     Kubernetes Provisioners only. This value indicates whether (True) or not (False) all
