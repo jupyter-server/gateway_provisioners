@@ -88,6 +88,15 @@ also be used to influence functionality:
     (for example).  It's value may also need to be set in cases where the computed
     (default) is not correct for the current topology.
 
+  GP_RESPONSE_MAX_CONNECTIONS=128
+    The maximum number of connections to the response port (GP_RESPONSE_PORT) that
+    are processed at once.  Connections arriving while this many are being processed
+    are closed immediately, so the corresponding kernel launches will fail.  These
+    rejections are logged as a warning at most once a minute (otherwise at debug
+    level).  Since launched kernels hold their connection only briefly, the default
+    comfortably exceeds what even many simultaneous launches need, while limiting the
+    file descriptors stalled connections can hold to a fraction of typical limits.
+
   GP_RESPONSE_PORT=8877
     The single response port used to receive connection information from
     launched kernels.

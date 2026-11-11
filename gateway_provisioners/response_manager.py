@@ -10,6 +10,7 @@ import json
 import os
 import random
 import re
+import time
 from asyncio import Event
 from socket import AF_INET, SO_REUSEADDR, SOCK_STREAM, SOL_SOCKET, socket
 from typing import Any
@@ -32,6 +33,13 @@ response_addr_any = bool(os.getenv("GP_RESPONSE_ADDR_ANY", "False").lower() == "
 # Launchers send a few KB immediately after connecting, so this leaves ample room for slow
 # networks while ensuring a stalled connection doesn't hold its resources for long.
 response_read_timeout = float(os.getenv("GP_RESPONSE_READ_TIMEOUT", "10.0"))
+
+# The maximum number of kernel launcher connections processed at once; any others are closed
+# as soon as they are accepted.  Launchers hold their connection only for the moment it takes
+# to send a few KB, so even large bursts of launches stay far below this.  Meanwhile, it bounds
+# the file descriptors that clients stalling their connections (until GP_RESPONSE_READ_TIMEOUT)
+# can hold to an eighth of the common per-process limit of 1024.  (It matches the listen backlog.)
+response_max_connections = int(os.getenv("GP_RESPONSE_MAX_CONNECTIONS", "128"))
 
 connection_interval = (
     poll_interval / 100.0
@@ -111,7 +119,8 @@ class ResponseManager(SingletonConfigurable):
     the connection information.
     2. Creates a single socket based on the configuration settings that is listened on
     via a periodic callback, which hands each accepted connection to its own task so that
-    a slow or stalled connection cannot delay the processing of others.
+    a slow or stalled connection cannot delay the processing of others.  Connections accepted
+    while GP_RESPONSE_MAX_CONNECTIONS are being processed are closed immediately.
     3. On receipt, it decrypts the response (key then connection info) and posts the
     response payload to a map identified by the kernel_id embedded in the response.
     4. Provides a wait mechanism for callers to poll to get their connection info
@@ -122,6 +131,10 @@ class ResponseManager(SingletonConfigurable):
     # Responses are around 2 KB, so this leaves ample headroom while bounding the memory
     # a misbehaving client can consume.  (It matches asyncio's default stream buffer limit.)
     MAX_PAYLOAD_SIZE = 64 * 1024
+    # The minimum time (in seconds) between warnings of rejected connections, so that a flood
+    # of connections doesn't flood the log as well.  Rejections in between are logged at debug
+    # level, and their number is reported by the next warning.
+    REJECTION_WARNING_INTERVAL = 60.0
     _instance = None
 
     def __init__(self, **kwargs: Any):
@@ -133,6 +146,10 @@ class ResponseManager(SingletonConfigurable):
         # Tasks processing accepted connections.  Holding them prevents their garbage
         # collection mid-flight and allows their cancellation on stop.
         self._connection_tasks: set[asyncio.Task] = set()
+        # Connections rejected (at debug level) since the last warning of a rejection, and
+        # when that warning was logged.
+        self._debug_logged_rejections = 0
+        self._last_rejection_warning = -float("inf")
 
         # Create encryption keys...
         self._private_key = RSA.generate(ResponseManager.KEY_SIZE)
@@ -247,7 +264,11 @@ class ResponseManager(SingletonConfigurable):
             self._response_socket = None
 
     async def _process_connections(self) -> None:
-        """Accepts a pending connection, if any, and processes it in a task of its own."""
+        """Accepts a pending connection, if any, and processes it in a task of its own.
+
+        The connection is closed instead when GP_RESPONSE_MAX_CONNECTIONS are already being
+        processed.
+        """
         loop = asyncio.get_running_loop()
         try:
             assert self._response_socket is not None
@@ -256,6 +277,12 @@ class ResponseManager(SingletonConfigurable):
             return  # No pending connection
         except OSError as ose:
             self.log.error(f"Failure occurred accepting connection: {ose}")
+            return
+
+        # Closing an excess connection here, rather than in a task awaiting capacity, ensures
+        # excess connections cannot hold file descriptors.
+        if len(self._connection_tasks) >= response_max_connections:
+            self._reject_connection(conn, addr)
             return
 
         task = loop.create_task(self._handle_connection(conn, addr))
@@ -270,6 +297,35 @@ class ResponseManager(SingletonConfigurable):
         """
         self._connection_tasks.discard(task)
         conn.close()
+
+    def _reject_connection(self, conn: socket, addr: tuple[str, int]) -> None:
+        """Closes a connection accepted while GP_RESPONSE_MAX_CONNECTIONS are being processed.
+
+        The rejection is logged as a warning, unless one was logged within the last
+        REJECTION_WARNING_INTERVAL seconds, in which case it's logged at debug level.
+        """
+        conn.close()
+        message = (
+            f"Rejected connection from {addr[0]}:{addr[1]}: {response_max_connections} "
+            "connections are already being processed (GP_RESPONSE_MAX_CONNECTIONS)."
+        )
+        now = time.monotonic()
+        if now - self._last_rejection_warning < ResponseManager.REJECTION_WARNING_INTERVAL:
+            self._debug_logged_rejections += 1
+            self.log.debug(message)
+            return
+
+        if self._debug_logged_rejections:
+            message += (
+                f"  {self._debug_logged_rejections} connection(s) rejected since the previous "
+                "such warning were logged at debug level."
+            )
+        self.log.warning(
+            f"{message}  Rejections in the next "
+            f"{ResponseManager.REJECTION_WARNING_INTERVAL:g} seconds will be logged at debug level."
+        )
+        self._debug_logged_rejections = 0
+        self._last_rejection_warning = now
 
     async def _handle_connection(self, conn: socket, addr: tuple[str, int]) -> None:
         """Receives a kernel launcher's response, decrypts it and posts it to the 'wait map'.
