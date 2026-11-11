@@ -26,13 +26,15 @@ also be used to influence functionality:
     not set this value, the KubernetesProvisioner will then use 'cluster-admin'.  It is
     recommended this value be set to something other than 'cluster-admin'.
 
-  GP_KERNEL_LAUNCH_TIMEOUT=30
-    The time (in seconds) hosting application will wait for a remote kernel's startup
-    completion status before deeming the startup a failure.
-
   GP_KERNEL_LOG_DIR=/tmp
     The directory used during remote kernel launches of DistributedProvisioner
     kernels.  Files in this directory will be of the form kernel-<kernel_id>.log.
+
+  GP_LAUNCH_TIMEOUT=30
+    The time (in seconds) the hosting application will wait for a remote kernel's
+    startup completion status before deeming the startup a failure.  This sets the
+    default value of the launch_timeout configurable option.  When not set, the
+    hosting application's KERNEL_LAUNCH_TIMEOUT is used (if set).
 
   GP_MAX_PORT_RANGE_RETRIES=5
     The number of attempts made to locate an available port within the specified
@@ -102,7 +104,7 @@ also be used to influence functionality:
     slow or stalled connection does not delay the responses of other kernels.
     Connections exceeding this time, or sending more than 64 KiB, are logged and
     closed.  Should a kernel's response be discarded, its launch will fail once
-    GP_KERNEL_LAUNCH_TIMEOUT expires.
+    the launch timeout (GP_LAUNCH_TIMEOUT) expires.
 
   GP_SHARED_NAMESPACE=True
     Kubernetes Provisioners only. This value indicates whether (True) or not (False) all
