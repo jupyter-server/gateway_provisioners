@@ -12,7 +12,7 @@ import re
 import sys
 import time
 from abc import abstractmethod
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from enum import Enum
 from socket import AF_INET, SHUT_WR, SOCK_STREAM, socket, timeout
 from typing import Any, ParamSpec, TypeVar, cast
@@ -40,6 +40,40 @@ from .response_manager import ResponseManager, redact_secrets
 
 # Pop certain env variables that don't need to be logged, e.g. remote_pwd
 env_pop_list = ["GP_REMOTE_PWD", "LS_COLORS"]
+
+# Kernel env variables whose values may be logged: non-secret identifiers that Gateway
+# Provisioners sets or consumes.  Free-form values (e.g., KERNEL_EXTRA_SPARK_OPTS) and URLs
+# are deliberately absent since they can embed credentials.
+env_log_allowlist = frozenset(
+    {
+        "GP_DOCKER_MODE",
+        "GP_DOCKER_NETWORK",
+        "GP_IMPERSONATION_ENABLED",
+        "KERNEL_CRD_GROUP",
+        "KERNEL_CRD_PLURAL",
+        "KERNEL_CRD_VERSION",
+        "KERNEL_DRIVER_MEMORY",
+        "KERNEL_EXECUTOR_IMAGE",
+        "KERNEL_EXECUTOR_MEMORY",
+        "KERNEL_GID",
+        "KERNEL_ID",
+        "KERNEL_IMAGE",
+        "KERNEL_LANGUAGE",
+        "KERNEL_LAUNCH_TIMEOUT",
+        "KERNEL_NAMESPACE",
+        "KERNEL_NODE_LABEL",
+        "KERNEL_POD_NAME",
+        "KERNEL_QUEUE",
+        "KERNEL_REMOTE_HOST",
+        "KERNEL_RESOURCE_NAME",
+        "KERNEL_SERVICE_ACCOUNT_NAME",
+        "KERNEL_SPARK_CONTEXT_INIT_MODE",
+        "KERNEL_UID",
+        "KERNEL_USERNAME",
+        "KERNEL_WORKING_DIR",
+    }
+)
+
 default_kernel_launch_timeout = float(os.getenv("KERNEL_LAUNCH_TIMEOUT", "30"))
 
 # Minimum port range size and max retries
@@ -90,6 +124,16 @@ async def _wait_absorbing_cancellation(future: asyncio.Future) -> None:
             await asyncio.wait({future})
         except asyncio.CancelledError:
             continue
+
+
+def redact_env(env: Mapping[str, str]) -> dict[str, str]:
+    """Returns a copy of the kernel env, sorted by name, with values masked for logging.
+
+    Every name is kept so the log still shows what the kernel received, but only the values
+    of names in `env_log_allowlist` are retained since kernel envs commonly carry
+    credentials (cloud keys, tokens, passwords).
+    """
+    return {name: env[name] if name in env_log_allowlist else "***" for name in sorted(env)}
 
 
 # mypy cannot see that `KernelProvisionerMeta` derives from `MetaHasTraits` because
@@ -180,13 +224,15 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
 
         self._enforce_authorization(**kwargs)
 
-        self.log.debug(f"RemoteProvisionerBase.pre_launch() env: {env}")
+        self.log.debug(f"RemoteProvisionerBase.pre_launch() env: {redact_env(env)}")
         return kwargs
 
     @overrides
     async def launch_kernel(self, cmd: list[str], **kwargs: Any) -> KernelConnectionInfo:
         launch_kwargs = RemoteProvisionerBase._scrub_kwargs(kwargs)
-        self.log.debug(f"RemoteProvisionerBase.launch_kernel() env: {launch_kwargs.get('env', {})}")
+        self.log.debug(
+            f"RemoteProvisionerBase.launch_kernel() env: {redact_env(launch_kwargs.get('env', {}))}"
+        )
         self.local_proc = gp_launch_kernel(cmd, **launch_kwargs)
         self.pid = self.local_proc.pid
         self.ip = local_ip

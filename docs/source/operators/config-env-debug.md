@@ -46,3 +46,19 @@ The following environment variables may be useful for troubleshooting:
     By default, the yarn-api-client library is too verbose for its logging.  This
     value can be adjusted in situations where YARN troubleshooting may be warranted.
 ```
+
+## Kernel environment in logs
+
+At `DEBUG` level, the provisioners log the environment each kernel is launched with.
+Every variable name is logged, sorted, but values are logged only for a fixed set of
+non-secret identifiers that Gateway Provisioners sets or uses - for example `KERNEL_ID`,
+`KERNEL_USERNAME`, `KERNEL_NAMESPACE` and `KERNEL_IMAGE` (see `env_log_allowlist` in
+`gateway_provisioners/remote_provisioner.py` for the complete list). All other values are
+shown as `***` since kernel environments commonly carry credentials:
+
+```text
+RemoteProvisionerBase.launch_kernel() env: {'AWS_SECRET_ACCESS_KEY': '***', 'KERNEL_ID': '0f2b...', 'KERNEL_USERNAME': 'alice', 'PATH': '***', ...}
+```
+
+Similarly, the `bootstrap-kernel.sh` script used by kernel images prints only the names of
+its environment variables.
