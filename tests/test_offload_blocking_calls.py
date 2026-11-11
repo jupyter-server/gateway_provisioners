@@ -6,7 +6,10 @@ import asyncio
 import contextlib
 import os
 import select
+import shlex
+import shutil
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -474,6 +477,25 @@ def launch_kernel(provisioner):
     return provisioner.launch_kernel(["python"], env={"KERNEL_ID": provisioner.kernel_id})
 
 
+# The command run over SSH to roll back a cancelled remote launch whose process id is 4242.
+KILL_PROCESS_TREE_4242 = (
+    "sh -c '"
+    "pid=4242; "
+    '[ "$pid" -gt 1 ] || exit 0; '
+    'pgid=$(ps -o pgid= -p "$pid" | tr -d " "); '
+    'my_pgid=$(ps -o pgid= -p $$ | tr -d " "); '
+    "kill_group=; "
+    'if [ "$pgid" -gt 1 ] 2>/dev/null && [ -n "$my_pgid" ] && [ "$pgid" != "$my_pgid" ]; then '
+    'if [ "$pgid" = "$pid" ] || [ -z "$(ps -o pid= -p "$pgid")" ]; then kill_group=1; fi; '
+    "fi; "
+    'kill_tree() ( [ "$1" -gt 1 ] || exit 0; kill -STOP "$1" 2>/dev/null; '
+    'for child in $(pgrep -P "$1"); do kill_tree "$child"; done; kill -9 "$1" 2>/dev/null ); '
+    'kill_tree "$pid"; '
+    'if [ -n "$kill_group" ]; then kill -9 "-$pgid" 2>/dev/null; fi'
+    "'"
+)
+
+
 async def test_cancelled_remote_launch_kills_launched_process(remote_launch, monkeypatch):
     """A launch cancelled while SSH starts the kernel must not orphan the remote process.
 
@@ -484,7 +506,7 @@ async def test_cancelled_remote_launch_kills_launched_process(remote_launch, mon
 
     await cancel_while_blocked(launch_kernel(remote_launch), launch)
 
-    assert remote_launch.rsh_commands == [(remote_launch.ip, "pkill -9 -P 4242; kill -9 4242")]
+    assert remote_launch.rsh_commands == [(remote_launch.ip, KILL_PROCESS_TREE_4242)]
 
 
 async def test_timed_out_remote_launch_kills_launched_process(remote_launch, monkeypatch):
@@ -495,11 +517,29 @@ async def test_timed_out_remote_launch_kills_launched_process(remote_launch, mon
     with pytest.raises(asyncio.TimeoutError):
         await asyncio.wait_for(launch_kernel(remote_launch), timeout=0.05)
 
-    assert remote_launch.rsh_commands == [(remote_launch.ip, "pkill -9 -P 4242; kill -9 4242")]
+    assert remote_launch.rsh_commands == [(remote_launch.ip, KILL_PROCESS_TREE_4242)]
+
+
+@pytest.mark.parametrize("result_pid", ["bad_pid", "", "-1", "0", "1"])
+async def test_cancelled_remote_launch_without_valid_pid_runs_no_command(
+    remote_launch, monkeypatch, caplog, result_pid
+):
+    """Only a launched process is killed: pids of 1 and below address init or process groups."""
+    launch = BlockingCall(result=result_pid)
+    monkeypatch.setattr(remote_launch, "_launch_remote_process", launch)
+
+    await cancel_while_blocked(launch_kernel(remote_launch), launch)
+
+    assert remote_launch.rsh_commands == []
+    assert f"invalid process id '{result_pid}'" in caplog.text
 
 
 needs_process_groups = pytest.mark.skipif(
     sys.platform == "win32", reason="requires POSIX process groups"
+)
+needs_process_tools = pytest.mark.skipif(
+    sys.platform == "win32" or not (shutil.which("ps") and shutil.which("pgrep")),
+    reason="requires a POSIX shell with ps and pgrep",
 )
 
 # Stands in for a kernel launcher (argv: <report fd> <lifeline fd> <mode>).  It starts a child
@@ -654,6 +694,71 @@ async def test_cancelled_local_launch_kills_launcher_process_group(
             provisioner.local_proc.wait(timeout=10)
         if provisioner.local_stdout:
             provisioner.local_stdout.close()
+
+
+@pytest.fixture
+def rsh_on_this_host(remote_launch, monkeypatch):
+    """Makes remote_launch run its remote commands on this host, through a shell as sshd does."""
+    remote_launch.rsh_results = []
+
+    def run_here(host, command):
+        result = subprocess.run(  # noqa: S602 - runs the provisioner's own fixed command
+            command, shell=True, capture_output=True, text=True, timeout=30, check=False
+        )
+        remote_launch.rsh_results.append(result)
+        return result.stdout.splitlines(keepends=True)
+
+    monkeypatch.setattr(remote_launch, "_rsh", run_here)
+    return remote_launch
+
+
+@needs_process_tools
+def test_rollback_kills_remote_launch_process_group(rsh_on_this_host, process_tree, tmp_path):
+    """Rolling back a remote launch kills every process it started, even reparented ones.
+
+    sshd runs the startup command in a shell it makes a process group leader, which starts the
+    launcher in the background, echoes its pid and exits - so that group holds the launch's
+    processes and nothing else, wherever they were reparented to.
+    """
+    log = shlex.quote(str(tmp_path / "kernel.log"))
+    startup_cmd = f"{shlex.join(process_tree.argv('orphan'))} >> {log} 2>&1 & echo $!"
+    with subprocess.Popen(  # noqa: S603 - a fixed command built by the test
+        ["/bin/sh", "-c", startup_cmd],
+        start_new_session=True,
+        stdout=subprocess.PIPE,
+        pass_fds=process_tree.pass_fds,
+        text=True,
+    ) as shell:
+        result_pid = shell.communicate(timeout=30)[0].strip()
+    process_tree.wait_running()
+
+    rsh_on_this_host._abandon_launched_process(result_pid)
+
+    assert [result.stderr for result in rsh_on_this_host.rsh_results] == [""]
+    assert process_tree.wait_exited(), "processes of the cancelled launch survived"
+
+
+@needs_process_tools
+def test_rollback_spares_remote_process_group_it_does_not_own(rsh_on_this_host, process_tree):
+    """A launcher sharing a process group led by another live process is killed with its
+    descendants, but the rest of the group is left alone."""
+    sleeper = [sys.executable, "-c", "import time; time.sleep(60)"]
+    leader = subprocess.Popen(sleeper, process_group=0)  # noqa: S603
+    launcher = subprocess.Popen(  # noqa: S603
+        process_tree.argv("child"), process_group=leader.pid, pass_fds=process_tree.pass_fds
+    )
+    try:
+        process_tree.wait_running()
+
+        rsh_on_this_host._abandon_launched_process(str(launcher.pid))
+
+        assert [result.stderr for result in rsh_on_this_host.rsh_results] == [""]
+        assert process_tree.wait_exited(), "the launcher or its child survived"
+        assert leader.poll() is None, "another process in the launcher's group was killed"
+    finally:
+        for process in (launcher, leader):
+            process.kill()
+            process.wait(timeout=10)
 
 
 async def test_failed_cancelled_launch_needs_no_rollback(remote_launch, monkeypatch):
