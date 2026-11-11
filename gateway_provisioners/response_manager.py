@@ -5,6 +5,7 @@
 import asyncio
 import base64
 import errno
+import functools
 import json
 import os
 import random
@@ -228,8 +229,8 @@ class ResponseManager(SingletonConfigurable):
     def stop_response_manager(self) -> None:
         """Stops the connection processor and closes the response socket.
 
-        In-flight connections are cancelled; their tasks close them the next time the event
-        loop runs.
+        In-flight connections are cancelled and closed once their cancellation completes, the
+        next time the event loop runs.
         """
         if self._connection_processor is not None:
             self._connection_processor.stop()
@@ -259,7 +260,16 @@ class ResponseManager(SingletonConfigurable):
 
         task = loop.create_task(self._handle_connection(conn, addr))
         self._connection_tasks.add(task)
-        task.add_done_callback(self._connection_tasks.discard)
+        task.add_done_callback(functools.partial(self._connection_done, conn))
+
+    def _connection_done(self, conn: socket, task: asyncio.Task) -> None:
+        """Stops tracking a connection's completed task and ensures the connection is closed.
+
+        The task's handler closes the connection, but never runs if the task is cancelled
+        (by stop_response_manager) before it starts.  Closing a closed socket has no effect.
+        """
+        self._connection_tasks.discard(task)
+        conn.close()
 
     async def _handle_connection(self, conn: socket, addr: tuple[str, int]) -> None:
         """Receives a kernel launcher's response, decrypts it and posts it to the 'wait map'.
