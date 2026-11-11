@@ -307,12 +307,12 @@ async def test_yarn_queue_wait_does_not_block_loop(
 ):
     """Waiting for queue capacity sleeps between checks without blocking the event loop.
 
-    Capacity never frees up here, so the wait ends in a timeout.
+    Capacity frees up on the third check, well within the wait time however loaded the machine.
     """
-    poll_interval = 0.2
+    poll_interval = 0.5
     monkeypatch.setattr("gateway_provisioners.yarn.poll_interval", poll_interval)
-    yarn_provisioner.yarn_resource_check_wait_time = 2.5 * poll_interval
-    availability = LoopProbe(False)
+    yarn_provisioner.yarn_resource_check_wait_time = 60
+    availability = LoopProbe(False, False, True)
     resource_mgr = fake_resource_manager(
         cluster_scheduler_queue=LoopProbe({"queueName": "default"}),
         cluster_queue_partition=LoopProbe({"partitionName": "gpu"}),
@@ -321,14 +321,27 @@ async def test_yarn_queue_wait_does_not_block_loop(
     install_resource_manager(lambda **kwargs: resource_mgr)
 
     async with max_loop_stall() as stall:
-        with pytest.raises(TimeoutError, match="Yarn Compute Resource is unavailable"):
-            await yarn_provisioner.pre_launch(env=dict(QUEUE_ENV))
+        await yarn_provisioner.pre_launch(env=dict(QUEUE_ENV))
 
     resource_mgr.cluster_scheduler_queue.assert_loop_responsive()
     resource_mgr.cluster_queue_partition.assert_loop_responsive()
-    availability.assert_loop_responsive(expected_calls=None)
-    assert len(availability.loop_responsive) > 1, "availability should be checked repeatedly"
+    availability.assert_loop_responsive(expected_calls=3)
+    # Sleeping on the event loop between checks would stall it for a whole poll interval.
     assert stall[0] < poll_interval / 2, f"event loop stalled for {stall[0]:.3f}s"
+
+
+async def test_yarn_queue_wait_times_out(yarn_provisioner, install_resource_manager, monkeypatch):
+    monkeypatch.setattr("gateway_provisioners.yarn.poll_interval", 0.01)
+    yarn_provisioner.yarn_resource_check_wait_time = 0
+    resource_mgr = fake_resource_manager(
+        cluster_scheduler_queue=lambda queue_name: {"queueName": queue_name},
+        cluster_queue_partition=lambda queue, node_label: {"partitionName": node_label},
+        cluster_scheduler_queue_availability=lambda partition, threshold: False,
+    )
+    install_resource_manager(lambda **kwargs: resource_mgr)
+
+    with pytest.raises(TimeoutError, match="Yarn Compute Resource is unavailable"):
+        await yarn_provisioner.pre_launch(env=dict(QUEUE_ENV))
 
 
 def available_queue(*availability) -> SimpleNamespace:
@@ -480,8 +493,11 @@ async def test_failed_call_releases_lock(docker_provisioner, monkeypatch):
     assert await asyncio.wait_for(docker_provisioner.poll(), timeout=PROBE_TIMEOUT) is None
 
 
-# The longest the event loop may stall while a cancelled call waits for its worker thread.
-MAX_STALL = 0.1
+# The longest the event loop may stall while a cancelled call waits for its worker thread.  A loop
+# blocked on the worker would stall until the call gives up waiting for release (5 x
+# PROBE_TIMEOUT), so this leaves room for scheduling delays on a loaded machine without letting
+# that through.
+MAX_STALL = PROBE_TIMEOUT
 
 
 class BlockingCall:
