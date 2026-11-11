@@ -355,7 +355,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
         assert state is not None
         return result, state
 
-    async def _confirm_yarn_queue_availability(self, **kwargs: dict[str, Any]) -> None:
+    async def _confirm_yarn_queue_availability(self, **kwargs: Any) -> None:
         """
         Submitting jobs to yarn queue and then checking till the jobs are in running state
         will lead to orphan jobs being created in some scenarios.
@@ -470,7 +470,7 @@ HADOOP_CONFIG_DIR to determine the active resource manager.
             reason = f"Yarn Compute Resource is unavailable after {self.yarn_resource_check_wait_time} seconds"
             self.log_and_raise(TimeoutError(reason))
 
-    def _initialize_resource_manager(self, **kwargs: dict[str, Any] | None) -> None:
+    def _initialize_resource_manager(self, **kwargs: Any) -> None:
         """Initialize the Hadoop YARN Resource Manager instance used for this kernel's lifecycle."""
 
         endpoints = None
