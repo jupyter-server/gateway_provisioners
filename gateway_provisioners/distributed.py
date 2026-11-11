@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import getpass
 import json
 import os
@@ -28,6 +29,24 @@ kernel_log_dir = os.getenv("GP_KERNEL_LOG_DIR", "/tmp")  # noqa: S108
 
 # GSS-API authentication was removed from paramiko in 5.0.
 paramiko_supports_gss = "gss_auth" in signature(paramiko.SSHClient.connect).parameters
+
+
+def _launcher_process_group(pid: int) -> int | None:
+    """Returns the process group the local launcher 'pid' leads, if it is safe to signal.
+
+    That is only a group whose id is the launcher's own pid - one it created - and never the
+    group of this server or of init.  Returns None on platforms without process groups and once
+    the launcher has exited (`getpgid()` fails for a zombie on some platforms, e.g. macOS).
+    """
+    if not hasattr(os, "killpg"):
+        return None
+    try:
+        pgid = os.getpgid(pid)
+    except ProcessLookupError:
+        return None
+    if pgid != pid or pgid <= 1 or pgid == os.getpgrp():
+        return None
+    return pgid
 
 
 class TrackKernelOnHost:
@@ -273,12 +292,11 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
         """Terminates a kernel whose launch was cancelled before its process could be recorded.
 
         Called from a worker thread by `_run_blocking_with_rollback()`.  The launcher has not yet
-        reported its communication port, so `kill()` cannot signal it; terminate the process (and
-        any children, such as the launcher's listener) directly instead.
+        reported its communication port, so `kill()` cannot signal it; terminate the launcher and
+        every process it started, such as its listener, directly instead.
         """
         if self.local_proc is not None:
-            self.local_proc.kill()
-            self.local_proc.wait()
+            DistributedProvisioner._kill_local_launch(self.local_proc)
             self.local_proc = None
             if self.local_stdout:
                 self.local_stdout.close()
@@ -298,6 +316,23 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
             f"Terminated process {pid} on '{self.assigned_host}' after its kernel launch was "
             f"cancelled, KernelID: '{self.kernel_id}'."
         )
+
+    @staticmethod
+    def _kill_local_launch(proc: subprocess.Popen) -> None:
+        """Kills the local kernel launcher 'proc' along with every process it started, then reaps it.
+
+        jupyter_client starts kernels in a new session on POSIX, so the launcher leads a process
+        group holding every process it starts - even those reparented when their own parent
+        exits, like the R launcher's listener.  Killing just the launcher would leave them running.
+        """
+        pgid = _launcher_process_group(proc.pid)
+        if pgid is not None:
+            # The launcher is reaped only below, so its pid - the group's id - cannot have been
+            # reused since _launcher_process_group() checked it.
+            with contextlib.suppress(ProcessLookupError):  # the group has exited meanwhile
+                os.killpg(pgid, signal.SIGKILL)
+        proc.kill()  # in case it leads no group of its own; a no-op once it has exited
+        proc.wait()
 
     def _build_startup_command(self, cmd: list[str], **kwargs: Any) -> list[str]:
         """
