@@ -12,9 +12,10 @@ import re
 import sys
 import time
 from abc import abstractmethod
+from collections.abc import Callable
 from enum import Enum
 from socket import AF_INET, SHUT_WR, SOCK_STREAM, socket, timeout
-from typing import Any, cast
+from typing import Any, ParamSpec, TypeVar, cast
 
 import pexpect
 import zmq
@@ -57,6 +58,9 @@ local_ip = localinterfaces.public_ips()[0]
 
 random.seed()
 
+_P = ParamSpec("_P")
+_T = TypeVar("_T")
+
 
 class KernelChannel(Enum):
     """Enumeration used to better manage tunneling"""
@@ -73,6 +77,19 @@ class KernelChannel(Enum):
 
 def gp_launch_kernel(cmd: list, **kwargs):
     return launch_kernel(cmd, **kwargs)
+
+
+async def _wait_absorbing_cancellation(future: asyncio.Future) -> None:
+    """Waits for 'future' to finish, absorbing any cancellation of the waiting task meanwhile.
+
+    The wait itself never blocks the event loop.  Callers must re-raise the cancellation that led
+    them here once the wait is over.
+    """
+    while not future.done():
+        try:
+            await asyncio.wait({future})
+        except asyncio.CancelledError:
+            continue
 
 
 # mypy cannot see that `KernelProvisionerMeta` derives from `MetaHasTraits` because
@@ -95,6 +112,10 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
         self.tunnel_processes = {}
         self.transport_encryption = "disabled"
         self.curve_enabled = False
+
+        # Serializes the blocking calls this provisioner offloads to worker threads (see
+        # _run_blocking()).
+        self._blocking_call_lock = asyncio.Lock()
 
         # KernelProvisionerBase.connection_info is a mutable class attribute, so it must be
         # rebound per instance - otherwise entries only present in some responses (e.g., the
@@ -190,7 +211,9 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
         # is shutdown (when using waitAppCompletion = false).  Otherwise (if no local_proc) we'll use polling to
         # determine if a (remote or revived) process is still active.
         if self.local_proc:
-            return self.local_proc.wait()
+            # Waiting on the local process touches no provisioner state, so it needn't hold the
+            # lock _run_blocking() takes - and must not, since the process may outlive many polls.
+            return await asyncio.to_thread(self.local_proc.wait)
 
         poll_val = 0
         for _i in range(max_poll_attempts):
@@ -360,6 +383,87 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
             raise ex from chained
         else:
             raise ex
+
+    async def _run_blocking(
+        self, func: Callable[_P, _T], /, *args: _P.args, **kwargs: _P.kwargs
+    ) -> _T:
+        """Runs the blocking callable 'func' in a worker thread so the event loop stays responsive.
+
+        Provisioners call resource-manager APIs (Kubernetes, Docker, YARN, SSH) through synchronous
+        clients - often via synchronous extension points like `get_container_status()` - and one
+        slow call on the event loop would stall every kernel the server manages.
+
+        Calls are serialized per provisioner: the callables update shared state (e.g., `assigned_ip`,
+        `container_name`) without synchronization of their own, so at most one runs at a time.  The
+        lock is held until the thread finishes, even if the awaiting task is cancelled (e.g., by an
+        `asyncio.wait_for()` timeout), since cancellation cannot stop the thread.
+
+        The lock covers only the call itself and is never held while a coroutine awaits anything
+        else, so lifecycle coroutines can call one another (e.g., `confirm_remote_startup()` ->
+        `handle_launch_timeout()` -> `kill()`) without deadlocking.
+
+        :param func : Callable
+            The blocking callable to run in a worker thread
+        :param args, kwargs
+            The arguments to pass to 'func'
+        :returns: The return value of 'func', whose exceptions propagate to the caller.
+        """
+        call = await self._start_blocking(func, *args, **kwargs)
+        return await asyncio.shield(call)
+
+    async def _run_blocking_with_rollback(
+        self,
+        func: Callable[_P, _T],
+        rollback: Callable[[_T], object],
+        /,
+        *args: _P.args,
+        **kwargs: _P.kwargs,
+    ) -> _T:
+        """Runs a blocking call that creates an external resource, undoing it if cancelled.
+
+        Like `_run_blocking()`, but for calls such as launching a remote kernel or creating its
+        namespace.  Cancelling the awaiting task (e.g., an `asyncio.wait_for()` timeout or server
+        shutdown) cannot stop the worker thread, so the resource may still be created after the
+        caller has given up - and nothing would record it for cleanup.  When cancelled, this
+        waits for the call to finish (asynchronously - the event loop stays responsive), passes
+        its result to `rollback` in a worker thread, and only then re-raises the cancellation.
+
+        Rollback is best-effort: a failure is logged rather than masking the cancellation.
+
+        :param func : Callable
+            The blocking callable that creates the resource
+        :param rollback : Callable
+            Undoes the effect of 'func' given its return value; only called after a cancellation
+        :param args, kwargs
+            The arguments to pass to 'func'
+        :returns: The return value of 'func', whose exceptions propagate to the caller.
+        """
+        call = await self._start_blocking(func, *args, **kwargs)
+        try:
+            return await asyncio.shield(call)
+        except asyncio.CancelledError:
+            await _wait_absorbing_cancellation(call)
+            if not call.cancelled() and call.exception() is None:
+                undo = asyncio.ensure_future(self._run_blocking(rollback, call.result()))
+                await _wait_absorbing_cancellation(undo)
+                if not undo.cancelled() and undo.exception() is not None:
+                    self.log.warning(
+                        f"Failed to roll back a cancelled launch step for KernelID "
+                        f"'{self.kernel_id}': {undo.exception()}"
+                    )
+            raise
+
+    async def _start_blocking(
+        self, func: Callable[_P, _T], /, *args: _P.args, **kwargs: _P.kwargs
+    ) -> asyncio.Task[_T]:
+        """Starts 'func' in a worker thread once the provisioner's lock is acquired.
+
+        The lock is released when the thread finishes - see `_run_blocking()`.
+        """
+        await self._blocking_call_lock.acquire()
+        call = asyncio.create_task(asyncio.to_thread(func, *args, **kwargs))
+        call.add_done_callback(lambda _: self._blocking_call_lock.release())
+        return call
 
     async def shutdown_listener(self, restart: bool) -> None:
         """

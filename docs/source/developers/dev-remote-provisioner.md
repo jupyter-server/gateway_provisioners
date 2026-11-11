@@ -50,6 +50,32 @@ the [`ContainerProvisionerBase` class](https://github.com/jupyter-server/gateway
 If this is the case, then you'll need to implement `get_container_status()` and `terminate_container_resources()`
 rather than `confirm_remote_startup()`, etc.
 
+## Blocking Calls and Threading
+
+The host application (e.g., Jupyter Server or Kernel Gateway) drives every kernel it manages from a single asyncio
+event loop, so a provisioner that blocks - say, waiting on a slow resource manager API - stalls every kernel, not
+just its own. The asynchronous lifecycle methods of `RemoteProvisionerBase` and `ContainerProvisionerBase` therefore
+run blocking work in a worker thread, including the synchronous methods your subclass implements:
+
+- `get_container_status()` and `terminate_container_resources()`, along with anything they call (e.g.,
+  `KubernetesProvisioner.delete_managed_object()`), are called from a worker thread.
+- These calls run one at a time for a given provisioner instance, so they can update attributes like
+  `assigned_ip`, `assigned_host` and `container_name` without locking. Calls for different kernels can run
+  concurrently, so state shared across instances (class attributes, module globals) needs its own synchronization.
+- Keep these methods synchronous, and do not interact with the event loop from them.
+
+If you override one of the asynchronous methods (e.g., `poll()` or `confirm_remote_startup()`) and it makes a
+blocking call, offload that call with `await self._run_blocking(func, *args, **kwargs)` so that it does not block
+the event loop and does not overlap with the provisioner's other blocking calls.
+
+A worker thread cannot be stopped, so a blocking call keeps running when the task awaiting it is cancelled (e.g.,
+by an `asyncio.wait_for()` timeout or server shutdown). For calls that create an external resource - launching a
+remote process, creating a namespace - use
+`await self._run_blocking_with_rollback(func, rollback, *args, **kwargs)` instead: when cancelled, it waits for
+`func` to finish (without blocking the event loop) and passes its result to `rollback`, also run in a worker thread,
+before re-raising the cancellation. This is how the distributed provisioner terminates a kernel whose launch was
+cancelled, and how the Kubernetes provisioner deletes a kernel namespace it created.
+
 Once the gateway provisioner has been implemented, construct an appropriate kernel specification that references your
 gateway provisioner and iterate until you are satisfied with how your remote kernels behave.
 

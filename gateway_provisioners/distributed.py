@@ -165,8 +165,13 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
             f"DistributedProvisioner.launch_kernel() env: {launch_kwargs.get('env', {})}"
         )
         try:
-            result_pid = self._launch_remote_process(cmd, **launch_kwargs)
+            result_pid = await self._run_blocking_with_rollback(
+                self._launch_remote_process, self._abandon_launched_process, cmd, **launch_kwargs
+            )
             self.pid = int(result_pid)
+        except asyncio.CancelledError:
+            self._unregister_assigned_host()
+            raise
         except Exception as e:
             error_message = (
                 f"Failure occurred starting kernel on '{self.ip}'.  Returned result: {e}"
@@ -263,6 +268,36 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
                 result_pid = line.strip()
 
         return result_pid
+
+    def _abandon_launched_process(self, result_pid: str) -> None:
+        """Terminates a kernel whose launch was cancelled before its process could be recorded.
+
+        Called from a worker thread by `_run_blocking_with_rollback()`.  The launcher has not yet
+        reported its communication port, so `kill()` cannot signal it; terminate the process (and
+        any children, such as the launcher's listener) directly instead.
+        """
+        if self.local_proc is not None:
+            self.local_proc.kill()
+            self.local_proc.wait()
+            self.local_proc = None
+            if self.local_stdout:
+                self.local_stdout.close()
+                self.local_stdout = None
+            return
+
+        try:
+            pid = int(result_pid)
+        except ValueError:
+            self.log.warning(
+                f"Unable to terminate the cancelled kernel launch on '{self.assigned_host}': "
+                f"invalid process id '{result_pid}'."
+            )
+            return
+        self._rsh(self.ip, f"pkill -9 -P {pid}; kill -9 {pid}")
+        self.log.info(
+            f"Terminated process {pid} on '{self.assigned_host}' after its kernel launch was "
+            f"cancelled, KernelID: '{self.kernel_id}'."
+        )
 
     def _build_startup_command(self, cmd: list[str], **kwargs: Any) -> list[str]:
         """
