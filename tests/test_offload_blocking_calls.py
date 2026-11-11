@@ -159,12 +159,59 @@ async def test_container_startup_does_not_block_loop(
     probe.assert_loop_responsive()
 
 
-async def test_container_kill_skipped_without_container(docker_provisioner, monkeypatch):
+@pytest.mark.parametrize(
+    "invoke",
+    [
+        lambda p: p.kill(),
+        lambda p: p.terminate(),
+        lambda p: p.shutdown_listener(restart=False),
+    ],
+    ids=["kill", "terminate", "shutdown_listener"],
+)
+async def test_container_termination_skipped_without_container(
+    docker_provisioner, monkeypatch, invoke
+):
+    """Without a container there is nothing to terminate, so no worker thread is scheduled."""
     probe = LoopProbe()
-    monkeypatch.setattr(docker_provisioner, "terminate_container_resources", probe)
+    monkeypatch.setattr(docker_provisioner, "_terminate_container", probe)
     docker_provisioner.container_name = None
-    await docker_provisioner.kill()
+    await invoke(docker_provisioner)
     probe.assert_loop_responsive(expected_calls=0)
+
+
+async def test_container_kill_during_status_check_terminates_found_container(
+    docker_provisioner, monkeypatch
+):
+    """kill() must not skip termination while a status check that may find the container runs.
+
+    The status check names the container only when it returns, so a kill() deciding there is
+    nothing to terminate before then would leave the container running.
+    """
+    container_name = docker_provisioner.container_name
+    docker_provisioner.container_name = None
+    status = BlockingCall(result="running")
+
+    def find_container(iteration):
+        result = status(iteration)
+        docker_provisioner.container_name = container_name
+        return result
+
+    terminated = []
+    monkeypatch.setattr(docker_provisioner, "get_container_status", find_container)
+    monkeypatch.setattr(
+        docker_provisioner,
+        "terminate_container_resources",
+        lambda restart=False: terminated.append(container_name),
+    )
+
+    poll = asyncio.create_task(docker_provisioner.poll())
+    await status.wait_started()
+    kill = asyncio.create_task(docker_provisioner.kill())
+    await asyncio.sleep(0.05)
+    status.release.set()
+    await asyncio.gather(poll, kill)
+
+    assert terminated == [container_name]
 
 
 async def test_wait_on_local_process_does_not_block_loop(docker_provisioner):
