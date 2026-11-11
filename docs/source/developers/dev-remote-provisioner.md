@@ -73,8 +73,9 @@ by an `asyncio.wait_for()` timeout or server shutdown). For calls that create an
 remote process, creating a namespace - use
 `await self._run_blocking_with_rollback(func, rollback, *args, **kwargs)` instead: when cancelled, it waits for
 `func` to finish (without blocking the event loop) and passes its result to `rollback`, also run in a worker thread,
-before re-raising the cancellation. This is how the distributed provisioner terminates a kernel whose launch was
-cancelled, and how the Kubernetes provisioner deletes a kernel namespace it created.
+before re-raising the cancellation. Make `rollback` undo everything `func` started: the distributed provisioner kills
+the whole process tree of a kernel whose launch was cancelled - its launcher may already have started a listener - and
+the Kubernetes provisioner deletes a kernel namespace it created.
 
 Once the gateway provisioner has been implemented, construct an appropriate kernel specification that references your
 gateway provisioner and iterate until you are satisfied with how your remote kernels behave.
