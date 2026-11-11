@@ -4,6 +4,7 @@
 
 import asyncio
 import contextlib
+import contextvars
 import os
 import select
 import shlex
@@ -825,3 +826,67 @@ async def test_cancelled_k8s_pre_launch_deletes_only_created_namespace(
 
     assert deleted == ([f"{TEST_USER}-{provisioner.kernel_id}"] if expect_deleted else [])
     assert provisioner.delete_kernel_namespace is False
+
+
+def cancel_tasks_created_since(tasks_before: set[asyncio.Task]) -> None:
+    """Cancels every pending task created since 'tasks_before' was taken.
+
+    This is what event-loop teardown does (e.g., when asyncio.run() returns): it cancels every
+    pending task at once - not just the one awaiting a blocking call.
+    """
+    for task in asyncio.all_tasks() - tasks_before:
+        task.cancel()
+
+
+async def test_loop_teardown_keeps_lock_until_worker_finishes(docker_provisioner, monkeypatch):
+    """Teardown releases a blocking call's caller at once, but not the lock its worker holds."""
+    tasks_before = asyncio.all_tasks()
+    status = BlockingCall(result="running")
+    monkeypatch.setattr(docker_provisioner, "get_container_status", status)
+    poll = asyncio.create_task(docker_provisioner.poll())
+    await status.wait_started()
+    lock = docker_provisioner._blocking_call_lock
+    try:
+        cancel_tasks_created_since(tasks_before)
+        await asyncio.wait({poll}, timeout=PROBE_TIMEOUT)
+        assert poll.cancelled(), "the cancelled caller should not wait for the worker"
+        assert lock.locked(), "the lock was released while the worker still runs"
+    finally:
+        status.release.set()
+
+    await asyncio.wait_for(lock.acquire(), timeout=PROBE_TIMEOUT)
+    lock.release()
+
+
+async def test_loop_teardown_still_rolls_back_cancelled_launch(remote_launch, monkeypatch):
+    """Teardown must not skip the rollback of a launch whose worker is still running.
+
+    asyncio.run() waits for the tasks it cancels, so the launch can still wait for its worker
+    and kill the process it started.
+    """
+    tasks_before = asyncio.all_tasks()
+    launch = BlockingCall(result="4242")
+    monkeypatch.setattr(remote_launch, "_launch_remote_process", launch)
+    task = asyncio.create_task(launch_kernel(remote_launch))
+    await launch.wait_started()
+    try:
+        cancel_tasks_created_since(tasks_before)
+        await asyncio.sleep(0.05)
+        assert not task.done(), "the cancelled launch should wait for its worker to finish"
+        assert remote_launch._blocking_call_lock.locked(), "lock released while the worker runs"
+    finally:
+        launch.release.set()
+
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    assert remote_launch.rsh_commands == [(remote_launch.ip, KILL_PROCESS_TREE_4242)]
+    assert not remote_launch._blocking_call_lock.locked()
+
+
+REQUEST_ID: contextvars.ContextVar[str] = contextvars.ContextVar("request_id")
+
+
+async def test_blocking_call_runs_in_callers_context(docker_provisioner):
+    """Like asyncio.to_thread(), a blocking call sees the caller's context variables."""
+    REQUEST_ID.set("request-1")
+    assert await docker_provisioner._run_blocking(REQUEST_ID.get) == "request-1"
