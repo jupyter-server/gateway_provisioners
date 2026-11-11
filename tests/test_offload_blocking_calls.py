@@ -4,8 +4,13 @@
 
 import asyncio
 import contextlib
+import os
+import select
+import signal
+import sys
 import threading
 import time
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock
 from uuid import uuid4
@@ -415,8 +420,9 @@ class BlockingCall:
     This lets a test cancel the caller while the call is still in progress.
     """
 
-    def __init__(self, result=None):
+    def __init__(self, result=None, start_timeout: float = PROBE_TIMEOUT):
         self.result = result
+        self.start_timeout = start_timeout
         self.started = threading.Event()
         self.release = threading.Event()
 
@@ -426,7 +432,8 @@ class BlockingCall:
         return self.result
 
     async def wait_started(self) -> None:
-        assert await asyncio.to_thread(self.started.wait, PROBE_TIMEOUT), "call never started"
+        started = await asyncio.to_thread(self.started.wait, self.start_timeout)
+        assert started, "call never started"
 
 
 async def cancel_while_blocked(coro, blocking_call: BlockingCall) -> None:
@@ -491,25 +498,162 @@ async def test_timed_out_remote_launch_kills_launched_process(remote_launch, mon
     assert remote_launch.rsh_commands == [(remote_launch.ip, "pkill -9 -P 4242; kill -9 4242")]
 
 
-async def test_cancelled_local_launch_kills_launched_process(
-    response_manager, get_provisioner, monkeypatch
+needs_process_groups = pytest.mark.skipif(
+    sys.platform == "win32", reason="requires POSIX process groups"
+)
+
+# Stands in for a kernel launcher (argv: <report fd> <lifeline fd> <mode>).  It starts a child
+# and, in "orphan" mode, a process whose parent exits straight away - as the R launcher's
+# listener does - so it is reparented away from the launcher.  Every process holds the report
+# pipe's write end, to which the launcher writes their pids once all of them are running, and
+# waits on the lifeline pipe: each exits once the test closes the lifeline (or after 60s).
+LAUNCHER_SCRIPT = """\
+import os
+import select
+import subprocess
+import sys
+
+report_fd, lifeline_fd, mode = int(sys.argv[1]), int(sys.argv[2]), sys.argv[3]
+inherited_fds = (report_fd, lifeline_fd)
+wait_for_lifeline = "import select, sys; select.select([int(sys.argv[1])], [], [], 60)"
+
+
+def start_child():
+    child = [sys.executable, "-c", wait_for_lifeline, str(lifeline_fd)]
+    return subprocess.Popen(child, stdout=subprocess.DEVNULL, pass_fds=inherited_fds).pid
+
+
+if mode == "detach":  # report the child's pid and exit, leaving the child behind
+    print(start_child())
+    sys.exit()
+
+pids = [os.getpid(), start_child()]
+if mode == "orphan":
+    detach = [sys.executable, sys.argv[0], *sys.argv[1:3], "detach"]
+    pids.append(int(subprocess.run(detach, stdout=subprocess.PIPE, pass_fds=inherited_fds).stdout))
+os.write(report_fd, " ".join(map(str, pids)).encode() + b"\\n")
+select.select([lifeline_fd], [], [], 60)
+"""
+
+
+class LaunchedProcessTree:
+    """Observes the processes started from LAUNCHER_SCRIPT through the pipes they all hold.
+
+    Reading the report pipe reaches EOF only once every process holding its write end has
+    exited - including any reparented away from the launcher - so no process table needs
+    polling.  Closing the lifeline pipe makes any process still running exit.
+    """
+
+    def __init__(self, script: Path):
+        self.script = script
+        self.read_fd, self.write_fd = os.pipe()
+        self.lifeline_fd, self._lifeline_write_fd = os.pipe()
+        self._open_fds = {self.read_fd, self.write_fd, self.lifeline_fd, self._lifeline_write_fd}
+        self.pids: list[int] = []
+        self.exited = False
+
+    @property
+    def pass_fds(self) -> tuple[int, int]:
+        """The descriptors whatever starts the launcher must pass on to it."""
+        return self.write_fd, self.lifeline_fd
+
+    def argv(self, mode: str) -> list[str]:
+        """The launcher command."""
+        return [sys.executable, str(self.script), *map(str, self.pass_fds), mode]
+
+    def wait_running(self, timeout: float = 20.0) -> None:
+        """Waits for the launcher to report its processes, then closes this process's write end."""
+        report = b""
+        while not report.endswith(b"\n"):
+            chunk = self._read(timeout)
+            assert chunk, "the launcher exited before starting its processes"
+            report += chunk
+        self.pids = [int(pid) for pid in report.split()]
+        self._close(self.write_fd)
+
+    def wait_exited(self, timeout: float = 10.0) -> bool:
+        """Returns True once every process has exited, or False if any outlives the timeout."""
+        self._close(self.write_fd)
+        try:
+            self.exited = self._read(timeout) == b""
+        except TimeoutError:
+            return False
+        return self.exited
+
+    def close(self) -> None:
+        """Makes every process left behind (by a failing test) exit, then closes the pipes."""
+        self._close(self._lifeline_write_fd)
+        if not self.exited and not self.wait_exited() and self.pids:
+            # Still running despite the lifeline, so stopped: kill what the launcher reported.
+            for pid in self.pids:
+                with contextlib.suppress(ProcessLookupError, PermissionError):
+                    os.kill(pid, signal.SIGKILL)
+            self.wait_exited()
+        for fd in list(self._open_fds):
+            self._close(fd)
+
+    def _read(self, timeout: float) -> bytes:
+        ready, _, _ = select.select([self.read_fd], [], [], timeout)
+        if not ready:
+            msg = f"nothing to read from the process tree after {timeout}s"
+            raise TimeoutError(msg)
+        return os.read(self.read_fd, 1024)
+
+    def _close(self, fd: int) -> None:
+        # Close each descriptor once: its number may be reused as soon as it is closed.
+        if fd in self._open_fds:
+            self._open_fds.remove(fd)
+            os.close(fd)
+
+
+@pytest.fixture
+def process_tree(tmp_path):
+    script = tmp_path / "launcher.py"
+    script.write_text(LAUNCHER_SCRIPT)
+    tree = LaunchedProcessTree(script)
+    yield tree
+    tree.close()
+
+
+@needs_process_groups
+@pytest.mark.parametrize("mode", ["child", "orphan"], ids=["child", "reparented-descendant"])
+async def test_cancelled_local_launch_kills_launcher_process_group(
+    response_manager, get_provisioner, monkeypatch, tmp_path, process_tree, mode
 ):
+    """A local launch cancelled after the launcher started its listener must not orphan it.
+
+    jupyter_client starts the launcher in a new session, so it leads a process group holding
+    every process it starts - even those reparented when their own parent exits.
+    """
+    monkeypatch.setattr("gateway_provisioners.distributed.kernel_log_dir", str(tmp_path))
     provisioner = get_provisioner("distributed", str(uuid4()))  # localhost: launched locally
-    killed = []
-    local_proc = SimpleNamespace(pid=4242, kill=lambda: killed.append(True), wait=lambda: -9)
-    launch = BlockingCall(result="4242")
+    launch_remote_process = provisioner._launch_remote_process
+    blocked = BlockingCall(start_timeout=30)
 
-    def launch_locally(cmd, **kwargs):
-        provisioner.local_proc = local_proc
-        return launch(cmd, **kwargs)
+    def launch_then_block(cmd, **kwargs):
+        blocked.result = launch_remote_process(cmd, **kwargs)
+        process_tree.wait_running()
+        return blocked(cmd, **kwargs)
 
-    monkeypatch.setattr(provisioner, "_launch_remote_process", launch_locally)
+    monkeypatch.setattr(provisioner, "_launch_remote_process", launch_then_block)
     monkeypatch.setattr(provisioner, "confirm_remote_startup", AsyncMock())
+    launch = provisioner.launch_kernel(
+        process_tree.argv(mode),
+        env={"KERNEL_ID": provisioner.kernel_id},
+        pass_fds=process_tree.pass_fds,
+    )
+    try:
+        await cancel_while_blocked(launch, blocked)
 
-    await cancel_while_blocked(launch_kernel(provisioner), launch)
-
-    assert killed == [True]
-    assert provisioner.local_proc is None
+        assert await asyncio.to_thread(process_tree.wait_exited), "processes outlived the launch"
+        assert provisioner.local_proc is None
+    finally:
+        blocked.release.set()
+        if provisioner.local_proc is not None:  # not rolled back: reap the launcher regardless
+            provisioner.local_proc.kill()
+            provisioner.local_proc.wait(timeout=10)
+        if provisioner.local_stdout:
+            provisioner.local_stdout.close()
 
 
 async def test_failed_cancelled_launch_needs_no_rollback(remote_launch, monkeypatch):
