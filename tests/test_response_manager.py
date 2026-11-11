@@ -5,8 +5,10 @@
 import asyncio
 import base64
 import contextlib
+import gc
 import json
 import logging
+import warnings
 from collections.abc import Awaitable, Callable
 from uuid import uuid4
 
@@ -181,3 +183,27 @@ async def test_misbehaving_connection_is_closed(
 
     warnings = [r.getMessage() for r in caplog.records if r.levelno == logging.WARNING]
     assert any(reason in message and peer in message for message in warnings), warnings
+
+
+async def test_connection_is_closed_when_its_handler_never_runs(live_response_manager):
+    rm = live_response_manager
+    # Accept the connection by hand, so that its task is created and then cancelled by
+    # stop_response_manager() without the event loop running in between - that is, before
+    # the task's handler starts.
+    rm._connection_processor.stop()
+    reader, writer = await connect(rm)
+    try:
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            await rm._process_connections()
+            assert len(rm._connection_tasks) == 1
+            rm.stop_response_manager()
+            # The server closing its end of the connection is observed as end-of-file.
+            assert await asyncio.wait_for(reader.read(), DELIVERY_TIMEOUT) == b""
+            gc.collect()  # Finalize the server's socket now should it have been left open.
+    finally:
+        await close(writer)
+
+    # Garbage collection closing the socket, rather than the server, warns of the leak.
+    leaks = [str(w.message) for w in caught if issubclass(w.category, ResourceWarning)]
+    assert not leaks, leaks
