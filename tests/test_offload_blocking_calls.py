@@ -331,6 +331,72 @@ async def test_yarn_queue_wait_does_not_block_loop(
     assert stall[0] < poll_interval / 2, f"event loop stalled for {stall[0]:.3f}s"
 
 
+def available_queue(*availability) -> SimpleNamespace:
+    """A ResourceManager whose queue partition reports the given availability, check by check."""
+    return fake_resource_manager(
+        cluster_scheduler_queue=lambda queue_name: {"queueName": queue_name},
+        cluster_queue_partition=lambda queue, node_label: {"partitionName": node_label},
+        cluster_scheduler_queue_availability=LoopProbe(*availability),
+    )
+
+
+async def test_yarn_queue_wait_keeps_configured_launch_timeout(
+    yarn_provisioner, install_resource_manager, monkeypatch
+):
+    """The queue wait counts against this launch alone: restarts reuse the provisioner."""
+    monkeypatch.setattr("gateway_provisioners.yarn.poll_interval", 0.01)
+    yarn_provisioner.yarn_resource_check_wait_time = 60
+    resource_mgr = available_queue(False, True)
+    install_resource_manager(lambda **kwargs: resource_mgr)
+    launch_timeout = yarn_provisioner.launch_timeout
+
+    await yarn_provisioner.pre_launch(env=dict(QUEUE_ENV))
+
+    assert yarn_provisioner.launch_timeout == launch_timeout
+    assert 0 < yarn_provisioner.queue_wait_time < launch_timeout
+
+
+async def test_yarn_queue_wait_using_up_launch_timeout_fails_launch(
+    yarn_provisioner, install_resource_manager, monkeypatch
+):
+    """A queue wait as long as the launch timeout leaves no time for startup.
+
+    The launch fails before an application is submitted, rather than going on with no time left.
+    """
+    yarn_provisioner.launch_timeout = 30
+    resource_mgr = available_queue(True)
+    install_resource_manager(lambda **kwargs: resource_mgr)
+    # The clock reads 30 seconds since the queue check started, whenever it is read.
+    monkeypatch.setattr(RemoteProvisionerBase, "get_time_diff", staticmethod(lambda start: 30.0))
+
+    with pytest.raises(TimeoutError, match="left no time of the 30 second launch timeout"):
+        await yarn_provisioner.pre_launch(env=dict(QUEUE_ENV))
+
+    resource_mgr.cluster_scheduler_queue_availability.assert_loop_responsive()  # check completed
+    assert yarn_provisioner.launch_timeout == 30
+
+
+@pytest.mark.parametrize(
+    "startup_seconds,timed_out", [(4, False), (6, True)], ids=["within", "exceeded"]
+)
+async def test_yarn_launch_timeout_counts_queue_wait(
+    yarn_provisioner, monkeypatch, startup_seconds, timed_out
+):
+    """After a 25 second queue wait, a 30 second launch timeout leaves 5 seconds for startup."""
+    monkeypatch.setattr("gateway_provisioners.yarn.poll_interval", 0.01)
+    yarn_provisioner.launch_timeout = 30
+    yarn_provisioner.queue_wait_time = 25.0
+    yarn_provisioner.start_time = RemoteProvisionerBase.get_current_time() - 1000 * startup_seconds
+    monkeypatch.setattr(yarn_provisioner, "_get_application_id", lambda ignore_final_states: None)
+    kill = AsyncMock()
+    monkeypatch.setattr(yarn_provisioner, "kill", kill)
+
+    with pytest.raises(TimeoutError) if timed_out else contextlib.nullcontext():
+        await yarn_provisioner.handle_launch_timeout()
+
+    assert kill.called is timed_out
+
+
 async def test_yarn_cleanup_wait_does_not_block_loop(yarn_provisioner):
     probe = LoopProbe(0)
     yarn_provisioner.local_proc = SimpleNamespace(pid=42, poll=lambda: None, wait=probe)
