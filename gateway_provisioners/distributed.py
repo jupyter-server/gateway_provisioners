@@ -38,14 +38,16 @@ paramiko_supports_gss = "gss_auth" in signature(paramiko.SSHClient.connect).para
 # descendants, stopping each process before listing its children so none can fork unseen, and
 # kills them deepest first.  It then kills the group, but only if it is the launch's own: a pgid
 # greater than 1, other than the group the script itself runs in, and led either by the launcher
-# or by a process that has exited.  Every expansion is quoted, and the script refuses pids <= 1.
+# or by a process that has exited - even one `ps` still lists as a zombie because sshd has not
+# reaped it yet.  Every expansion is quoted, and the script refuses pids <= 1.
 _KILL_PROCESS_TREE_SCRIPT = (
     '[ "$pid" -gt 1 ] || exit 0; '
     'pgid=$(ps -o pgid= -p "$pid" | tr -d " "); '
     'my_pgid=$(ps -o pgid= -p $$ | tr -d " "); '
     "kill_group=; "
     'if [ "$pgid" -gt 1 ] 2>/dev/null && [ -n "$my_pgid" ] && [ "$pgid" != "$my_pgid" ]; then '
-    'if [ "$pgid" = "$pid" ] || [ -z "$(ps -o pid= -p "$pgid")" ]; then kill_group=1; fi; '
+    'if [ "$pgid" = "$pid" ]; then kill_group=1; '
+    'else case "$(ps -o stat= -p "$pgid" | tr -d " ")" in ""|Z*) kill_group=1;; esac; fi; '
     "fi; "
     'kill_tree() ( [ "$1" -gt 1 ] || exit 0; kill -STOP "$1" 2>/dev/null; '
     'for child in $(pgrep -P "$1"); do kill_tree "$child"; done; kill -9 "$1" 2>/dev/null ); '
@@ -71,22 +73,31 @@ def _kill_process_tree_command(pid: int) -> str:
     return f"sh -c 'pid={pid:d}; {_KILL_PROCESS_TREE_SCRIPT}'"
 
 
-def _launcher_process_group(pid: int) -> int | None:
-    """Returns the process group the local launcher 'pid' leads, if it is safe to signal.
+def _launcher_process_group(proc: subprocess.Popen) -> int | None:
+    """Returns the process group the local launcher 'proc' leads, if it is safe to signal.
 
     That is only a group whose id is the launcher's own pid - one it created - and never the
-    group of this server or of init.  Returns None on platforms without process groups and once
-    the launcher has exited (`getpgid()` fails for a zombie on some platforms, e.g. macOS).
+    group of this server or of init.  The launcher must not have been reaped, since its pid could
+    then be reused, so the group must be signalled before reaping it.
+
+    :param proc : subprocess.Popen
+        The launcher
+    :returns: The id of the group to signal, or None on platforms without process groups, once
+        the launcher has been reaped, or if it leads no group of its own
     """
-    if not hasattr(os, "killpg"):
+    pid = proc.pid
+    if not hasattr(os, "killpg") or proc.returncode is not None or pid <= 1:
+        return None
+    if pid == os.getpgrp():
         return None
     try:
         pgid = os.getpgid(pid)
     except ProcessLookupError:
-        return None
-    if pgid != pid or pgid <= 1 or pgid == os.getpgrp():
-        return None
-    return pgid
+        # It has exited, and getpgid() fails for a zombie on some platforms (e.g. macOS).  Until
+        # it is reaped its pid cannot be reused, so a group with that id can only be one it
+        # created - and if it created none, signalling the group just fails.
+        return pid
+    return pgid if pgid == pid else None
 
 
 class TrackKernelOnHost:
@@ -369,7 +380,7 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
         group holding every process it starts - even those reparented when their own parent
         exits, like the R launcher's listener.  Killing just the launcher would leave them running.
         """
-        pgid = _launcher_process_group(proc.pid)
+        pgid = _launcher_process_group(proc)
         if pgid is not None:
             # The launcher is reaped only below, so its pid - the group's id - cannot have been
             # reused since _launcher_process_group() checked it.

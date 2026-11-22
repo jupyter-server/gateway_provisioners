@@ -24,6 +24,7 @@ from mocks.k8s_client import MockCoreV1Api
 from validators import TEST_USER
 
 import gateway_provisioners
+from gateway_provisioners.distributed import DistributedProvisioner
 from gateway_provisioners.remote_provisioner import RemoteProvisionerBase
 
 # Note: gateway_provisioners.yarn must not be imported at module level - doing so binds the real
@@ -569,7 +570,8 @@ KILL_PROCESS_TREE_4242 = (
     'my_pgid=$(ps -o pgid= -p $$ | tr -d " "); '
     "kill_group=; "
     'if [ "$pgid" -gt 1 ] 2>/dev/null && [ -n "$my_pgid" ] && [ "$pgid" != "$my_pgid" ]; then '
-    'if [ "$pgid" = "$pid" ] || [ -z "$(ps -o pid= -p "$pgid")" ]; then kill_group=1; fi; '
+    'if [ "$pgid" = "$pid" ]; then kill_group=1; '
+    'else case "$(ps -o stat= -p "$pgid" | tr -d " ")" in ""|Z*) kill_group=1;; esac; fi; '
     "fi; "
     'kill_tree() ( [ "$1" -gt 1 ] || exit 0; kill -STOP "$1" 2>/dev/null; '
     'for child in $(pgrep -P "$1"); do kill_tree "$child"; done; kill -9 "$1" 2>/dev/null ); '
@@ -627,9 +629,10 @@ needs_process_tools = pytest.mark.skipif(
 
 # Stands in for a kernel launcher (argv: <report fd> <lifeline fd> <mode>).  It starts a child
 # and, in "orphan" mode, a process whose parent exits straight away - as the R launcher's
-# listener does - so it is reparented away from the launcher.  Every process holds the report
-# pipe's write end, to which the launcher writes their pids once all of them are running, and
-# waits on the lifeline pipe: each exits once the test closes the lifeline (or after 60s).
+# listener does - so it is reparented away from the launcher.  In "exit" mode the launcher
+# itself exits once the others are running.  Every process holds the report pipe's write end, to
+# which the launcher writes their pids once all of them are running, and waits on the lifeline
+# pipe: each exits once the test closes the lifeline (or after 60s).
 LAUNCHER_SCRIPT = """\
 import os
 import select
@@ -655,6 +658,8 @@ if mode == "orphan":
     detach = [sys.executable, sys.argv[0], *sys.argv[1:3], "detach"]
     pids.append(int(subprocess.run(detach, stdout=subprocess.PIPE, pass_fds=inherited_fds).stdout))
 os.write(report_fd, " ".join(map(str, pids)).encode() + b"\\n")
+if mode == "exit":  # leave the child behind in this process's group
+    sys.exit()
 select.select([lifeline_fd], [], [], 60)
 """
 
@@ -842,6 +847,79 @@ def test_rollback_spares_remote_process_group_it_does_not_own(rsh_on_this_host, 
         for process in (launcher, leader):
             process.kill()
             process.wait(timeout=10)
+
+
+def wait_until_zombie(pid: int, timeout: float = 20.0) -> None:
+    """Waits for process 'pid' to exit without reaping it - that is, until it is a zombie."""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        state = subprocess.run(  # noqa: S603 - a fixed command built by the test
+            ["ps", "-o", "stat=", "-p", str(pid)],  # noqa: S607 - found on PATH, as the rollback does
+            capture_output=True,
+            text=True,
+            check=False,
+        ).stdout.strip()
+        if state.startswith("Z"):
+            return
+        time.sleep(0.05)
+    pytest.fail(f"process {pid} did not exit within {timeout}s")
+
+
+@needs_process_tools
+def test_rollback_kills_remote_launch_group_led_by_zombie(rsh_on_this_host, process_tree, tmp_path):
+    """The shell leading the launch's group may have exited but not been reaped yet.
+
+    Until sshd reaps it, that shell is a zombie: it still appears in the process table, but the
+    group it led holds only the launch's processes, so the group must still be killed.
+    """
+    log = shlex.quote(str(tmp_path / "kernel.log"))
+    startup_cmd = f"{shlex.join(process_tree.argv('orphan'))} >> {log} 2>&1 & echo $!"
+    shell = subprocess.Popen(  # noqa: S603 - a fixed command built by the test
+        ["/bin/sh", "-c", startup_cmd],
+        start_new_session=True,
+        stdout=subprocess.PIPE,
+        pass_fds=process_tree.pass_fds,
+        text=True,
+    )
+    try:
+        assert shell.stdout is not None
+        result_pid = shell.stdout.readline().strip()
+        process_tree.wait_running()
+        wait_until_zombie(shell.pid)  # exited, and deliberately not reaped until the end
+
+        rsh_on_this_host._abandon_launched_process(result_pid)
+
+        assert [result.stderr for result in rsh_on_this_host.rsh_results] == [""]
+        assert process_tree.wait_exited(), "processes of the cancelled launch survived"
+    finally:
+        if shell.stdout is not None:
+            shell.stdout.close()
+        shell.wait(timeout=10)
+
+
+@needs_process_tools
+@needs_process_groups
+def test_local_rollback_kills_group_of_unreaped_launcher(process_tree):
+    """A launcher that has exited but is not yet reaped still has its process group killed.
+
+    getpgid() fails for a zombie on some platforms (e.g. macOS), but the pid of an unreaped child
+    cannot be reused, so the group with that id can only be the one the launcher created.
+    """
+    launcher = subprocess.Popen(  # noqa: S603 - a fixed command built by the test
+        process_tree.argv("exit"), start_new_session=True, pass_fds=process_tree.pass_fds
+    )
+    try:
+        process_tree.wait_running()
+        wait_until_zombie(launcher.pid)  # its child remains in the launcher's group
+
+        DistributedProvisioner._kill_local_launch(launcher)
+
+        assert launcher.returncode is not None, "the launcher was not reaped"
+        assert process_tree.wait_exited(), "the exited launcher's child survived"
+    finally:
+        if launcher.returncode is None:
+            launcher.kill()
+            launcher.wait(timeout=10)
 
 
 async def test_failed_cancelled_launch_needs_no_rollback(remote_launch, monkeypatch):
