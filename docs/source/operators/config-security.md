@@ -205,6 +205,20 @@ variable can be used to control this behavior.
   the variable is set, instead of failing later during the connection attempt.
 ```
 
+## Kernel Environment Values in Logs
+
+Kernel environments commonly carry credentials, such as cloud access keys and tokens.
+Gateway Provisioners therefore logs every variable name of a kernel's environment,
+but logs values only for a fixed set of non-secret identifiers, masking the rest as `***`.
+The `bootstrap-kernel.sh` script used by kernel images prints variable names only.
+See [Kernel environment in logs](config-env-debug.md#kernel-environment-in-logs) for details.
+
+```{note}
+Launch command lines are not redacted: the kernelspec `run.sh` scripts trace the commands they
+run, which include expanded option variables such as `KERNEL_EXTRA_SPARK_OPTS`.
+Avoid passing credentials through such options.
+```
+
 ```{seealso}
 The list of [additional supported environment variables](config-add-env.md#additional-environment-variables).
 ```

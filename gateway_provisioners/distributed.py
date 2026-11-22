@@ -21,7 +21,7 @@ from overrides import overrides
 from traitlets import List, TraitError, Unicode, default, validate
 
 from .config_mixin import max_poll_attempts, poll_interval, ssh_port
-from .remote_provisioner import RemoteProvisionerBase
+from .remote_provisioner import RemoteProvisionerBase, redact_env
 
 # would prefer /var/log, but its only writable by root
 kernel_log_dir = os.getenv("GP_KERNEL_LOG_DIR", "/tmp")  # noqa: S108
@@ -162,7 +162,7 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
 
         launch_kwargs = RemoteProvisionerBase._scrub_kwargs(kwargs)
         self.log.debug(
-            f"DistributedProvisioner.launch_kernel() env: {launch_kwargs.get('env', {})}"
+            f"DistributedProvisioner.launch_kernel() env: {redact_env(launch_kwargs.get('env', {}))}"
         )
         try:
             result_pid = await self._run_blocking_with_rollback(
@@ -250,7 +250,9 @@ Must be one of "round-robin" or "least-connection".  (GP_LOAD_BALANCING_ALGORITH
         """
 
         cmd = self._build_startup_command(cmd, **kwargs)
-        self.log.debug(f"Invoking cmd: '{cmd}' on host: {self.assigned_host}")
+        # Log only the host: for SSH launches the startup command embeds the kernelspec's env
+        # values, which can carry credentials.  log_kernel_launch() records the kernel's argv.
+        self.log.debug(f"Invoking kernel launch on host: {self.assigned_host}")
         result_pid = "bad_pid"  # purposely initialize to bad int value
 
         if RemoteProvisionerBase.ip_is_local(self.ip):
