@@ -473,6 +473,43 @@ class RemoteProvisionerBase(  # type:ignore[metaclass]
         work = await self._start_blocking(func, *args, **kwargs)
         return await asyncio.shield(work)
 
+    async def _run_blocking_if(
+        self,
+        condition: Callable[[], bool],
+        func: Callable[_P, _T],
+        /,
+        *args: _P.args,
+        **kwargs: _P.kwargs,
+    ) -> _T | None:
+        """Like `_run_blocking()`, but runs 'func' only if 'condition()' holds once it is its turn.
+
+        'condition' is checked on the event loop while holding the provisioner's lock - so after
+        every blocking call that was running or queued before has finished, since the lock is
+        granted in order - and the lock is held until 'func' finishes.  When the condition does
+        not hold, no worker thread is used, which matters when calls with nothing to do are
+        frequent (e.g., during shutdown storms).  The lock alone cannot tell whether a call is
+        pending: it is briefly free between one call finishing and the next taking it.
+
+        :param condition : Callable
+            Decides whether 'func' has anything to do; it must be quick and must not block
+        :param func : Callable
+            The blocking callable to run in a worker thread
+        :param args, kwargs
+            The arguments to pass to 'func'
+        :returns: The return value of 'func', or None if 'condition()' did not hold.  Exceptions
+            raised by 'func' or 'condition' propagate to the caller.
+        """
+        await self._blocking_call_lock.acquire()
+        try:
+            run = condition()
+        except BaseException:
+            self._blocking_call_lock.release()
+            raise
+        if not run:
+            self._blocking_call_lock.release()
+            return None
+        return await asyncio.shield(self._submit_blocking(func, *args, **kwargs))
+
     async def _run_blocking_with_rollback(
         self,
         func: Callable[_P, _T],

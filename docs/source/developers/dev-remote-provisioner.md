@@ -78,6 +78,13 @@ run in a worker thread, before re-raising the cancellation. Make `rollback` undo
 distributed provisioner kills the whole process tree of a kernel whose launch was cancelled - its launcher may already
 have started a listener - and the Kubernetes provisioner deletes a kernel namespace it created.
 
+When a blocking call often has nothing to do (e.g., terminating a container that was never named, during a shutdown
+storm), use `await self._run_blocking_if(condition, func, *args, **kwargs)`. It checks `condition()` on the event
+loop under the provisioner's lock - after every blocking call started before it has finished - and only then runs
+`func` in a worker thread, returning `None` without one when the condition does not hold. Don't check
+`_blocking_call_lock.locked()` to tell whether a call is pending: the lock is briefly free between one call finishing
+and the next one taking it.
+
 Once the gateway provisioner has been implemented, construct an appropriate kernel specification that references your
 gateway provisioner and iterate until you are satisfied with how your remote kernels behave.
 

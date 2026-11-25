@@ -157,8 +157,7 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
     @overrides
     async def kill(self, restart: bool = False) -> None:
         """Kills a containerized kernel."""
-        if self._may_have_container():
-            await self._run_blocking(self._terminate_container, restart)
+        await self._run_blocking_if(self._has_container_name, self._terminate_container, restart)
 
     @overrides
     async def terminate(self, restart: bool = False) -> None:
@@ -172,24 +171,22 @@ container-based kernels within Spark environments. (GP_EXECUTOR_IMAGE_NAME env v
     @overrides
     async def shutdown_listener(self, restart: bool) -> None:
         await super().shutdown_listener(restart)
-        if self._may_have_container():
-            await self._run_blocking(self._terminate_container, restart)
+        await self._run_blocking_if(self._has_container_name, self._terminate_container, restart)
 
-    def _may_have_container(self) -> bool:
-        """Returns False when there is certainly no container to terminate.
+    def _has_container_name(self) -> bool:
+        """Returns whether a container has been named, and so may have something to terminate.
 
-        Lets kill() and shutdown_listener() skip the worker thread - and the provisioner's lock -
-        when there is nothing to terminate, as during shutdown storms.  A blocking call in flight
-        may yet name the container (e.g., the status check that first finds it), so its presence
-        defers the decision to _terminate_container().
+        kill() and shutdown_listener() check this under the provisioner's lock via
+        _run_blocking_if(), so a status check that was running or queued before them - which may
+        be the one that first names the container - has finished by then.  When nothing has been
+        named, as during shutdown storms, they use no worker thread.
         """
-        return bool(self.container_name) or self._blocking_call_lock.locked()
+        return bool(self.container_name)
 
     def _terminate_container(self, restart: bool) -> None:
         """Terminates the container's resources, if any remain.
 
-        Runs in a worker thread via _run_blocking(), so the check happens under the provisioner's
-        lock - a termination that was in flight may have already cleared the container name.
+        Runs in a worker thread under the provisioner's lock, via _run_blocking_if().
         """
         if self.container_name:  # We only have something to terminate if we have a name
             self.terminate_container_resources(restart=restart)

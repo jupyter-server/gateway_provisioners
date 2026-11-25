@@ -224,6 +224,64 @@ async def test_container_kill_during_status_check_terminates_found_container(
     assert terminated == [container_name]
 
 
+async def test_container_kill_racing_queued_status_check_terminates_found_container(
+    docker_provisioner, monkeypatch
+):
+    """kill() must not skip termination while a status check that may find the container is queued.
+
+    When a blocking call finishes, the provisioner's lock is free before the status check queued
+    behind it resumes to take it.  A kill() deciding in between that there is nothing to
+    terminate would leave running the container that the status check then finds.
+    """
+    container_name = docker_provisioner.container_name
+    docker_provisioner.container_name = None
+
+    def find_container(iteration):
+        docker_provisioner.container_name = container_name
+        return "running"
+
+    terminated = []
+    monkeypatch.setattr(docker_provisioner, "get_container_status", find_container)
+    monkeypatch.setattr(
+        docker_provisioner,
+        "terminate_container_resources",
+        lambda restart=False: terminated.append(container_name),
+    )
+
+    lock = docker_provisioner._blocking_call_lock
+    await lock.acquire()  # stands in for a blocking call in flight
+    poll = asyncio.create_task(docker_provisioner.poll())
+    await asyncio.sleep(0)  # the status check queues for the lock
+    # Tasks run in the order they are scheduled, so kill() starts before the woken status check.
+    kill = asyncio.create_task(docker_provisioner.kill())
+    lock.release()  # the in-flight call finishes
+    await asyncio.gather(poll, kill)
+
+    assert terminated == [container_name]
+
+
+def failing_condition() -> bool:
+    msg = "condition failed"
+    raise RuntimeError(msg)
+
+
+@pytest.mark.parametrize(
+    "condition,outcome",
+    [
+        (lambda: False, contextlib.nullcontext()),
+        (failing_condition, pytest.raises(RuntimeError, match="condition failed")),
+    ],
+    ids=["false", "raises"],
+)
+async def test_run_blocking_if_skips_call_and_releases_lock(docker_provisioner, condition, outcome):
+    """When the condition does not hold - or fails - nothing runs and the lock is free again."""
+    probe = LoopProbe()
+    with outcome:
+        assert await docker_provisioner._run_blocking_if(condition, probe) is None
+    probe.assert_loop_responsive(expected_calls=0)
+    assert not docker_provisioner._blocking_call_lock.locked()
+
+
 async def test_wait_on_local_process_does_not_block_loop(docker_provisioner):
     probe = LoopProbe(0)
     docker_provisioner.local_proc = SimpleNamespace(wait=probe)
