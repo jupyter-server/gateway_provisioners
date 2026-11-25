@@ -69,12 +69,21 @@ blocking call, offload that call with `await self._run_blocking(func, *args, **k
 the event loop and does not overlap with the provisioner's other blocking calls.
 
 A worker thread cannot be stopped, so a blocking call keeps running when the task awaiting it is cancelled (e.g.,
-by an `asyncio.wait_for()` timeout or server shutdown). For calls that create an external resource - launching a
-remote process, creating a namespace - use
-`await self._run_blocking_with_rollback(func, rollback, *args, **kwargs)` instead: when cancelled, it waits for
-`func` to finish (without blocking the event loop) and passes its result to `rollback`, also run in a worker thread,
-before re-raising the cancellation. This is how the distributed provisioner terminates a kernel whose launch was
-cancelled, and how the Kubernetes provisioner deletes a kernel namespace it created.
+by an `asyncio.wait_for()` timeout, or by server shutdown cancelling every pending task). The provisioner's lock stays
+held until the thread finishes, so the next blocking call cannot overlap it. For calls that create an external
+resource - launching a remote process, creating a namespace - use
+`await self._run_blocking_with_rollback(func, rollback, *args, **kwargs)` instead: when cancelled, even during
+shutdown, it waits for `func` to finish (without blocking the event loop) and passes its result to `rollback`, also
+run in a worker thread, before re-raising the cancellation. Make `rollback` undo everything `func` started: the
+distributed provisioner kills the whole process tree of a kernel whose launch was cancelled - its launcher may already
+have started a listener - and the Kubernetes provisioner deletes a kernel namespace it created.
+
+When a blocking call often has nothing to do (e.g., terminating a container that was never named, during a shutdown
+storm), use `await self._run_blocking_if(condition, func, *args, **kwargs)`. It checks `condition()` on the event
+loop under the provisioner's lock - after every blocking call started before it has finished - and only then runs
+`func` in a worker thread, returning `None` without one when the condition does not hold. Don't check
+`_blocking_call_lock.locked()` to tell whether a call is pending: the lock is briefly free between one call finishing
+and the next one taking it.
 
 Once the gateway provisioner has been implemented, construct an appropriate kernel specification that references your
 gateway provisioner and iterate until you are satisfied with how your remote kernels behave.
